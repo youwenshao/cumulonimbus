@@ -18,6 +18,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
+import { Card } from '@/components/ui';
 import type { DataRecord, ChartPrimitiveConfig } from '@/lib/primitives/types';
 
 interface ChartPrimitiveProps {
@@ -27,14 +28,14 @@ interface ChartPrimitiveProps {
 }
 
 const COLORS = [
-  '#22c55e', // primary-500
-  '#d946ef', // accent-500
-  '#3b82f6', // blue-500
-  '#f97316', // orange-500
-  '#eab308', // yellow-500
-  '#14b8a6', // teal-500
-  '#8b5cf6', // violet-500
-  '#ec4899', // pink-500
+  '#FF3B30', // accent-red
+  'rgba(107, 177, 224, 0.8)', // pastel-blue
+  'rgba(139, 219, 177, 0.8)', // pastel-green
+  'rgba(240, 216, 144, 0.8)', // pastel-yellow
+  'rgba(200, 176, 240, 0.8)', // pastel-purple
+  'rgba(255, 59, 48, 0.6)', // accent-red with opacity
+  'rgba(107, 177, 224, 0.6)', // pastel-blue with opacity
+  'rgba(139, 219, 177, 0.6)', // pastel-green with opacity
 ];
 
 export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
@@ -111,16 +112,16 @@ export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
 
   if (data.length === 0) {
     return (
-      <div className="glass rounded-2xl p-6">
+      <Card variant="outlined" padding="lg">
         {title && (
-          <h3 className="text-lg font-semibold font-display text-surface-900 mb-4">
+          <h3 className="text-lg font-semibold text-white mb-4">
             {title}
           </h3>
         )}
-        <div className="h-64 flex items-center justify-center text-surface-500">
+        <div className="h-64 flex items-center justify-center text-text-tertiary">
           No data to display
         </div>
-      </div>
+      </Card>
     );
   }
 
@@ -130,14 +131,15 @@ export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
         return (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="name" tick={{ fill: '#64748b' }} />
-              <YAxis tick={{ fill: '#64748b' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#2d2d2d" />
+              <XAxis dataKey="name" tick={{ fill: '#cccccc' }} />
+              <YAxis tick={{ fill: '#cccccc' }} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'white',
-                  border: '1px solid #e2e8f0',
+                  backgroundColor: '#1a1a1a',
+                  border: '1px solid #2d2d2d',
                   borderRadius: '12px',
+                  color: '#ffffff',
                 }}
               />
               <Legend />
@@ -157,14 +159,15 @@ export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
         return (
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="name" tick={{ fill: '#64748b' }} />
-              <YAxis tick={{ fill: '#64748b' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#2d2d2d" />
+              <XAxis dataKey="name" tick={{ fill: '#cccccc' }} />
+              <YAxis tick={{ fill: '#cccccc' }} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'white',
-                  border: '1px solid #e2e8f0',
+                  backgroundColor: '#1a1a1a',
+                  border: '1px solid #2d2d2d',
                   borderRadius: '12px',
+                  color: '#ffffff',
                 }}
               />
               <Legend />
@@ -186,14 +189,15 @@ export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
         return (
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="name" tick={{ fill: '#64748b' }} />
-              <YAxis tick={{ fill: '#64748b' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#2d2d2d" />
+              <XAxis dataKey="name" tick={{ fill: '#cccccc' }} />
+              <YAxis tick={{ fill: '#cccccc' }} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'white',
-                  border: '1px solid #e2e8f0',
+                  backgroundColor: '#1a1a1a',
+                  border: '1px solid #2d2d2d',
                   borderRadius: '12px',
+                  color: '#ffffff',
                 }}
               />
               <Legend />
@@ -203,7 +207,7 @@ export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
                   type="monotone"
                   dataKey={group}
                   fill={COLORS[index % COLORS.length]}
-                  fillOpacity={0.3}
+                  fillOpacity={0.4}
                   stroke={COLORS[index % COLORS.length]}
                   strokeWidth={2}
                 />
@@ -231,9 +235,10 @@ export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
               </Pie>
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'white',
-                  border: '1px solid #e2e8f0',
+                  backgroundColor: '#1a1a1a',
+                  border: '1px solid #2d2d2d',
                   borderRadius: '12px',
+                  color: '#ffffff',
                 }}
               />
               <Legend />
@@ -247,13 +252,13 @@ export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
   };
 
   return (
-    <div className="glass rounded-2xl p-6">
+    <Card variant="outlined" padding="lg">
       {title && (
-        <h3 className="text-lg font-semibold font-display text-surface-900 mb-4">
+        <h3 className="text-lg font-semibold text-white mb-4">
           {title}
         </h3>
       )}
       {renderChart()}
-    </div>
+    </Card>
   );
 }

@@ -1,21 +1,32 @@
 import type { Metadata } from 'next';
-import { Outfit, JetBrains_Mono } from 'next/font/google';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import { SessionProvider } from '@/components/providers/SessionProvider';
 import './globals.css';
 
-const outfit = Outfit({
+// Font loaders must be called at module scope with const
+const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-display',
+  variable: '--font-sans',
+  display: 'swap',
+  fallback: ['system-ui', 'sans-serif'],
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
+  display: 'swap',
+  fallback: ['monospace'],
 });
 
+// Using Georgia as fallback for serif (defined as object since we don't need Google Fonts for serif)
+const sourceSerifPro = {
+  variable: '--font-serif',
+  className: '',
+};
+
 export const metadata: Metadata = {
-  title: 'Cumulonimbus - Build Apps from Ideas',
-  description: 'Transform your ideas into working web applications through natural conversation.',
+  title: 'Cumulonimbus - Solving Problems at the Speed of Thought',
+  description: 'A powerful, intelligent atmosphere where creation happens naturally. Build apps through natural conversation.',
 };
 
 export default function RootLayout({
@@ -24,8 +35,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${jetbrainsMono.variable}`}>
-      <body className="min-h-screen bg-surface-50 font-sans">
+    <html lang="en" className={`${inter.variable} ${sourceSerifPro.variable} ${jetbrainsMono.variable}`}>
+      <body className="min-h-screen bg-black font-sans text-white antialiased">
         <SessionProvider>
           {children}
         </SessionProvider>

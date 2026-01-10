@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Settings, LayoutGrid, Table2, BarChart3 } from 'lucide-react';
+import { NavigationRail, Button, Card } from '@/components/ui';
 import { FormPrimitive } from '@/components/primitives/FormPrimitive';
 import { TablePrimitive } from '@/components/primitives/TablePrimitive';
 import { ChartPrimitive } from '@/components/primitives/ChartPrimitive';
@@ -84,122 +85,124 @@ export function AppRuntime({ appId, name, description, spec, initialData }: AppR
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-surface-50 via-surface-100 to-primary-50">
-      {/* Background effects */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary-200/30 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-accent-200/20 rounded-full blur-3xl" />
+    <div className="h-screen bg-black flex">
+      {/* Navigation Rail - Hidden on mobile, shown on desktop */}
+      <div className="hidden md:block">
+        <NavigationRail />
       </div>
 
-      {/* Header */}
-      <header className="relative z-10 border-b border-surface-200 bg-white/80 backdrop-blur-lg">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <header className="border-b border-outline-mid bg-surface-dark px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link
                 href="/dashboard"
-                className="p-2 hover:bg-surface-100 rounded-lg transition-colors"
+                className="btn-ghost p-2"
               >
-                <ArrowLeft className="w-5 h-5 text-surface-600" />
+                <ArrowLeft className="w-5 h-5" />
               </Link>
               <div>
-                <h1 className="text-xl font-bold font-display text-surface-900">{name}</h1>
-                <p className="text-sm text-surface-500">{description}</p>
+                <h1 className="text-xl font-bold text-white">{name}</h1>
+                <p className="text-sm text-text-secondary">{description}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               {/* View mode toggle */}
-              <div className="flex items-center bg-surface-100 rounded-lg p-1">
+              <div className="flex items-center bg-surface-light rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('table')}
                   className={cn(
                     "p-2 rounded-md transition-colors",
-                    viewMode === 'table' ? "bg-white shadow-sm" : "hover:bg-surface-200"
+                    viewMode === 'table' ? "bg-accent-red text-white" : "text-text-secondary hover:text-white"
                   )}
                   title="Table View"
                 >
-                  <Table2 className="w-4 h-4 text-surface-600" />
+                  <Table2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setViewMode('chart')}
                   className={cn(
                     "p-2 rounded-md transition-colors",
-                    viewMode === 'chart' ? "bg-white shadow-sm" : "hover:bg-surface-200"
+                    viewMode === 'chart' ? "bg-accent-red text-white" : "text-text-secondary hover:text-white"
                   )}
                   title="Chart View"
                 >
-                  <BarChart3 className="w-4 h-4 text-surface-600" />
+                  <BarChart3 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setViewMode('both')}
                   className={cn(
                     "p-2 rounded-md transition-colors",
-                    viewMode === 'both' ? "bg-white shadow-sm" : "hover:bg-surface-200"
+                    viewMode === 'both' ? "bg-accent-red text-white" : "text-text-secondary hover:text-white"
                   )}
                   title="Both Views"
                 >
-                  <LayoutGrid className="w-4 h-4 text-surface-600" />
+                  <LayoutGrid className="w-4 h-4" />
                 </button>
               </div>
-              <button className="p-2 hover:bg-surface-100 rounded-lg transition-colors">
-                <Settings className="w-5 h-5 text-surface-600" />
-              </button>
+              <Button variant="ghost" size="sm">
+                <Settings className="w-4 h-4" />
+              </Button>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main content */}
-      <main className="relative z-10 max-w-7xl mx-auto px-6 py-8">
-        {/* Add entry form */}
-        <div className="mb-8">
-          <FormPrimitive
-            fields={spec.dataStore.fields}
-            submitLabel="Add Entry"
-            onSubmit={handleAddRecord}
-            isLoading={isLoading}
-          />
-        </div>
-
-        {/* Views */}
-        <div className={cn(
-          "grid gap-6",
-          viewMode === 'both' ? "lg:grid-cols-2" : "grid-cols-1"
-        )}>
-          {/* Table view */}
-          {(viewMode === 'table' || viewMode === 'both') && (
-            <div className={viewMode === 'both' ? "" : "lg:col-span-2"}>
-              <TablePrimitive
-                data={data}
-                config={tableConfig}
-                onDelete={spec.features.allowDelete ? handleDeleteRecord : undefined}
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-7xl mx-auto p-6">
+            {/* Add entry form */}
+            <Card variant="outlined" padding="lg" className="mb-8">
+              <FormPrimitive
+                fields={spec.dataStore.fields}
+                submitLabel="Add Entry"
+                onSubmit={handleAddRecord}
+                isLoading={isLoading}
               />
-            </div>
-          )}
+            </Card>
 
-          {/* Chart view */}
-          {(viewMode === 'chart' || viewMode === 'both') && chartView && (
-            <div className={viewMode === 'both' ? "" : "lg:col-span-2"}>
-              <ChartPrimitive
-                data={data}
-                config={chartConfig}
-                title={chartView.title}
-              />
-            </div>
-          )}
-        </div>
+            {/* Views */}
+            <div className={cn(
+              "grid gap-6",
+              viewMode === 'both' ? "lg:grid-cols-2" : "grid-cols-1"
+            )}>
+              {/* Table view */}
+              {(viewMode === 'table' || viewMode === 'both') && (
+                <div className={viewMode === 'both' ? "" : "lg:col-span-2"}>
+                  <TablePrimitive
+                    data={data}
+                    config={tableConfig}
+                    onDelete={spec.features.allowDelete ? handleDeleteRecord : undefined}
+                  />
+                </div>
+              )}
 
-        {/* Empty state */}
-        {data.length === 0 && (
-          <div className="text-center py-16">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-surface-100 flex items-center justify-center">
-              <LayoutGrid className="w-8 h-8 text-surface-400" />
+              {/* Chart view */}
+              {(viewMode === 'chart' || viewMode === 'both') && chartView && (
+                <div className={viewMode === 'both' ? "" : "lg:col-span-2"}>
+                  <ChartPrimitive
+                    data={data}
+                    config={chartConfig}
+                    title={chartView.title}
+                  />
+                </div>
+              )}
             </div>
-            <h3 className="text-lg font-medium text-surface-700 mb-2">No entries yet</h3>
-            <p className="text-surface-500">Add your first entry using the form above.</p>
+
+            {/* Empty state */}
+            {data.length === 0 && (
+              <Card variant="outlined" padding="lg" className="text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-surface-light flex items-center justify-center">
+                  <LayoutGrid className="w-8 h-8 text-text-tertiary" />
+                </div>
+                <h3 className="text-lg font-medium text-white mb-2">No entries yet</h3>
+                <p className="text-text-secondary">Add your first entry using the form above.</p>
+              </Card>
+            )}
           </div>
-        )}
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

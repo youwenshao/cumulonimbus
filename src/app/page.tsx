@@ -1,151 +1,153 @@
 import Link from 'next/link';
-import { ArrowRight, Sparkles, Zap, Layers } from 'lucide-react';
+import { ArrowRight, Sparkles, Cloud, Cpu, Eye } from 'lucide-react';
+import { Logo, Button, Card, ParticleBackground } from '@/components/ui';
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-surface-50 via-surface-100 to-primary-50">
-      {/* Background pattern */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary-200/30 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-accent-200/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 right-1/3 w-72 h-72 bg-primary-300/20 rounded-full blur-3xl" />
-      </div>
+    <div className="min-h-screen bg-black text-white overflow-hidden">
+      {/* Particle Background - The Stratosphere */}
+      <ParticleBackground />
 
       {/* Navigation */}
-      <nav className="relative z-10 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-xl font-bold font-display text-surface-900">Cumulonimbus</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link
-            href="/auth/signin"
-            className="px-4 py-2 text-surface-600 hover:text-surface-900 transition-colors"
-          >
+      <nav className="relative z-20 flex items-center justify-between px-6 py-6 max-w-7xl mx-auto">
+        <Logo size="md" />
+        <div className="flex items-center gap-6">
+          <Link href="/auth/signin" className="text-text-secondary hover:text-white transition-colors">
             Sign In
           </Link>
-          <Link
-            href="/auth/signup"
-            className="px-5 py-2.5 bg-surface-900 text-white rounded-xl hover:bg-surface-800 transition-colors font-medium"
-          >
-            Get Started
-          </Link>
+          <Button asChild>
+            <Link href="/auth/signup">Get Started</Link>
+          </Button>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <main className="relative z-10 max-w-7xl mx-auto px-6 pt-20 pb-32">
-        <div className="text-center max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-100 text-primary-700 text-sm font-medium mb-8 animate-fade-in">
-            <Sparkles className="w-4 h-4" />
-            <span>AI-Powered App Generation</span>
-          </div>
-          
-          <h1 className="text-5xl md:text-7xl font-bold font-display text-surface-900 leading-tight mb-6 animate-slide-up">
-            Describe your problem.
-            <br />
-            <span className="gradient-text">Get a working app.</span>
-          </h1>
-          
-          <p className="text-xl text-surface-600 max-w-2xl mx-auto mb-12 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-            Transform your ideas into personalized web applications through natural conversation. 
-            No coding required. Just describe what you need.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-            <Link
-              href="/create"
-              className="group flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-2xl font-semibold text-lg hover:from-primary-600 hover:to-primary-700 transition-all shadow-lg shadow-primary-500/25 hover:shadow-xl hover:shadow-primary-500/30"
-            >
-              Start Building
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Link>
-            <Link
-              href="/dashboard"
-              className="px-8 py-4 text-surface-700 hover:text-surface-900 font-medium transition-colors"
-            >
-              View Dashboard
-            </Link>
+      {/* Hero Section - The Stratosphere */}
+      <section className="relative z-20 max-w-5xl mx-auto px-6 pt-32 pb-32">
+        {/* Definition Block */}
+        <div className="mb-20 max-w-5xl">
+          <div className="bg-surface-dark/50 backdrop-blur-sm rounded-lg p-12 border border-outline-light/20">
+            <h2 className="text-4xl md:text-5xl font-serif font-medium text-white mb-6 leading-relaxed">
+              Cumulonimbus
+            </h2>
+            <p className="text-xl text-accent-red font-medium mb-4 italic">
+              /ˌkjuːmjəloʊˈnɪmbəs/
+            </p>
+            <p className="text-lg text-text-secondary italic mb-6">noun Meteorology</p>
+            <p className="text-xl text-text-primary leading-relaxed pl-6 border-l-4 border-accent-red/40">
+              A dense, towering vertical cloud, associated with thunderstorms and atmospheric instability.
+              It is capable of producing powerful, generative phenomena.
+            </p>
           </div>
         </div>
 
-        {/* Feature Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mt-32">
-          <FeatureCard
-            icon={<Sparkles className="w-6 h-6" />}
-            title="Natural Conversation"
-            description="Just describe your tracking needs in plain English. Our AI understands your intent and asks smart clarifying questions."
-            delay="0.3s"
-          />
-          <FeatureCard
-            icon={<Zap className="w-6 h-6" />}
-            title="Instant Generation"
-            description="Your personalized app is generated in seconds, complete with data entry forms, tables, and visualizations."
-            delay="0.4s"
-          />
-          <FeatureCard
-            icon={<Layers className="w-6 h-6" />}
-            title="Full Functionality"
-            description="Each generated app supports full CRUD operations, data persistence, and beautiful chart visualizations."
-            delay="0.5s"
-          />
+        {/* Primary CTA */}
+        <div className="text-center mb-20">
+          <Button size="lg" asChild className="px-12 py-6 text-xl">
+            <Link href="/create" className="group">
+              Enter the Atmosphere
+              <ArrowRight className="w-6 h-6 ml-2 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </Button>
         </div>
+      </section>
 
-        {/* Example prompt */}
-        <div className="mt-32 max-w-3xl mx-auto animate-slide-up" style={{ animationDelay: '0.6s' }}>
-          <div className="glass rounded-3xl p-8 shadow-xl">
-            <p className="text-sm text-surface-500 mb-4 font-medium uppercase tracking-wide">Try something like...</p>
-            <div className="space-y-4">
-              <ExamplePrompt text="I want to track my daily expenses and see where my money goes each month" />
-              <ExamplePrompt text="Help me build a habit tracker to monitor my morning routine" />
-              <ExamplePrompt text="I need to manage my freelance projects and track hours worked" />
+      {/* Value Proposition Layer - The Cumulus Deck */}
+      <section className="relative z-20 bg-gradient-to-b from-surface-dark to-surface-mid py-32">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid md:grid-cols-3 gap-8">
+            <ValueCard
+              icon={<Cpu className="w-8 h-8" />}
+              title="The Architect"
+              description="The AI that doesn't just assist—it designs, plans, and builds alongside you."
+            />
+            <ValueCard
+              icon={<Cloud className="w-8 h-8" />}
+              title="The Cloud"
+              description="Fully realized in the cloud. No setup, no limits. Your work is stored, processed, and ready everywhere."
+            />
+            <ValueCard
+              icon={<Eye className="w-8 h-8" />}
+              title="The Clarity"
+              description="Vibe coding, realized. A frictionless interface for thinkers and creators, not just engineers."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Social Proof Layer - The Cirrus */}
+      <section className="relative z-20 py-20">
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <div className="w-24 h-px bg-outline-mid mx-auto mb-8"></div>
+          <p className="text-text-secondary mb-12">Trusted by builders at</p>
+          <div className="flex items-center justify-center gap-12 opacity-60">
+            {/* Company logo placeholders with logo-style appearance */}
+            <div className="w-20 h-8 bg-surface-light rounded flex items-center justify-center group hover:bg-surface-mid transition-colors">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-text-tertiary group-hover:bg-white transition-colors"></div>
+                <span className="text-text-tertiary text-xs font-bold group-hover:text-white transition-colors">GitHub</span>
+              </div>
+            </div>
+            <div className="w-20 h-8 bg-surface-light rounded flex items-center justify-center group hover:bg-surface-mid transition-colors">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-text-tertiary group-hover:bg-white transition-colors" style={{clipPath: 'polygon(0 0, 100% 0, 50% 100%)'}}></div>
+                <span className="text-text-tertiary text-xs font-bold group-hover:text-white transition-colors">Microsoft</span>
+              </div>
+            </div>
+            <div className="w-20 h-8 bg-surface-light rounded flex items-center justify-center group hover:bg-surface-mid transition-colors">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full border border-text-tertiary group-hover:border-white transition-colors"></div>
+                <span className="text-text-tertiary text-xs font-bold group-hover:text-white transition-colors">Vercel</span>
+              </div>
+            </div>
+            <div className="w-20 h-8 bg-surface-light rounded flex items-center justify-center group hover:bg-surface-mid transition-colors">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-text-tertiary group-hover:bg-white transition-colors"></div>
+                <span className="text-text-tertiary text-xs font-bold group-hover:text-white transition-colors">OpenAI</span>
+              </div>
             </div>
           </div>
         </div>
-      </main>
+      </section>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-surface-200 py-8">
-        <div className="max-w-7xl mx-auto px-6 text-center text-surface-500">
-          <p>Built with AI. Powered by your imagination.</p>
+      {/* Footer - The Earth */}
+      <footer className="relative z-20 bg-surface-mid py-16">
+        <div className="max-w-7xl mx-auto px-6 text-center">
+          <p className="text-2xl text-text-secondary font-medium mb-8 leading-relaxed">
+            Solving problems at the speed of thought.
+          </p>
+          <div className="flex items-center justify-center gap-8 mb-8">
+            <div className="flex items-center gap-4">
+              <Logo size="sm" />
+              <span className="text-text-tertiary text-sm">© 2026 Cumulonimbus</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-center gap-6 text-sm text-text-tertiary">
+            <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
+            <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+          </div>
         </div>
       </footer>
     </div>
   );
 }
 
-function FeatureCard({
+function ValueCard({
   icon,
   title,
   description,
-  delay,
 }: {
   icon: React.ReactNode;
   title: string;
   description: string;
-  delay: string;
 }) {
   return (
-    <div
-      className="glass rounded-2xl p-6 hover:shadow-lg transition-shadow animate-slide-up"
-      style={{ animationDelay: delay }}
-    >
-      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-100 to-accent-100 flex items-center justify-center text-primary-600 mb-4">
+    <Card variant="outlined" padding="lg" className="text-center group hover:border-accent-red/50 transition-all duration-300">
+      <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-surface-light flex items-center justify-center text-accent-red group-hover:bg-accent-red group-hover:text-white transition-all duration-300">
         {icon}
       </div>
-      <h3 className="text-xl font-semibold font-display text-surface-900 mb-2">{title}</h3>
-      <p className="text-surface-600">{description}</p>
-    </div>
-  );
-}
-
-function ExamplePrompt({ text }: { text: string }) {
-  return (
-    <div className="flex items-start gap-3 p-4 rounded-xl bg-surface-50 hover:bg-surface-100 transition-colors cursor-pointer group">
-      <div className="w-2 h-2 rounded-full bg-primary-400 mt-2 group-hover:bg-primary-500" />
-      <p className="text-surface-700 group-hover:text-surface-900">{text}</p>
-    </div>
+      <h3 className="text-2xl font-bold font-sans mb-4 text-white">{title}</h3>
+      <p className="text-text-secondary leading-relaxed">{description}</p>
+    </Card>
   );
 }

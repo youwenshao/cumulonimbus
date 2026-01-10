@@ -9,58 +9,49 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Custom color palette - distinctive and modern
-        primary: {
-          50: '#f0fdf4',
-          100: '#dcfce7',
-          200: '#bbf7d0',
-          300: '#86efac',
-          400: '#4ade80',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
-          800: '#166534',
-          900: '#14532d',
-          950: '#052e16',
-        },
-        accent: {
-          50: '#fdf4ff',
-          100: '#fae8ff',
-          200: '#f5d0fe',
-          300: '#f0abfc',
-          400: '#e879f9',
-          500: '#d946ef',
-          600: '#c026d3',
-          700: '#a21caf',
-          800: '#86198f',
-          900: '#701a75',
-          950: '#4a044e',
-        },
-        surface: {
-          50: '#f8fafc',
-          100: '#f1f5f9',
-          200: '#e2e8f0',
-          300: '#cbd5e1',
-          400: '#94a3b8',
-          500: '#64748b',
-          600: '#475569',
-          700: '#334155',
-          800: '#1e293b',
-          900: '#0f172a',
-          950: '#020617',
-        },
+        // Atmospheric color palette - Cumulonimbus design system
+        // Base: True black foundation
+        black: '#000000',
+        'near-black': '#050505',
+
+        // Surfaces: Layered greys for atmospheric depth
+        'surface-dark': '#0a0a0a',
+        'surface-mid': '#111111',
+        'surface-light': '#1a1a1a',
+
+        // Outlines: Subtle separation
+        'outline-light': '#2d2d2d',
+        'outline-mid': '#333333',
+
+        // Text hierarchy
+        'text-primary': '#FFFFFF',
+        'text-secondary': '#cccccc',
+        'text-tertiary': '#888888',
+
+        // Accent Red: Bold, energetic
+        'accent-red': '#FF3B30',
+
+        // Pastel accents (for subtle differentiation)
+        'pastel-blue': '#6bb1e0', // User/Info
+        'pastel-green': '#8bd9b1', // Success/Execution
+        'pastel-yellow': '#f0d890', // Warning/System
+        'pastel-purple': '#c8b0f0', // AI/Architect
       },
       fontFamily: {
-        sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-geist-mono)', 'monospace'],
-        display: ['var(--font-display)', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-sans)', 'Inter', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-serif)', 'Source Serif Pro', 'Georgia', 'serif'],
+        mono: ['var(--font-mono)', 'JetBrains Mono', 'monospace'],
+        display: ['var(--font-sans)', 'Inter', 'system-ui', 'sans-serif'], // For backwards compatibility
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out',
         'slide-up': 'slideUp 0.5s ease-out',
         'slide-down': 'slideDown 0.3s ease-out',
+        'slide-in-right': 'slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         'scale-in': 'scaleIn 0.2s ease-out',
         'pulse-soft': 'pulseSoft 2s infinite',
+        'pulse-red': 'pulseRed 2s infinite',
+        'confident': 'confident 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       },
       keyframes: {
         fadeIn: {
@@ -75,6 +66,10 @@ const config: Config = {
           '0%': { opacity: '0', transform: 'translateY(-10px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        slideInRight: {
+          '0%': { opacity: '0', transform: 'translateX(20px)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' },
+        },
         scaleIn: {
           '0%': { opacity: '0', transform: 'scale(0.95)' },
           '100%': { opacity: '1', transform: 'scale(1)' },
@@ -82,6 +77,14 @@ const config: Config = {
         pulseSoft: {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0.7' },
+        },
+        pulseRed: {
+          '0%, 100%': { opacity: '1', boxShadow: '0 0 0 0 rgba(255, 59, 48, 0.4)' },
+          '50%': { opacity: '0.8', boxShadow: '0 0 0 4px rgba(255, 59, 48, 0)' },
+        },
+        confident: {
+          '0%': { opacity: '0', transform: 'scale(0.98)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
         },
       },
     },

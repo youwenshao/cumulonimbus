@@ -66,73 +66,45 @@ export function FormPrimitive({
     }
   };
 
-  if (!isOpen) {
-    return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl font-medium hover:from-primary-600 hover:to-primary-700 transition-all shadow-md hover:shadow-lg"
-      >
-        <Plus className="w-5 h-5" />
-        {submitLabel}
-      </button>
-    );
-  }
-
   return (
-    <div className="glass rounded-2xl p-6 animate-scale-in">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold font-display text-surface-900">
-          {submitLabel}
-        </h3>
-        <button
-          onClick={() => setIsOpen(false)}
-          className="p-2 hover:bg-surface-100 rounded-lg transition-colors"
-        >
-          <X className="w-5 h-5 text-surface-500" />
-        </button>
-      </div>
-
+    <div className="space-y-4">
       <form onSubmit={handleSubmit} className="space-y-4">
         {fields.map(field => (
           <div key={field.name}>
-            <label 
+            <label
               htmlFor={field.name}
-              className="block text-sm font-medium text-surface-700 mb-1.5"
+              className="block text-sm font-medium text-white mb-1.5"
             >
               {field.label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
+              {field.required && <span className="text-accent-red ml-1">*</span>}
             </label>
-            
+
             {renderField(field, values[field.name], handleChange)}
-            
+
             {errors[field.name] && (
-              <p className="text-sm text-red-500 mt-1">{errors[field.name]}</p>
+              <p className="text-sm text-accent-red mt-1">{errors[field.name]}</p>
             )}
           </div>
         ))}
 
-        <div className="flex gap-3 pt-4">
+        <div className="pt-4">
           <button
             type="submit"
             disabled={isLoading}
             className={cn(
-              "flex-1 py-2.5 px-4 bg-primary-500 text-white rounded-xl font-medium",
-              "hover:bg-primary-600 transition-colors",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
+              "w-full flex items-center justify-center gap-2 py-3 px-4 bg-accent-red text-white rounded-xl font-medium",
+              "hover:bg-accent-red/90 transition-all duration-200 shadow-lg shadow-accent-red/25 hover:shadow-xl hover:shadow-accent-red/30",
+              "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-accent-red"
             )}
           >
             {isLoading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
-              submitLabel
+              <>
+                <Plus className="w-4 h-4" />
+                {submitLabel}
+              </>
             )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsOpen(false)}
-            className="px-4 py-2.5 text-surface-600 hover:bg-surface-100 rounded-xl transition-colors"
-          >
-            Cancel
           </button>
         </div>
       </form>
@@ -146,9 +118,9 @@ function renderField(
   onChange: (name: string, value: unknown) => void
 ) {
   const baseInputClass = cn(
-    "w-full px-4 py-2.5 rounded-xl border border-surface-200 bg-white",
-    "focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500",
-    "transition-all"
+    "w-full px-4 py-3 rounded-xl border border-outline-light bg-surface-light text-white placeholder-text-tertiary",
+    "focus:outline-none focus:ring-2 focus:ring-accent-red/50 focus:border-accent-red",
+    "transition-all duration-200"
   );
 
   switch (field.type) {
@@ -197,9 +169,9 @@ function renderField(
             type="checkbox"
             checked={(value as boolean) || false}
             onChange={(e) => onChange(field.name, e.target.checked)}
-            className="w-5 h-5 rounded border-surface-300 text-primary-500 focus:ring-primary-500"
+            className="w-5 h-5 rounded border-outline-light bg-surface-light text-accent-red focus:ring-accent-red/50"
           />
-          <span className="text-surface-600">Yes</span>
+          <span className="text-text-secondary">Yes</span>
         </label>
       );
 
@@ -209,11 +181,11 @@ function renderField(
           id={field.name}
           value={(value as string) || ''}
           onChange={(e) => onChange(field.name, e.target.value)}
-          className={baseInputClass}
+          className={cn(baseInputClass, "appearance-none bg-surface-light")}
         >
-          <option value="">Select {field.label}</option>
+          <option value="" className="bg-surface-light text-text-tertiary">Select {field.label}</option>
           {field.options?.map(opt => (
-            <option key={opt} value={opt}>{opt}</option>
+            <option key={opt} value={opt} className="bg-surface-light text-white">{opt}</option>
           ))}
         </select>
       );

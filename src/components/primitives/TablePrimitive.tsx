@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, Pencil, Trash2, Search } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Trash2, Search } from 'lucide-react';
+import { Card } from '@/components/ui';
 import type { DataRecord, TablePrimitiveConfig } from '@/lib/primitives/types';
 import { cn } from '@/lib/utils';
 
@@ -81,17 +82,17 @@ export function TablePrimitive({ data, config, onEdit, onDelete }: TablePrimitiv
   };
 
   return (
-    <div className="glass rounded-2xl overflow-hidden">
+    <Card variant="outlined" padding="none" className="overflow-hidden">
       {/* Search bar */}
-      <div className="p-4 border-b border-surface-200">
+      <div className="p-4 border-b border-outline-light">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-surface-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" />
           <input
             type="text"
             placeholder="Search entries..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all"
+            className="w-full pl-10 pr-4 py-3 rounded-xl border border-outline-light bg-surface-dark text-white placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-red/50 focus:border-accent-red transition-all"
           />
         </div>
       </div>
@@ -100,27 +101,27 @@ export function TablePrimitive({ data, config, onEdit, onDelete }: TablePrimitiv
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="bg-surface-50">
+            <tr className="bg-surface-mid">
               {config.columns.map(column => (
                 <th
                   key={column.field}
-                  className="px-4 py-3 text-left text-sm font-semibold text-surface-700"
+                  className="px-4 py-3 text-left text-sm font-semibold text-white"
                 >
                   <div className="flex items-center gap-2">
                     {column.sortable ? (
                       <button
                         onClick={() => handleSort(column.field)}
-                        className="flex items-center gap-1 hover:text-primary-600 transition-colors"
+                        className="flex items-center gap-1 hover:text-accent-red transition-colors"
                       >
                         {column.label}
                         {sortField === column.field ? (
                           sortDirection === 'asc' ? (
-                            <ArrowUp className="w-4 h-4" />
+                            <ArrowUp className="w-4 h-4 text-accent-red" />
                           ) : (
-                            <ArrowDown className="w-4 h-4" />
+                            <ArrowDown className="w-4 h-4 text-accent-red" />
                           )
                         ) : (
-                          <ArrowUpDown className="w-4 h-4 opacity-50" />
+                          <ArrowUpDown className="w-4 h-4 opacity-50 text-text-tertiary" />
                         )}
                       </button>
                     ) : (
@@ -134,7 +135,7 @@ export function TablePrimitive({ data, config, onEdit, onDelete }: TablePrimitiv
                           ...prev,
                           [column.field]: e.target.value,
                         }))}
-                        className="ml-2 text-xs px-2 py-1 rounded border border-surface-200 bg-white"
+                        className="ml-2 text-xs px-2 py-1 rounded border border-outline-light bg-surface-dark text-white"
                       >
                         <option value="">All</option>
                         {getUniqueValues(column.field).map(val => (
@@ -145,8 +146,8 @@ export function TablePrimitive({ data, config, onEdit, onDelete }: TablePrimitiv
                   </div>
                 </th>
               ))}
-              {(onEdit || onDelete) && (
-                <th className="px-4 py-3 text-right text-sm font-semibold text-surface-700">
+              {onDelete && (
+                <th className="px-4 py-3 text-right text-sm font-semibold text-white">
                   Actions
                 </th>
               )}
@@ -156,8 +157,8 @@ export function TablePrimitive({ data, config, onEdit, onDelete }: TablePrimitiv
             {filteredAndSortedData.length === 0 ? (
               <tr>
                 <td
-                  colSpan={config.columns.length + (onEdit || onDelete ? 1 : 0)}
-                  className="px-4 py-12 text-center text-surface-500"
+                  colSpan={config.columns.length + (onDelete ? 1 : 0)}
+                  className="px-4 py-12 text-center text-text-tertiary"
                 >
                   No entries found
                 </td>
@@ -167,40 +168,27 @@ export function TablePrimitive({ data, config, onEdit, onDelete }: TablePrimitiv
                 <tr
                   key={record.id}
                   className={cn(
-                    "border-t border-surface-100 hover:bg-surface-50 transition-colors",
-                    index % 2 === 0 ? "bg-white" : "bg-surface-50/50"
+                    "border-t border-outline-light hover:bg-surface-light/50 transition-colors",
+                    index % 2 === 0 ? "bg-surface-dark" : "bg-surface-mid/30"
                   )}
                 >
                   {config.columns.map(column => (
                     <td
                       key={column.field}
-                      className="px-4 py-3 text-sm text-surface-700"
+                      className="px-4 py-3 text-sm text-text-secondary"
                     >
                       {formatValue(record[column.field])}
                     </td>
                   ))}
-                  {(onEdit || onDelete) && (
+                  {onDelete && (
                     <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {onEdit && (
-                          <button
-                            onClick={() => onEdit(record)}
-                            className="p-1.5 hover:bg-surface-100 rounded-lg transition-colors"
-                            title="Edit"
-                          >
-                            <Pencil className="w-4 h-4 text-surface-500" />
-                          </button>
-                        )}
-                        {onDelete && (
-                          <button
-                            onClick={() => onDelete(record.id)}
-                            className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          </button>
-                        )}
-                      </div>
+                      <button
+                        onClick={() => onDelete(record.id)}
+                        className="p-2 hover:bg-accent-red/20 rounded-lg transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4 text-accent-red" />
+                      </button>
                     </td>
                   )}
                 </tr>
@@ -211,9 +199,9 @@ export function TablePrimitive({ data, config, onEdit, onDelete }: TablePrimitiv
       </div>
 
       {/* Footer with count */}
-      <div className="px-4 py-3 border-t border-surface-200 text-sm text-surface-500">
+      <div className="px-4 py-3 border-t border-outline-light text-sm text-text-tertiary">
         {filteredAndSortedData.length} of {data.length} entries
       </div>
-    </div>
+    </Card>
   );
 }
