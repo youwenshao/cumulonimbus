@@ -1,0 +1,68 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String    // hashed with bcrypt
+  name          String?
+  apps          App[]
+  conversations Conversation[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model App {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String
+  spec        Json     // Project Specification from scaffolder
+  config      Json     // Primitive configuration
+  data        Json     @default("[]") // App-specific data store (array of records)
+  status      AppStatus @default(DRAFT)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appId     String?
+  messages  Json     @default("[]") // Array of {role, content, metadata}
+  phase     ConversationPhase @default(PARSE)
+  spec      Json?    // Partial spec being built
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([appId])
+}
+
+enum AppStatus {
+  DRAFT
+  GENERATING
+  ACTIVE
+  ARCHIVED
+}
+
+enum ConversationPhase {
+  PARSE
+  PROBE
+  PICTURE
+  PLAN
+  COMPLETE
+}
