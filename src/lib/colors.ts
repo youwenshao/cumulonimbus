@@ -28,8 +28,8 @@ export const colors = {
   textSecondary: '#cccccc',
   textTertiary: '#888888',
 
-  // Accent red
-  accentRed: '#FF3B30',
+  // Accent gold
+  accentRed: '#fcad00',
 } as const;
 
 // Utility functions for dynamic opacity

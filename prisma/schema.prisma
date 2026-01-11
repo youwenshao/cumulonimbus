@@ -22,17 +22,20 @@ model User {
 }
 
 model App {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name        String
-  description String
-  spec        Json     // Project Specification from scaffolder
-  config      Json     // Primitive configuration
-  data        Json     @default("[]") // App-specific data store (array of records)
-  status      AppStatus @default(DRAFT)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  description   String
+  spec          Json     // Project Specification from scaffolder
+  config        Json     // Primitive configuration
+  data          Json     @default("[]") // App-specific data store (array of records)
+  status        AppStatus @default(DRAFT)
+  generatedCode Json?    // Generated component code (pageComponent, types, etc.)
+  generationLog Json?    // Log of generation process for debugging
+  buildStatus   BuildStatus @default(PENDING)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([userId])
 }
@@ -57,6 +60,13 @@ enum AppStatus {
   GENERATING
   ACTIVE
   ARCHIVED
+}
+
+enum BuildStatus {
+  PENDING
+  GENERATING
+  COMPLETED
+  FAILED
 }
 
 enum ConversationPhase {

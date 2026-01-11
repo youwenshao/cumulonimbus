@@ -32,11 +32,13 @@ export default function Home() {
             <p className="text-xl text-accent-red font-medium mb-4 italic">
               /ˌkjuːmjəloʊˈnɪmbəs/
             </p>
-            <p className="text-lg text-text-secondary italic mb-6">noun Meteorology</p>
-            <p className="text-xl text-text-primary leading-relaxed pl-6 border-l-4 border-accent-red/40">
-              A dense, towering vertical cloud, associated with thunderstorms and atmospheric instability.
-              It is capable of producing powerful, generative phenomena.
+            <p className="text-lg text-text-secondary italic mb-6">noun METEROLOGY</p>
+            <p className="text-xl text-text-primary leading-relaxed pl-6 border-l-4 border-accent-red/40 mb-6">
+              Cloud forming a towering mass with a flat base at fairly low altitude and often a flat top, as in thunderstorms.
             </p>
+            <blockquote className="text-lg text-text-secondary italic">
+              "From a whisper of intent to a thunderstorm of creation — where thoughts become worlds, and ideas manifest as reality."
+            </blockquote>
           </div>
         </div>
 
@@ -77,7 +79,6 @@ export default function Home() {
       {/* Social Proof Layer - The Cirrus */}
       <section className="relative z-20 py-20">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <div className="w-24 h-px bg-outline-mid mx-auto mb-8"></div>
           <p className="text-text-secondary mb-12">Trusted by builders at</p>
           <div className="flex items-center justify-center gap-12 opacity-60">
             {/* Company logo placeholders with logo-style appearance */}

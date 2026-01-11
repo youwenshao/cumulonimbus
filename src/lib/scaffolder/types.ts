@@ -2,6 +2,39 @@
 
 export type ConversationPhase = 'parse' | 'probe' | 'picture' | 'plan' | 'complete';
 
+export interface QuestionOption {
+  id: string;
+  label: string;
+  description?: string;
+}
+
+/**
+ * Component plan describing a single UI component
+ */
+export interface ComponentPlan {
+  name: string;
+  type: string;
+  description: string;
+  props?: Record<string, string>;
+}
+
+/**
+ * Implementation plan structure for app building
+ */
+export interface ImplementationPlan {
+  overview: string;
+  architecture: {
+    primitives: string[];
+    dataFlow: string;
+  };
+  components: {
+    form: ComponentPlan;
+    views: ComponentPlan[];
+  };
+  steps: string[];
+  estimatedComplexity: 'simple' | 'moderate' | 'complex';
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -11,13 +44,8 @@ export interface Message {
     phase?: ConversationPhase;
     questionType?: string;
     options?: QuestionOption[];
+    plan?: ImplementationPlan;
   };
-}
-
-export interface QuestionOption {
-  id: string;
-  label: string;
-  description?: string;
 }
 
 export interface ParsedIntent {
@@ -27,6 +55,7 @@ export interface ParsedIntent {
   relationships: string[];
   suggestedName: string;
   confidence: number;
+  originalPrompt?: string; // Store original user request for better descriptions
 }
 
 export type TrackerCategory = 
@@ -112,6 +141,7 @@ export interface BlueprintState {
   questions: ProbeQuestion[];
   answers: Record<string, string | string[]>;
   spec?: Partial<ProjectSpec>;
+  plan?: ImplementationPlan;
 }
 
 export interface ProbeQuestion {

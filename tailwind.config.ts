@@ -28,8 +28,8 @@ const config: Config = {
         'text-secondary': '#cccccc',
         'text-tertiary': '#888888',
 
-        // Accent Red: Bold, energetic
-        'accent-red': '#FF3B30',
+        // Accent Gold: Bold, energetic
+        'accent-red': '#fca000',
 
         // Pastel accents (for subtle differentiation)
         'pastel-blue': '#6bb1e0', // User/Info
@@ -79,8 +79,8 @@ const config: Config = {
           '50%': { opacity: '0.7' },
         },
         pulseRed: {
-          '0%, 100%': { opacity: '1', boxShadow: '0 0 0 0 rgba(255, 59, 48, 0.4)' },
-          '50%': { opacity: '0.8', boxShadow: '0 0 0 4px rgba(255, 59, 48, 0)' },
+          '0%, 100%': { opacity: '1', boxShadow: '0 0 0 0 rgba(252, 160, 0, 0.4)' },
+          '50%': { opacity: '0.8', boxShadow: '0 0 0 4px rgba(252, 160, 0, 0)' },
         },
         confident: {
           '0%': { opacity: '0', transform: 'scale(0.98)' },

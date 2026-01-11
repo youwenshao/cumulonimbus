@@ -28,12 +28,12 @@ interface ChartPrimitiveProps {
 }
 
 const COLORS = [
-  '#FF3B30', // accent-red
+  '#fcad00', // accent-gold
   'rgba(107, 177, 224, 0.8)', // pastel-blue
   'rgba(139, 219, 177, 0.8)', // pastel-green
   'rgba(240, 216, 144, 0.8)', // pastel-yellow
   'rgba(200, 176, 240, 0.8)', // pastel-purple
-  'rgba(255, 59, 48, 0.6)', // accent-red with opacity
+  'rgba(252, 173, 0, 0.6)', // accent-gold with opacity
   'rgba(107, 177, 224, 0.6)', // pastel-blue with opacity
   'rgba(139, 219, 177, 0.6)', // pastel-green with opacity
 ];

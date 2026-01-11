@@ -13,7 +13,7 @@ function getConfig(): QwenConfig {
   const provider = (process.env.QWEN_PROVIDER || 'openrouter') as QwenProvider;
   const apiKey = process.env.QWEN_API_KEY || '';
   const baseUrl = process.env.QWEN_API_URL || 'https://openrouter.ai/api/v1';
-  const model = process.env.QWEN_MODEL || 'qwen/qwen-2.5-coder-32b-instruct';
+  const model = process.env.QWEN_MODEL || 'qwen/qwen3-coder:free';
 
   return { apiKey, baseUrl, model, provider };
 }
@@ -50,16 +50,25 @@ export interface ChatCompletionOptions {
 // Non-streaming completion
 export async function complete(options: Omit<ChatCompletionOptions, 'stream'>): Promise<string> {
   const config = getConfig();
-  
-  const response = await qwenClient.chat.completions.create({
-    model: config.model,
-    messages: options.messages,
-    temperature: options.temperature ?? 0.7,
-    max_tokens: options.maxTokens ?? 2048,
-    stream: false,
-  });
 
-  return response.choices[0]?.message?.content || '';
+  try {
+    console.log('🚀 Making AI request to', config.model);
+    const response = await qwenClient.chat.completions.create({
+      model: config.model,
+      messages: options.messages,
+      temperature: options.temperature ?? 0.7,
+      max_tokens: options.maxTokens ?? 2048,
+      stream: false,
+    });
+
+    const result = response.choices[0]?.message?.content || '';
+    console.log('✅ AI response received, length:', result.length);
+    return result;
+  } catch (error) {
+    console.error('❌ AI API call failed:', error.message);
+    console.error('❌ Error details:', error);
+    return '';
+  }
 }
 
 // Streaming completion that returns an async generator
@@ -85,44 +94,55 @@ export async function* streamComplete(options: Omit<ChatCompletionOptions, 'stre
 // JSON mode completion with structured output
 export async function completeJSON<T>(options: Omit<ChatCompletionOptions, 'stream'> & { schema?: string }): Promise<T> {
   const config = getConfig();
-  
-  // Add JSON instruction to the last message or system prompt
-  const messages = [...options.messages];
-  const lastMessage = messages[messages.length - 1];
-  
-  if (options.schema) {
-    messages[messages.length - 1] = {
-      ...lastMessage,
-      content: `${lastMessage.content}\n\nRespond with valid JSON matching this schema:\n${options.schema}`,
-    };
-  }
 
-  // Add system instruction for JSON output if not already present
-  if (!messages.some(m => m.role === 'system' && m.content.includes('JSON'))) {
-    messages.unshift({
-      role: 'system',
-      content: 'You must respond with valid JSON only. No markdown, no explanations, just valid JSON.',
-    });
-  }
-
-  const response = await qwenClient.chat.completions.create({
-    model: config.model,
-    messages,
-    temperature: options.temperature ?? 0.3,
-    max_tokens: options.maxTokens ?? 2048,
-    stream: false,
-  });
-
-  const content = response.choices[0]?.message?.content || '{}';
-  
-  // Extract JSON from potential markdown code blocks
-  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, content];
-  const jsonStr = jsonMatch[1]?.trim() || content.trim();
-  
   try {
-    return JSON.parse(jsonStr) as T;
-  } catch (e) {
-    console.error('Failed to parse JSON response:', jsonStr);
-    throw new Error(`Failed to parse AI response as JSON: ${e}`);
+    console.log('🚀 Making JSON AI request to', config.model);
+
+    // Add JSON instruction to the last message or system prompt
+    const messages = [...options.messages];
+    const lastMessage = messages[messages.length - 1];
+
+    if (options.schema) {
+      messages[messages.length - 1] = {
+        ...lastMessage,
+        content: `${lastMessage.content}\n\nRespond with valid JSON matching this schema:\n${options.schema}`,
+      };
+    }
+
+    // Add system instruction for JSON output if not already present
+    if (!messages.some(m => m.role === 'system' && m.content.includes('JSON'))) {
+      messages.unshift({
+        role: 'system',
+        content: 'You must respond with valid JSON only. No markdown, no explanations, just valid JSON.',
+      });
+    }
+
+    const response = await qwenClient.chat.completions.create({
+      model: config.model,
+      messages,
+      temperature: options.temperature ?? 0.3,
+      max_tokens: options.maxTokens ?? 2048,
+      stream: false,
+    });
+
+    const content = response.choices[0]?.message?.content || '{}';
+    console.log('✅ AI JSON response received, content length:', content.length);
+
+    // Extract JSON from potential markdown code blocks
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, content];
+    const jsonStr = jsonMatch[1]?.trim() || content.trim();
+
+    try {
+      const result = JSON.parse(jsonStr) as T;
+      console.log('✅ JSON parsed successfully');
+      return result;
+    } catch (e) {
+      console.error('❌ Failed to parse JSON response:', jsonStr);
+      throw new Error(`Failed to parse AI response as JSON: ${e}`);
+    }
+  } catch (error) {
+    console.error('❌ AI JSON API call failed:', error.message);
+    console.error('❌ Error details:', error);
+    throw error;
   }
 }

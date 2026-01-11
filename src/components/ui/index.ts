@@ -6,4 +6,6 @@ export { ParticleBackground } from './ParticleBackground';
 export { NavigationRail } from './NavigationRail';
 export { ContextPanel } from './ContextPanel';
 export { ChatInput } from './ChatInput';
-export { ChatMessage } from './ChatMessage';
+export { ChatMessage, StreamingMessage } from './ChatMessage';
+export { StatusPanel, StatusIndicator } from './StatusPanel';
+export type { StatusMessage, StatusPhase, StatusSeverity } from './StatusPanel';
