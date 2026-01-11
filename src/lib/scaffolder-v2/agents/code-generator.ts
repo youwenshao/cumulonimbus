@@ -1,0 +1,927 @@
+/**
+ * Code Generator Agent
+ * Generates modular, production-ready React components
+ */
+
+import { BaseAgent } from './base-agent';
+import { generateId } from '@/lib/utils';
+import { streamComplete } from '@/lib/qwen';
+import type { 
+  ConversationState, 
+  AgentResponse, 
+  Schema,
+  LayoutNode,
+  ComponentSpec,
+  GeneratedApp,
+  GeneratedComponent,
+  ComponentGenerationEvent,
+  ComponentType,
+} from '../types';
+import { getComponents } from '../layout/dsl';
+
+const CODE_GEN_SYSTEM_PROMPT = `You are an expert React/TypeScript developer generating production-ready code.
+
+CRITICAL REQUIREMENTS:
+1. Generate ONLY the code - no explanations, no markdown code blocks
+2. Use TypeScript with proper types
+3. Use Tailwind CSS for styling with a modern dark theme
+4. Include proper error handling
+5. Use 'use client' directive for client components
+6. Follow React best practices (hooks, proper state management)
+
+STYLING:
+- Dark theme: bg-black, bg-gray-900, text-white
+- Accent: red-500/red-600 for primary actions
+- Cards: bg-gray-800/gray-700
+- Proper spacing and responsive design`;
+
+export class CodeGeneratorAgent extends BaseAgent {
+  constructor() {
+    super({
+      name: 'CodeGenerator',
+      description: 'Generates modular React components',
+      temperature: 0.2,
+      maxTokens: 4096,
+    });
+  }
+
+  protected buildSystemPrompt(state: ConversationState): string {
+    return CODE_GEN_SYSTEM_PROMPT;
+  }
+
+  /**
+   * Process a message (typically finalize request)
+   */
+  async process(
+    message: string,
+    state: ConversationState
+  ): Promise<AgentResponse> {
+    this.log('Processing code generation request');
+
+    if (state.schemas.length === 0) {
+      return {
+        success: false,
+        message: 'No schema defined. Please complete the design first.',
+        requiresUserInput: true,
+      };
+    }
+
+    // Generate component specs from layout
+    const layout = state.layout || this.createDefaultLayout(state.schemas[0]);
+    const componentSpecs = this.extractComponentSpecs(layout, state.schemas[0]);
+
+    return {
+      success: true,
+      message: `Ready to generate ${componentSpecs.length} components for your app.`,
+      data: { componentSpecs, layout },
+      requiresUserInput: false,
+    };
+  }
+
+  /**
+   * Generate all app code incrementally
+   */
+  async *generateAppIncremental(
+    schema: Schema,
+    layout: LayoutNode,
+    appId: string
+  ): AsyncGenerator<ComponentGenerationEvent> {
+    this.log('Starting incremental code generation', { appId });
+
+    let progress = 0;
+
+    // 1. Generate TypeScript types
+    yield { type: 'types', progress: 5 };
+    const types = this.generateTypes(schema);
+    yield { type: 'types', code: types, progress: 10 };
+
+    // 2. Generate validators
+    const validators = this.generateValidators(schema);
+    yield { type: 'component', name: 'validators', code: validators, progress: 15 };
+
+    // 3. Generate API client
+    const apiClient = this.generateAPIClient(schema, appId);
+    yield { type: 'component', name: 'api', code: apiClient, progress: 20 };
+
+    // 4. Generate hooks
+    const hooks = this.generateHooks(schema, appId);
+    yield { type: 'component', name: 'hooks', code: hooks, progress: 25 };
+
+    // 5. Extract and generate components
+    const componentSpecs = this.extractComponentSpecs(layout, schema);
+    const totalComponents = componentSpecs.length;
+    
+    for (let i = 0; i < componentSpecs.length; i++) {
+      const spec = componentSpecs[i];
+      progress = 30 + Math.floor((i / totalComponents) * 50);
+      
+      yield { type: 'component', name: spec.name, progress };
+      
+      try {
+        const code = await this.generateComponent(spec, schema);
+        yield { type: 'component', name: spec.name, code, progress: progress + 5 };
+      } catch (error) {
+        this.log('Component generation failed, using template', { name: spec.name, error });
+        const fallbackCode = this.generateFallbackComponent(spec, schema);
+        yield { type: 'component', name: spec.name, code: fallbackCode, progress: progress + 5 };
+      }
+    }
+
+    // 6. Generate page wrapper
+    yield { type: 'page', progress: 85 };
+    const pageCode = this.generatePageWrapper(schema, layout, componentSpecs);
+    yield { type: 'page', code: pageCode, progress: 95 };
+
+    // 7. Complete
+    yield { type: 'complete', progress: 100 };
+  }
+
+  /**
+   * Generate a complete app (non-streaming)
+   */
+  async generateApp(
+    schema: Schema,
+    layout: LayoutNode,
+    appId: string
+  ): Promise<GeneratedApp> {
+    const componentSpecs = this.extractComponentSpecs(layout, schema);
+    const components: Record<string, string> = {};
+
+    // Generate all components
+    for (const spec of componentSpecs) {
+      try {
+        components[spec.name] = await this.generateComponent(spec, schema);
+      } catch (error) {
+        components[spec.name] = this.generateFallbackComponent(spec, schema);
+      }
+    }
+
+    return {
+      types: this.generateTypes(schema),
+      validators: this.generateValidators(schema),
+      apiClient: this.generateAPIClient(schema, appId),
+      hooks: this.generateHooks(schema, appId),
+      components,
+      page: this.generatePageWrapper(schema, layout, componentSpecs),
+      routes: {
+        'route.ts': this.generateAPIRoute(schema, appId),
+      },
+    };
+  }
+
+  /**
+   * Generate a single component using LLM
+   */
+  async generateComponent(
+    spec: ComponentSpec,
+    schema: Schema
+  ): Promise<string> {
+    const template = this.getComponentTemplate(spec.type);
+    const prompt = this.buildComponentPrompt(spec, schema, template);
+
+    let code = '';
+    for await (const chunk of streamComplete({
+      messages: [
+        { role: 'system', content: CODE_GEN_SYSTEM_PROMPT },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.2,
+      maxTokens: 2048,
+    })) {
+      code += chunk;
+    }
+
+    return this.cleanGeneratedCode(code);
+  }
+
+  /**
+   * Generate TypeScript types for the schema
+   */
+  generateTypes(schema: Schema): string {
+    const fields = schema.fields.filter(f => !f.generated || f.name === 'id');
+    
+    const interfaceFields = fields.map(field => {
+      let tsType = 'string';
+      switch (field.type) {
+        case 'number': tsType = 'number'; break;
+        case 'boolean': tsType = 'boolean'; break;
+        case 'date':
+        case 'datetime': tsType = 'string'; break; // ISO string
+        case 'enum': 
+          tsType = field.options?.map(o => `'${o}'`).join(' | ') || 'string';
+          break;
+        case 'array': tsType = 'string[]'; break;
+        case 'json': tsType = 'Record<string, unknown>'; break;
+        default: tsType = 'string';
+      }
+      
+      const optional = field.nullable || !field.required ? '?' : '';
+      return `  ${field.name}${optional}: ${tsType};`;
+    });
+
+    return `// Types for ${schema.label}
+
+export interface ${schema.name} {
+${interfaceFields.join('\n')}
+  createdAt: string;
+}
+
+export type ${schema.name}Input = Omit<${schema.name}, 'id' | 'createdAt'>;
+
+export interface ${schema.name}FilterParams {
+  search?: string;
+  sortBy?: keyof ${schema.name};
+  sortOrder?: 'asc' | 'desc';
+  page?: number;
+  pageSize?: number;
+}
+`;
+  }
+
+  /**
+   * Generate Zod validators
+   */
+  generateValidators(schema: Schema): string {
+    const fields = schema.fields.filter(f => !f.generated);
+    
+    const zodFields = fields.map(field => {
+      let zodType = 'z.string()';
+      switch (field.type) {
+        case 'number': 
+          zodType = 'z.number()';
+          if (field.validation?.min !== undefined) {
+            zodType += `.min(${field.validation.min})`;
+          }
+          if (field.validation?.max !== undefined) {
+            zodType += `.max(${field.validation.max})`;
+          }
+          break;
+        case 'boolean': zodType = 'z.boolean()'; break;
+        case 'date':
+        case 'datetime': zodType = 'z.string().datetime()'; break;
+        case 'enum':
+          zodType = `z.enum([${field.options?.map(o => `'${o}'`).join(', ') || ''}])`;
+          break;
+        case 'text':
+        case 'string':
+          zodType = 'z.string()';
+          if (field.validation?.minLength) {
+            zodType += `.min(${field.validation.minLength})`;
+          }
+          if (field.validation?.maxLength) {
+            zodType += `.max(${field.validation.maxLength})`;
+          }
+          break;
+        default: zodType = 'z.string()';
+      }
+      
+      if (field.nullable || !field.required) {
+        zodType += '.optional()';
+      }
+      
+      return `  ${field.name}: ${zodType},`;
+    });
+
+    return `import { z } from 'zod';
+
+export const ${schema.name.toLowerCase()}Schema = z.object({
+${zodFields.join('\n')}
+});
+
+export type ${schema.name}FormData = z.infer<typeof ${schema.name.toLowerCase()}Schema>;
+`;
+  }
+
+  /**
+   * Generate API client functions
+   */
+  generateAPIClient(schema: Schema, appId: string): string {
+    const name = schema.name;
+    const nameLower = name.toLowerCase();
+
+    return `// API Client for ${name}
+
+const API_BASE = '/api/apps/${appId}/data';
+
+export async function fetch${name}s(): Promise<${name}[]> {
+  const res = await fetch(API_BASE);
+  if (!res.ok) throw new Error('Failed to fetch ${nameLower}s');
+  const data = await res.json();
+  return data.records || [];
+}
+
+export async function create${name}(input: ${name}Input): Promise<${name}> {
+  const res = await fetch(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error('Failed to create ${nameLower}');
+  const data = await res.json();
+  return data.record;
+}
+
+export async function update${name}(id: string, input: Partial<${name}Input>): Promise<${name}> {
+  const res = await fetch(\`\${API_BASE}?id=\${id}\`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error('Failed to update ${nameLower}');
+  const data = await res.json();
+  return data.record;
+}
+
+export async function delete${name}(id: string): Promise<void> {
+  const res = await fetch(\`\${API_BASE}?id=\${id}\`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete ${nameLower}');
+}
+`;
+  }
+
+  /**
+   * Generate React hooks
+   */
+  generateHooks(schema: Schema, appId: string): string {
+    const name = schema.name;
+    const nameLower = name.toLowerCase();
+
+    return `'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { fetch${name}s, create${name}, update${name}, delete${name} } from './api';
+import type { ${name}, ${name}Input } from './types';
+
+export function use${name}Data() {
+  const [${nameLower}s, set${name}s] = useState<${name}[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await fetch${name}s();
+      set${name}s(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch data');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const add${name} = useCallback(async (input: ${name}Input) => {
+    try {
+      const newItem = await create${name}(input);
+      set${name}s(prev => [...prev, newItem]);
+      return newItem;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add');
+      throw err;
+    }
+  }, []);
+
+  const remove${name} = useCallback(async (id: string) => {
+    try {
+      await delete${name}(id);
+      set${name}s(prev => prev.filter(item => item.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete');
+      throw err;
+    }
+  }, []);
+
+  const edit${name} = useCallback(async (id: string, input: Partial<${name}Input>) => {
+    try {
+      const updated = await update${name}(id, input);
+      set${name}s(prev => prev.map(item => item.id === id ? updated : item));
+      return updated;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update');
+      throw err;
+    }
+  }, []);
+
+  return {
+    ${nameLower}s,
+    isLoading,
+    error,
+    add${name},
+    remove${name},
+    edit${name},
+    refresh: fetchData,
+  };
+}
+`;
+  }
+
+  /**
+   * Generate page wrapper component
+   */
+  generatePageWrapper(
+    schema: Schema,
+    layout: LayoutNode,
+    componentSpecs: ComponentSpec[]
+  ): string {
+    const name = schema.name;
+    const nameLower = name.toLowerCase();
+    const componentImports = componentSpecs
+      .map(s => `import { ${s.name} } from './components/${s.name}';`)
+      .join('\n');
+
+    return `'use client';
+
+import { useState } from 'react';
+import { use${name}Data } from './lib/hooks';
+${componentImports}
+
+export default function ${name}Page() {
+  const { ${nameLower}s, isLoading, error, add${name}, remove${name}, refresh } = use${name}Data();
+  const [filters, setFilters] = useState<Record<string, string>>({});
+
+  const handleSubmit = async (data: Parameters<typeof add${name}>[0]) => {
+    await add${name}(data);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Delete this entry?')) {
+      await remove${name}(id);
+    }
+  };
+
+  const filteredData = ${nameLower}s.filter(item => {
+    // Apply filters
+    return Object.entries(filters).every(([key, value]) => {
+      if (!value) return true;
+      const itemValue = String(item[key as keyof typeof item] || '').toLowerCase();
+      return itemValue.includes(value.toLowerCase());
+    });
+  });
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error}</p>
+          <button onClick={refresh} className="px-4 py-2 bg-red-600 rounded hover:bg-red-700">
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-black text-white">
+      <div className="max-w-7xl mx-auto p-6">
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold">${schema.label}</h1>
+          <p className="text-gray-400">${schema.description || `Manage your ${nameLower}s`}</p>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1">
+            <${name}Form onSubmit={handleSubmit} />
+          </div>
+          
+          <div className="lg:col-span-2 space-y-6">
+            {isLoading ? (
+              <div className="text-center py-12 text-gray-500">Loading...</div>
+            ) : filteredData.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">No entries yet</div>
+            ) : (
+              <${name}Table data={filteredData} onDelete={handleDelete} />
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+`;
+  }
+
+  /**
+   * Generate API route handler
+   */
+  generateAPIRoute(schema: Schema, appId: string): string {
+    return `import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from '@/lib/auth';
+import prisma from '@/lib/db';
+
+export async function GET(req: NextRequest) {
+  const session = await getServerSession();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const app = await prisma.app.findFirst({
+    where: { id: '${appId}', userId: session.user.id },
+  });
+
+  if (!app) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  return NextResponse.json({ records: app.data || [] });
+}
+
+export async function POST(req: NextRequest) {
+  const session = await getServerSession();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const body = await req.json();
+  
+  const app = await prisma.app.findFirst({
+    where: { id: '${appId}', userId: session.user.id },
+  });
+
+  if (!app) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  const newRecord = {
+    id: crypto.randomUUID(),
+    ...body,
+    createdAt: new Date().toISOString(),
+  };
+
+  const data = Array.isArray(app.data) ? [...app.data, newRecord] : [newRecord];
+
+  await prisma.app.update({
+    where: { id: app.id },
+    data: { data },
+  });
+
+  return NextResponse.json({ record: newRecord });
+}
+
+export async function DELETE(req: NextRequest) {
+  const session = await getServerSession();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const recordId = searchParams.get('id');
+
+  if (!recordId) {
+    return NextResponse.json({ error: 'Record ID required' }, { status: 400 });
+  }
+
+  const app = await prisma.app.findFirst({
+    where: { id: '${appId}', userId: session.user.id },
+  });
+
+  if (!app) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  const data = Array.isArray(app.data) 
+    ? app.data.filter((r: { id: string }) => r.id !== recordId)
+    : [];
+
+  await prisma.app.update({
+    where: { id: app.id },
+    data: { data },
+  });
+
+  return NextResponse.json({ success: true });
+}
+`;
+  }
+
+  /**
+   * Extract component specs from layout
+   */
+  private extractComponentSpecs(layout: LayoutNode, schema: Schema): ComponentSpec[] {
+    const components = getComponents(layout);
+    const specs: ComponentSpec[] = [];
+    const seenTypes = new Set<string>();
+
+    for (const node of components) {
+      if (!node.component) continue;
+      
+      const type = node.component.type;
+      if (seenTypes.has(type)) continue;
+      seenTypes.add(type);
+
+      specs.push({
+        id: generateId(),
+        name: `${schema.name}${this.capitalizeFirst(type)}`,
+        type,
+        variant: node.component.variant,
+        schemaRef: schema.name,
+        props: node.component.props as Record<string, unknown>,
+      });
+    }
+
+    // Ensure we have at least form and table
+    if (!seenTypes.has('form')) {
+      specs.unshift({
+        id: generateId(),
+        name: `${schema.name}Form`,
+        type: 'form',
+        schemaRef: schema.name,
+        props: {},
+      });
+    }
+
+    if (!seenTypes.has('table')) {
+      specs.push({
+        id: generateId(),
+        name: `${schema.name}Table`,
+        type: 'table',
+        schemaRef: schema.name,
+        props: {},
+      });
+    }
+
+    return specs;
+  }
+
+  /**
+   * Build prompt for component generation
+   */
+  private buildComponentPrompt(
+    spec: ComponentSpec,
+    schema: Schema,
+    template: string
+  ): string {
+    const fields = schema.fields.filter(f => !f.generated);
+
+    return `Generate a React component for ${spec.type}.
+
+Schema: ${schema.name}
+Fields:
+${fields.map(f => `- ${f.name}: ${f.type}${f.required ? ' (required)' : ''}${f.options ? ` [${f.options.join(', ')}]` : ''}`).join('\n')}
+
+Component name: ${spec.name}
+${spec.variant ? `Variant: ${spec.variant}` : ''}
+${Object.keys(spec.props).length > 0 ? `Props: ${JSON.stringify(spec.props)}` : ''}
+
+Requirements:
+${template}
+
+Generate the complete component code:`;
+  }
+
+  /**
+   * Get template/requirements for component type
+   */
+  private getComponentTemplate(type: ComponentType): string {
+    const templates: Record<ComponentType, string> = {
+      form: `
+- Accept onSubmit callback prop
+- Include all schema fields with appropriate inputs
+- Use Tailwind dark theme styling
+- Handle form state with useState
+- Include submit button
+- Clear form after successful submit`,
+
+      table: `
+- Accept data array and onDelete callback props
+- Display all schema fields as columns
+- Include delete button per row
+- Use Tailwind dark theme table styling
+- Handle empty state`,
+
+      chart: `
+- Display as a styled placeholder for now
+- Show chart type indicator
+- Use Tailwind dark theme styling`,
+
+      cards: `
+- Accept data array prop
+- Display items as cards in a grid
+- Show key fields (first 3)
+- Include delete action
+- Use Tailwind dark theme styling`,
+
+      stats: `
+- Calculate totals/counts from data
+- Display as metric cards
+- Use Tailwind dark theme styling`,
+
+      filters: `
+- Accept filters and onChange props
+- Include filter inputs for filterable fields
+- Use Tailwind dark theme styling`,
+
+      kanban: `
+- Accept data array and status field
+- Display columns by status
+- Use Tailwind dark theme styling`,
+
+      calendar: `
+- Display as styled placeholder
+- Show month/date indicator
+- Use Tailwind dark theme styling`,
+
+      custom: `
+- Create a flexible custom component
+- Accept data prop
+- Use Tailwind dark theme styling`,
+    };
+
+    return templates[type] || templates.custom;
+  }
+
+  /**
+   * Generate fallback component when LLM fails
+   */
+  private generateFallbackComponent(spec: ComponentSpec, schema: Schema): string {
+    const fields = schema.fields.filter(f => !f.generated);
+
+    switch (spec.type) {
+      case 'form':
+        return this.generateFallbackForm(spec.name, schema, fields);
+      case 'table':
+        return this.generateFallbackTable(spec.name, schema, fields);
+      default:
+        return `'use client';
+
+export function ${spec.name}({ data }: { data?: unknown[] }) {
+  return (
+    <div className="bg-gray-900 rounded-lg p-6">
+      <h3 className="text-lg font-semibold mb-4">${spec.type}</h3>
+      <p className="text-gray-400">Component placeholder</p>
+    </div>
+  );
+}
+`;
+    }
+  }
+
+  /**
+   * Generate fallback form component
+   */
+  private generateFallbackForm(name: string, schema: Schema, fields: typeof schema.fields): string {
+    return `'use client';
+
+import { useState } from 'react';
+import type { ${schema.name}Input } from '../lib/types';
+
+interface ${name}Props {
+  onSubmit: (data: ${schema.name}Input) => Promise<void>;
+  initialData?: Partial<${schema.name}Input>;
+}
+
+export function ${name}({ onSubmit, initialData = {} }: ${name}Props) {
+  const [formData, setFormData] = useState<Partial<${schema.name}Input>>(initialData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await onSubmit(formData as ${schema.name}Input);
+      setFormData({});
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-gray-900 rounded-lg p-6">
+      <h3 className="text-lg font-semibold mb-4">Add Entry</h3>
+      <div className="space-y-4">
+${fields.map(f => `        <div>
+          <label className="block text-sm text-gray-400 mb-1">${f.label}${f.required ? ' *' : ''}</label>
+          ${f.type === 'enum' ? `<select
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+            value={String(formData.${f.name} || '')}
+            onChange={(e) => setFormData(prev => ({ ...prev, ${f.name}: e.target.value }))}
+            ${f.required ? 'required' : ''}
+          >
+            <option value="">Select...</option>
+${(f.options || []).map(o => `            <option value="${o}">${o}</option>`).join('\n')}
+          </select>` : `<input
+            type="${f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'}"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+            value={String(formData.${f.name} || '')}
+            onChange={(e) => setFormData(prev => ({ ...prev, ${f.name}: ${f.type === 'number' ? 'Number(e.target.value)' : 'e.target.value'} }))}
+            ${f.required ? 'required' : ''}
+          />`}
+        </div>`).join('\n')}
+      </div>
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className="mt-4 w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+      >
+        {isSubmitting ? 'Adding...' : 'Add Entry'}
+      </button>
+    </form>
+  );
+}
+`;
+  }
+
+  /**
+   * Generate fallback table component
+   */
+  private generateFallbackTable(name: string, schema: Schema, fields: typeof schema.fields): string {
+    return `'use client';
+
+import type { ${schema.name} } from '../lib/types';
+
+interface ${name}Props {
+  data: ${schema.name}[];
+  onDelete: (id: string) => void;
+}
+
+export function ${name}({ data, onDelete }: ${name}Props) {
+  if (data.length === 0) {
+    return (
+      <div className="bg-gray-900 rounded-lg p-6 text-center text-gray-500">
+        No entries yet
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gray-900 rounded-lg overflow-hidden">
+      <table className="w-full">
+        <thead className="bg-gray-800">
+          <tr>
+${fields.map(f => `            <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">${f.label}</th>`).join('\n')}
+            <th className="px-4 py-3 text-right text-sm font-medium text-gray-400">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((item) => (
+            <tr key={item.id} className="border-t border-gray-800 hover:bg-gray-800/50">
+${fields.map(f => `              <td className="px-4 py-3">${f.type === 'boolean' ? `{item.${f.name} ? '✓' : '✗'}` : `{String(item.${f.name} ?? '')}`}</td>`).join('\n')}
+              <td className="px-4 py-3 text-right">
+                <button
+                  onClick={() => onDelete(item.id)}
+                  className="text-red-400 hover:text-red-300 text-sm"
+                >
+                  Delete
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+`;
+  }
+
+  /**
+   * Create default layout if none provided
+   */
+  private createDefaultLayout(schema: Schema): LayoutNode {
+    return {
+      id: generateId(),
+      type: 'container',
+      container: {
+        direction: 'column',
+        gap: '1.5rem',
+        children: [
+          {
+            id: generateId(),
+            type: 'component',
+            component: { type: 'form', props: {} },
+          },
+          {
+            id: generateId(),
+            type: 'component',
+            component: { type: 'table', props: {} },
+          },
+        ],
+      },
+    };
+  }
+
+  /**
+   * Clean generated code
+   */
+  private cleanGeneratedCode(code: string): string {
+    return code
+      .replace(/^```(?:typescript|tsx|javascript|jsx)?\n?/gm, '')
+      .replace(/```$/gm, '')
+      .trim();
+  }
+
+  /**
+   * Capitalize first letter
+   */
+  private capitalizeFirst(str: string): string {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+}
+
+// Export singleton instance
+export const codeGeneratorAgent = new CodeGeneratorAgent();

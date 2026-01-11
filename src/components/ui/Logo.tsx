@@ -20,7 +20,7 @@ export function Logo({ size = 'md', variant = 'default', className }: LogoProps)
       {/* Red pulsing dot positioned above the dotless i */}
       <span 
         className="absolute left-1/2 -translate-x-1/2"
-        style={{ top: '0.05em', width: '0.28em', height: '0.28em' }}
+        style={{ top: '0.2em', width: '0.25em', height: '0.25em' }}
       >
         <span className="absolute inset-0 bg-accent-red rounded-full animate-pulse-red"></span>
         <span className="absolute inset-0 bg-accent-red rounded-full opacity-75"></span>

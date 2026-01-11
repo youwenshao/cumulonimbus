@@ -37,6 +37,11 @@ model App {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // V2 fields
+  version          String?  @default("v1")  // "v1" or "v2"
+  componentFiles   Json?    // Record<string, string> - separate component files for v2
+  layoutDefinition Json?    // LayoutNode - layout DSL for v2
+
   @@index([userId])
 }
 
@@ -50,6 +55,13 @@ model Conversation {
   spec      Json?    // Partial spec being built
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // V2 fields (nullable for backward compatibility)
+  version           String?  @default("v1")  // "v1" or "v2"
+  agentState        Json?    // OrchestratorState for v2
+  schemaDesigns     Json?    @default("[]")  // SchemaProposal[] for v2
+  layoutDesigns     Json?    @default("[]")  // LayoutProposal[] for v2
+  refinementHistory Json?    @default("[]")  // RefinementHistory[] for v2
 
   @@index([userId])
   @@index([appId])

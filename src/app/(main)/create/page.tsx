@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { NavigationRail, ContextPanel, ChatInput, ChatMessage, Button, StatusPanel } from '@/components/ui';
 import type { StatusMessage, StatusPhase } from '@/components/ui';
 import { ImplementationPlan, CodeViewer, LivePreview } from '@/components/scaffolder';
 import type { ProjectSpec, ImplementationPlan as ImplementationPlanType } from '@/lib/scaffolder/types';
 import type { GeneratedCode } from '@/lib/scaffolder/code-generator';
 import { cn } from '@/lib/utils';
+// V2 Components
+import { ConversationalScaffolderV2 } from '@/components/scaffolder-v2';
 
 interface Message {
   id: string;
@@ -30,6 +32,23 @@ interface ConversationState {
 }
 
 export default function CreatePage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // Check for v2 mode via query param or environment
+  const useV2 = searchParams.get('v2') === 'true' || 
+                process.env.NEXT_PUBLIC_SCAFFOLDER_VERSION === 'v2';
+  
+  // Render v2 scaffolder if enabled
+  if (useV2) {
+    return <ConversationalScaffolderV2 className="h-screen" />;
+  }
+  
+  // V1 scaffolder (existing implementation)
+  return <CreatePageV1 />;
+}
+
+function CreatePageV1() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
