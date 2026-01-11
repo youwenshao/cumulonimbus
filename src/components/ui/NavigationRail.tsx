@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Cloud, Folder, Users, Settings } from 'lucide-react';
+import { LayoutDashboard, Plus, Settings, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavigationRailProps {
@@ -11,21 +11,15 @@ interface NavigationRailProps {
 
 const navigationItems = [
   {
-    label: 'Home',
+    label: 'Dashboard',
     href: '/dashboard',
-    icon: Cloud,
-    active: ['/dashboard', '/'],
-  },
-  {
-    label: 'Projects',
-    href: '/projects',
-    icon: Folder,
-    active: ['/projects'],
+    icon: LayoutDashboard,
+    active: ['/dashboard'],
   },
   {
     label: 'Create',
     href: '/create',
-    icon: Cloud,
+    icon: Plus,
     active: ['/create'],
   },
   {
@@ -41,14 +35,24 @@ export function NavigationRail({ className }: NavigationRailProps) {
 
   return (
     <nav className={cn('rail-width bg-black border-r border-outline-mid flex flex-col items-center py-6', className)}>
-      {/* Logo/Brand at top */}
+      {/* Logo/Brand at top - Yellow circle representing the dot from the "i" */}
       <div className="mb-8">
-        <Link href="/" className="block">
-          <div className="w-8 h-8 rounded-lg bg-accent-red flex items-center justify-center">
-            <Cloud className="w-4 h-4 text-white" />
+        <Link
+          href="/"
+          className="block group relative"
+          title="Home"
+        >
+          <div className="w-10 h-10 rounded-full bg-accent-red transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-accent-red/50">
+          </div>
+          {/* Tooltip */}
+          <div className="absolute left-full ml-2 px-2 py-1 bg-surface-dark text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 top-1/2 -translate-y-1/2">
+            Home
           </div>
         </Link>
       </div>
+
+      {/* Divider */}
+      <div className="w-8 h-px bg-outline-mid mb-4"></div>
 
       {/* Navigation Items */}
       <div className="flex-1 flex flex-col items-center space-y-2">
@@ -63,14 +67,14 @@ export function NavigationRail({ className }: NavigationRailProps) {
               className={cn(
                 'w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 group relative',
                 isActive
-                  ? 'bg-accent-red text-white'
-                  : 'text-outline-mid hover:text-white hover:bg-surface-light'
+                  ? 'bg-accent-red text-white shadow-lg shadow-accent-red/30'
+                  : 'text-outline-mid hover:text-white hover:bg-surface-light hover:scale-105'
               )}
               title={item.label}
             >
               <Icon className="w-5 h-5" />
               {/* Tooltip */}
-              <div className="absolute left-full ml-2 px-2 py-1 bg-surface-dark text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+              <div className="absolute left-full ml-2 px-3 py-1.5 bg-surface-dark text-white text-sm rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl">
                 {item.label}
               </div>
             </Link>
@@ -80,9 +84,16 @@ export function NavigationRail({ className }: NavigationRailProps) {
 
       {/* User avatar at bottom */}
       <div className="mt-auto">
-        <div className="w-8 h-8 rounded-full bg-surface-light flex items-center justify-center text-text-tertiary hover:text-white transition-colors cursor-pointer">
-          <Users className="w-4 h-4" />
-        </div>
+        <button 
+          className="w-10 h-10 rounded-full bg-surface-light flex items-center justify-center text-text-tertiary hover:text-white hover:bg-surface-mid transition-all duration-200 hover:scale-105 group relative"
+          title="Profile"
+        >
+          <User className="w-5 h-5" />
+          {/* Tooltip */}
+          <div className="absolute left-full ml-2 px-3 py-1.5 bg-surface-dark text-white text-sm rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 border border-outline-light/20 shadow-xl bottom-0">
+            Profile
+          </div>
+        </button>
       </div>
     </nav>
   );

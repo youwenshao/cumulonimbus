@@ -60,7 +60,7 @@ export default function Home() {
             <ValueCard
               icon={<Cpu className="w-8 h-8" />}
               title="The Architect"
-              description="The AI that doesn't just assist—it designs, plans, and builds alongside you."
+              description="The AI that doesn't just assist - it designs, plans, and builds alongside you."
             />
             <ValueCard
               icon={<Cloud className="w-8 h-8" />}

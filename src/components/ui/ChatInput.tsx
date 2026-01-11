@@ -51,19 +51,22 @@ export function ChatInput({
   }, [message]);
 
   return (
-    <div className={cn('relative bg-surface-light border-t border-outline-light', className)} role="region" aria-label="Message input">
-      {/* Thinking indicator */}
-      {isThinking && (
-        <div
-          className="absolute -top-1 left-1/2 transform -translate-x-1/2"
-          role="status"
-          aria-label="AI is thinking"
-        >
-          <div className="w-2 h-2 bg-accent-red rounded-full animate-pulse-red"></div>
-        </div>
-      )}
+    <div className={cn('relative pb-8', className)} role="region" aria-label="Message input">
+      {/* Dynamic rectangle container */}
+      <div className="max-w-4xl mx-auto px-4 pb-4">
+        <div className="relative bg-surface-light/50 backdrop-blur-sm border border-outline-light/50 rounded-xl p-6 transition-all duration-200 hover:border-outline-mid/70 focus-within:border-accent-red/50 focus-within:bg-surface-light/70">
+          {/* Thinking indicator */}
+          {isThinking && (
+            <div
+              className="absolute -top-2 left-1/2 transform -translate-x-1/2"
+              role="status"
+              aria-label="AI is thinking"
+            >
+              <div className="w-2 h-2 bg-accent-red rounded-full animate-pulse-red"></div>
+            </div>
+          )}
 
-      <form onSubmit={handleSubmit} className="max-w-4xl mx-auto p-4" role="form" aria-label="Send message">
+          <form onSubmit={handleSubmit} role="form" aria-label="Send message">
         <div className="flex items-end gap-3">
           {/* Input area */}
           <div className="flex-1 relative">
@@ -99,7 +102,7 @@ export function ChatInput({
             aria-label={message.trim() ? "Send message" : "Message input is empty"}
             aria-disabled={!message.trim() || disabled}
           >
-            <ChevronUp className="w-5 h-5" aria-hidden="true" />
+            <ChevronUp className="w-5 h-5" aria-hidden="true"             />
           </button>
         </div>
 
@@ -107,7 +110,9 @@ export function ChatInput({
         <div id="message-hint" className="text-xs text-text-tertiary mt-2 text-center">
           Shift + Enter for new line
         </div>
-      </form>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }

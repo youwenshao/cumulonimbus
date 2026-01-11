@@ -495,10 +495,10 @@ export default function CreatePage() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="border-b border-outline-mid bg-surface-dark px-6 py-4">
+        <header className="border-b border-outline-mid bg-surface-dark px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-bold text-white">Create New App</h1>
+              <h1 className="text-2xl font-serif font-medium text-white">Create New App</h1>
               <p className="text-sm text-text-secondary">Describe what you want to build</p>
             </div>
             <Button
@@ -513,7 +513,7 @@ export default function CreatePage() {
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto p-6">
+          <div className="max-w-4xl mx-auto p-8">
             {messages.length === 0 ? (
               <WelcomeScreen />
             ) : (
@@ -541,7 +541,7 @@ export default function CreatePage() {
                         onClick={() => handleOptionSelect(option)}
                         className={cn(
                           "w-full p-4 rounded-xl border-2 text-left transition-all bg-surface-light border-outline-light hover:border-accent-red text-white",
-                          selectedOptions.includes(option.id) && "border-accent-red bg-pastel-purple"
+                          selectedOptions.includes(option.id) && "border-pastel-yellow bg-pastel-yellow/10 text-black"
                         )}
                       >
                         <div className="flex items-center justify-between">
@@ -694,13 +694,8 @@ export default function CreatePage() {
 function WelcomeScreen() {
   return (
     <div className="text-center py-16 animate-fade-in">
-      <div className="w-20 h-20 mx-auto mb-8 rounded-2xl bg-accent-red flex items-center justify-center">
-        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center">
-          <span className="text-accent-red font-bold text-xl">C</span>
-        </div>
-      </div>
-      <h2 className="text-3xl font-bold text-white mb-4">
-        What would you like to create?
+      <h2 className="text-3xl font-serif font-medium text-white mb-4">
+        What would you like to <span className="bg-accent-red px-2 py-1">create</span>?
       </h2>
         <p className="text-text-secondary max-w-md mx-auto mb-8 leading-relaxed">
         Describe your idea in natural language. I&apos;ll guide you through the process of building a personalized web application.
