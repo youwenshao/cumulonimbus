@@ -11,3 +11,10 @@ export { WorkflowAgent, workflowAgent } from './workflow-agent';
 export { SchemaDesignerAgent, schemaDesignerAgent } from './schema-designer';
 export { UIDesignerAgent, uiDesignerAgent } from './ui-designer';
 export { CodeGeneratorAgent, codeGeneratorAgent } from './code-generator';
+export { 
+  FreeformGenerator, 
+  freeformGenerator,
+  type FreeformGenerationOptions,
+  type FreeformDesign,
+  type FreeformGenerationResult,
+} from './freeform-generator';

@@ -196,7 +196,7 @@ function EmptyState() {
         <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-accent-red/10 border border-accent-red/20 flex items-center justify-center">
           <Plus className="w-8 h-8 text-accent-red" />
         </div>
-        <h3 className="text-xl font-bold text-white mb-3">No apps yet</h3>
+        <h3 className="text-3xl font-serif font-medium text-white mb-3">No apps yet</h3>
         <p className="text-text-secondary mb-8 leading-relaxed">
           Create your first app to get started. Describe what you want and we&apos;ll build it for you.
         </p>

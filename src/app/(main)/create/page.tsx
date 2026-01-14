@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { NavigationRail, ContextPanel, ChatInput, ChatMessage, Button, StatusPanel } from '@/components/ui';
 import type { StatusMessage, StatusPhase } from '@/components/ui';
-import { ImplementationPlan, CodeViewer, LivePreview } from '@/components/scaffolder';
+import { ImplementationPlan, CodeViewer, LivePreview, FreeformCreator } from '@/components/scaffolder';
 import type { ProjectSpec, ImplementationPlan as ImplementationPlanType } from '@/lib/scaffolder/types';
 import type { GeneratedCode } from '@/lib/scaffolder/code-generator';
 import { cn } from '@/lib/utils';
@@ -31,24 +31,140 @@ interface ConversationState {
   allQuestionsAnswered?: boolean;
 }
 
+type CreateMode = 'guided' | 'freeform' | 'v2';
+
 export default function CreatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [mode, setMode] = useState<CreateMode | null>(null);
   
-  // Check for v2 mode via query param or environment
+  // Check for mode via query param
+  const queryMode = searchParams.get('mode');
   const useV2 = searchParams.get('v2') === 'true' || 
                 process.env.NEXT_PUBLIC_SCAFFOLDER_VERSION === 'v2';
   
+  // If mode is specified in URL, use it
+  useEffect(() => {
+    if (queryMode === 'freeform') {
+      setMode('freeform');
+    } else if (queryMode === 'guided' || queryMode === 'v1') {
+      setMode('guided');
+    } else if (useV2 || queryMode === 'v2') {
+      setMode('v2');
+    }
+  }, [queryMode, useV2]);
+  
+  // Show mode selector if no mode is set
+  if (!mode) {
+    return <ModeSelector onSelect={setMode} />;
+  }
+  
+  // Render freeform creator
+  if (mode === 'freeform') {
+    return (
+      <div className="h-screen bg-black flex">
+        <div className="hidden md:block">
+          <NavigationRail />
+        </div>
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="border-b border-outline-mid bg-surface-dark px-8 py-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-serif font-medium text-white">Create</h1>
+                <p className="text-sm text-gray-400 mt-1">Freeform AI Generation</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setMode(null)}
+              >
+                Change Mode
+              </Button>
+            </div>
+          </header>
+          <div className="flex-1 overflow-y-auto p-8">
+            <FreeformCreator className="max-w-4xl mx-auto" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   // Render v2 scaffolder if enabled
-  if (useV2) {
+  if (mode === 'v2') {
     return <ConversationalScaffolderV2 className="h-screen" />;
   }
   
   // V1 scaffolder (existing implementation)
-  return <CreatePageV1 />;
+  return <CreatePageV1 onModeChange={() => setMode(null)} />;
 }
 
-function CreatePageV1() {
+function ModeSelector({ onSelect }: { onSelect: (mode: CreateMode) => void }) {
+  return (
+    <div className="h-screen bg-black flex">
+      <div className="hidden md:block">
+        <NavigationRail />
+      </div>
+      <div className="flex-1 flex flex-col items-center justify-center p-8">
+        <h1 className="text-4xl font-serif font-medium text-white mb-4">
+          Create Your App
+        </h1>
+        <p className="text-gray-400 text-center max-w-lg mb-12">
+          Choose how you&apos;d like to build your app
+        </p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl w-full">
+          {/* Freeform Mode */}
+          <button
+            onClick={() => onSelect('freeform')}
+            className="p-6 bg-gradient-to-br from-purple-900/50 to-pink-900/50 border border-purple-500/30 rounded-xl text-left hover:border-purple-500/60 transition-all group"
+          >
+            <div className="text-3xl mb-4">✨</div>
+            <h3 className="text-lg font-semibold text-white mb-2">Freeform</h3>
+            <p className="text-sm text-gray-400">
+              Describe your app and let AI generate everything. Complete creative freedom with instant preview.
+            </p>
+            <div className="mt-4 text-xs text-purple-400 group-hover:text-purple-300">
+              Best for: Quick prototypes, creative ideas
+            </div>
+          </button>
+          
+          {/* Guided Mode */}
+          <button
+            onClick={() => onSelect('guided')}
+            className="p-6 bg-gray-800/50 border border-gray-700 rounded-xl text-left hover:border-gray-600 transition-all group"
+          >
+            <div className="text-3xl mb-4">🎯</div>
+            <h3 className="text-lg font-semibold text-white mb-2">Guided</h3>
+            <p className="text-sm text-gray-400">
+              Step-by-step conversation to refine your requirements. More control over the final result.
+            </p>
+            <div className="mt-4 text-xs text-gray-500 group-hover:text-gray-400">
+              Best for: Specific requirements, data-heavy apps
+            </div>
+          </button>
+          
+          {/* V2 Conversational Mode */}
+          <button
+            onClick={() => onSelect('v2')}
+            className="p-6 bg-gradient-to-br from-red-900/50 to-orange-900/50 border border-red-500/30 rounded-xl text-left hover:border-red-500/60 transition-all group"
+          >
+            <div className="text-3xl mb-4">🚀</div>
+            <h3 className="text-lg font-semibold text-white mb-2">Advanced</h3>
+            <p className="text-sm text-gray-400">
+              Multi-agent system with schema design, layout proposals, and iterative refinement.
+            </p>
+            <div className="mt-4 text-xs text-red-400 group-hover:text-red-300">
+              Best for: Complex apps, custom layouts
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -517,16 +633,27 @@ function CreatePageV1() {
         <header className="border-b border-outline-mid bg-surface-dark px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-serif font-medium text-white">Create New App</h1>
-              <p className="text-sm text-text-secondary">Describe what you want to build</p>
+              <h1 className="text-3xl font-serif font-medium text-white">Create</h1>
+              <p className="text-sm text-gray-400 mt-1">Guided Mode</p>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setContextPanelOpen(true)}
-            >
-              Context
-            </Button>
+            <div className="flex gap-2">
+              {onModeChange && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onModeChange}
+                >
+                  Change Mode
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setContextPanelOpen(true)}
+              >
+                Context
+              </Button>
+            </div>
           </div>
         </header>
 

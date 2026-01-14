@@ -4,9 +4,11 @@ import prisma from '@/lib/db';
 import { AppRuntime } from './AppRuntime';
 import { GeneratedRuntime } from './GeneratedRuntime';
 import { V2Runtime } from './V2Runtime';
+import { V2SandboxRuntime } from './V2SandboxRuntime';
 import type { ProjectSpec } from '@/lib/scaffolder/types';
 import type { DataRecord } from '@/lib/primitives/types';
 import type { GeneratedCode } from '@/lib/scaffolder/code-generator';
+import type { Schema } from '@/lib/scaffolder-v2/types';
 
 interface PageProps {
   params: Promise<{ appId: string }>;
@@ -34,12 +36,30 @@ export default async function AppPage({ params }: PageProps) {
   const spec = app.spec as unknown as ProjectSpec;
   const data = (app.data || []) as DataRecord[];
   const generatedCode = app.generatedCode as unknown as GeneratedCode | null;
+  const componentFiles = app.componentFiles as Record<string, string> | null;
+  const executionMode = (app as unknown as { executionMode?: string }).executionMode || 'schema';
 
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:33',message:'App data loaded',data:{appId:app.id,appVersion:app.version,specKeys:Object.keys(spec),hasViews:'views' in spec,hasDataStore:'dataStore' in spec,hasFields:'fields' in spec,hasLayout:app.layoutDefinition !== null,generatedCodeExists:!!generatedCode?.pageComponent,componentFiles:app.componentFiles,layoutDefinition:app.layoutDefinition},sessionId:'debug-session',runId:'v2-runtime-fix',hypothesisId:'H1'})}).catch(()=>{});
-  // #endregion
+  // Check if this is a sandbox app (freeform AI-generated)
+  if (executionMode === 'sandbox' || (app.version === 'v2' && componentFiles?.['App.tsx'])) {
+    // Get bundled code from component files
+    const bundledCode = componentFiles?.['App.tsx'] || componentFiles?.['bundled'] || '';
+    
+    if (bundledCode) {
+      return (
+        <V2SandboxRuntime
+          appId={app.id}
+          name={app.name}
+          description={app.description}
+          bundledCode={bundledCode}
+          schema={spec as unknown as Schema}
+          componentFiles={componentFiles || {}}
+          initialData={data}
+        />
+      );
+    }
+  }
 
-  // Check if this is a V2 app
+  // Check if this is a V2 app (schema-based)
   if (app.version === 'v2') {
     return (
       <V2Runtime
@@ -48,7 +68,7 @@ export default async function AppPage({ params }: PageProps) {
         description={app.description}
         schema={spec}
         layout={app.layoutDefinition as any}
-        componentFiles={app.componentFiles as any}
+        componentFiles={componentFiles as any}
         initialData={data}
       />
     );

@@ -1,40 +1,20 @@
-import OpenAI from 'openai';
+/**
+ * Qwen Client (Legacy Compatibility Layer)
+ * 
+ * This module now uses the unified LLM router for provider selection.
+ * It maintains backward compatibility with existing code.
+ */
 
-export type QwenProvider = 'openrouter' | 'puter';
+import {
+  getRoutedClient,
+  getLLMConfig,
+  type ChatMessage as LLMChatMessage,
+  type CompletionOptions,
+} from '@/lib/llm';
 
-interface QwenConfig {
-  apiKey: string;
-  baseUrl: string;
-  model: string;
-  provider: QwenProvider;
-}
+export type QwenProvider = 'openrouter' | 'ollama' | 'auto';
 
-function getConfig(): QwenConfig {
-  const provider = (process.env.QWEN_PROVIDER || 'openrouter') as QwenProvider;
-  const apiKey = process.env.QWEN_API_KEY || '';
-  const baseUrl = process.env.QWEN_API_URL || 'https://openrouter.ai/api/v1';
-  const model = process.env.QWEN_MODEL || 'qwen/qwen3-coder:free';
-
-  return { apiKey, baseUrl, model, provider };
-}
-
-// Create OpenAI-compatible client for Qwen via OpenRouter
-function createClient(): OpenAI {
-  const config = getConfig();
-
-  return new OpenAI({
-    apiKey: config.apiKey,
-    baseURL: config.baseUrl,
-    defaultHeaders: config.provider === 'openrouter' ? {
-      'HTTP-Referer': process.env.NEXTAUTH_URL || 'http://localhost:3000',
-      'X-Title': 'Cumulonimbus',
-    } : undefined,
-  });
-}
-
-export const qwenClient = createClient();
-export const qwenModel = getConfig().model;
-
+// Re-export ChatMessage type for backward compatibility
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -47,101 +27,81 @@ export interface ChatCompletionOptions {
   stream?: boolean;
 }
 
-// Non-streaming completion
+// Get model name for backward compatibility
+export const qwenModel = getLLMConfig().openrouterModel;
+
+// Create a dummy client for backward compatibility (not actually used)
+export const qwenClient = {
+  chat: {
+    completions: {
+      create: async () => {
+        throw new Error('Direct qwenClient usage is deprecated. Use complete() or streamComplete() instead.');
+      },
+    },
+  },
+};
+
+/**
+ * Non-streaming completion using the LLM router
+ */
 export async function complete(options: Omit<ChatCompletionOptions, 'stream'>): Promise<string> {
-  const config = getConfig();
+  const client = getRoutedClient();
 
   try {
-    console.log('🚀 Making AI request to', config.model);
-    const response = await qwenClient.chat.completions.create({
-      model: config.model,
-      messages: options.messages,
-      temperature: options.temperature ?? 0.7,
-      max_tokens: options.maxTokens ?? 2048,
-      stream: false,
+    console.log('🚀 Making AI request via LLM router');
+
+    const result = await client.complete({
+      messages: options.messages as LLMChatMessage[],
+      temperature: options.temperature,
+      maxTokens: options.maxTokens,
     });
 
-    const result = response.choices[0]?.message?.content || '';
     console.log('✅ AI response received, length:', result.length);
     return result;
   } catch (error) {
-    console.error('❌ AI API call failed:', error.message);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('❌ AI API call failed:', errorMessage);
     console.error('❌ Error details:', error);
     return '';
   }
 }
 
-// Streaming completion that returns an async generator
+/**
+ * Streaming completion using the LLM router
+ */
 export async function* streamComplete(options: Omit<ChatCompletionOptions, 'stream'>): AsyncGenerator<string> {
-  const config = getConfig();
-  
-  const stream = await qwenClient.chat.completions.create({
-    model: config.model,
-    messages: options.messages,
-    temperature: options.temperature ?? 0.7,
-    max_tokens: options.maxTokens ?? 2048,
-    stream: true,
-  });
+  const client = getRoutedClient();
 
-  for await (const chunk of stream) {
-    const content = chunk.choices[0]?.delta?.content;
-    if (content) {
-      yield content;
-    }
-  }
+  console.log('🚀 Starting AI stream via LLM router');
+
+  yield* client.streamComplete({
+    messages: options.messages as LLMChatMessage[],
+    temperature: options.temperature,
+    maxTokens: options.maxTokens,
+  });
 }
 
-// JSON mode completion with structured output
+/**
+ * JSON mode completion using the LLM router
+ */
 export async function completeJSON<T>(options: Omit<ChatCompletionOptions, 'stream'> & { schema?: string }): Promise<T> {
-  const config = getConfig();
+  const client = getRoutedClient();
 
   try {
-    console.log('🚀 Making JSON AI request to', config.model);
+    console.log('🚀 Making JSON AI request via LLM router');
 
-    // Add JSON instruction to the last message or system prompt
-    const messages = [...options.messages];
-    const lastMessage = messages[messages.length - 1];
-
-    if (options.schema) {
-      messages[messages.length - 1] = {
-        ...lastMessage,
-        content: `${lastMessage.content}\n\nRespond with valid JSON matching this schema:\n${options.schema}`,
-      };
-    }
-
-    // Add system instruction for JSON output if not already present
-    if (!messages.some(m => m.role === 'system' && m.content.includes('JSON'))) {
-      messages.unshift({
-        role: 'system',
-        content: 'You must respond with valid JSON only. No markdown, no explanations, just valid JSON.',
-      });
-    }
-
-    const response = await qwenClient.chat.completions.create({
-      model: config.model,
-      messages,
-      temperature: options.temperature ?? 0.3,
-      max_tokens: options.maxTokens ?? 2048,
-      stream: false,
+    const result = await client.completeJSON<T>({
+      messages: options.messages as LLMChatMessage[],
+      temperature: options.temperature,
+      maxTokens: options.maxTokens,
+      schema: options.schema,
     });
 
-    const content = response.choices[0]?.message?.content || '{}';
-    console.log('✅ AI JSON response received, content length:', content.length);
-
-    // Extract JSON from potential markdown code blocks
-    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, content];
-    const jsonStr = jsonMatch[1]?.trim() || content.trim();
-
-    try {
-      const result = JSON.parse(jsonStr) as T;
-      console.log('✅ JSON parsed successfully');
-      return result;
-    } catch (e) {
-      console.error('❌ Failed to parse JSON response:', jsonStr);
-      throw new Error(`Failed to parse AI response as JSON: ${e}`);
-    }
+    console.log('✅ JSON parsed successfully');
+    return result;
   } catch (error) {
-    console.error('❌ AI JSON API call failed:', error.message);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('❌ AI JSON API call failed:', errorMessage);
     console.error('❌ Error details:', error);
     throw error;
   }

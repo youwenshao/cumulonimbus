@@ -4,6 +4,8 @@
 
 export { AppPreview } from './AppPreview';
 export { CodeViewer } from './CodeViewer';
+export { CodeStreamViewer, type CodeStreamViewerProps } from './CodeStreamViewer';
+export { FreeformCreator, type FreeformCreatorProps } from './FreeformCreator';
 export { ImplementationPlan } from './ImplementationPlan';
 export { LivePreview } from './LivePreview';
 export { PreviewMockup } from './PreviewMockup';
