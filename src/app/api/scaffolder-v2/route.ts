@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth';
 import prisma from '@/lib/db';
 import { generateId } from '@/lib/utils';
+import type { UserLLMSettings } from '@/lib/llm';
 import { 
   orchestratorAgent, 
   adaptiveOrchestrator,
@@ -137,13 +138,35 @@ async function handleChat(
   // Add user message to state
   state = addMessageToState(state, 'user', message, { phase: state.phase }) as DynamicConversationState;
 
+  // Get user LLM settings
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      preferredLLMProvider: true,
+      ollamaEndpoint: true,
+      ollamaModel: true,
+      ollamaSmallModel: true,
+      // lmstudioEndpoint: true,  // TODO: Enable after DB migration
+      // lmstudioModel: true,     // TODO: Enable after DB migration
+    },
+  });
+
+  const userSettings: UserLLMSettings | undefined = user ? {
+    provider: user.preferredLLMProvider || undefined,
+    ollamaEndpoint: user.ollamaEndpoint || undefined,
+    ollamaModel: user.ollamaModel || undefined,
+    ollamaSmallModel: user.ollamaSmallModel || undefined,
+    // lmstudioEndpoint: user.lmstudioEndpoint || undefined,  // TODO: Enable after DB migration
+    // lmstudioModel: user.lmstudioModel || undefined,        // TODO: Enable after DB migration
+  } : undefined;
+
   // Create checkpoint before processing
   if (state.schemas.length > 0 || state.layout) {
     state = createCheckpoint(state, `Before: ${message.substring(0, 30)}...`);
   }
 
   // Use adaptive orchestrator for dynamic pipeline
-  const orchestratorResponse = await adaptiveOrchestrator.process(message, state);
+  const orchestratorResponse = await adaptiveOrchestrator.process(message, state, userSettings);
   const decision = orchestratorResponse.data as EnhancedOrchestratorDecision;
 
   console.log(`🧠 Orchestrator decision:`, {

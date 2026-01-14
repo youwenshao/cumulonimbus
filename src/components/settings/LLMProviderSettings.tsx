@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Server, 
-  Cloud, 
-  Zap, 
-  CheckCircle2, 
-  XCircle, 
+import {
+  Server,
+  Cloud,
+  Zap,
+  CheckCircle2,
+  XCircle,
   Loader2,
   RefreshCw,
   AlertCircle,
+  Palette,
 } from 'lucide-react';
 import { Button, Card } from '@/components/ui';
 import type { LLMProvider, HealthCheckResult } from '@/lib/llm/types';
@@ -19,6 +20,8 @@ export interface LLMSettings {
   ollamaEndpoint: string;
   ollamaModel: string;
   ollamaSmallModel: string;
+  lmstudioEndpoint: string;
+  lmstudioModel: string;
   fallbackEnabled: boolean;
 }
 
@@ -32,6 +35,7 @@ export interface LLMProviderSettingsProps {
 interface HealthStatus {
   ollama: HealthCheckResult | null;
   openrouter: HealthCheckResult | null;
+  lmstudio: HealthCheckResult | null;
   checking: boolean;
 }
 
@@ -44,6 +48,7 @@ export function LLMProviderSettings({
   const [healthStatus, setHealthStatus] = useState<HealthStatus>({
     ollama: null,
     openrouter: null,
+    lmstudio: null,
     checking: false,
   });
 
@@ -62,6 +67,7 @@ export function LLMProviderSettings({
       setHealthStatus({
         ollama: data.results?.find((r: HealthCheckResult) => r.provider === 'ollama') || null,
         openrouter: data.results?.find((r: HealthCheckResult) => r.provider === 'openrouter') || null,
+        lmstudio: data.results?.find((r: HealthCheckResult) => r.provider === 'lmstudio') || null,
         checking: false,
       });
     } catch {
@@ -149,11 +155,51 @@ export function LLMProviderSettings({
             </div>
           </label>
 
+          {/* LM Studio */}
+          <label className={`
+            flex items-start gap-4 p-4 rounded-lg border cursor-pointer transition-colors
+            ${settings.provider === 'lmstudio'
+              ? 'border-red-500 bg-red-500/10'
+              : 'border-gray-700 hover:border-gray-600'}
+          `}>
+            <input
+              type="radio"
+              name="provider"
+              value="lmstudio"
+              checked={settings.provider === 'lmstudio'}
+              onChange={() => handleProviderChange('lmstudio')}
+              className="mt-1"
+            />
+            <div className="flex-1">
+              <div className="flex items-center gap-2 font-medium">
+                <Palette className="w-5 h-5 text-pink-500" />
+                LM Studio (Local)
+                {healthStatus.lmstudio && (
+                  healthStatus.lmstudio.available ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <XCircle className="w-4 h-4 text-red-500" />
+                  )
+                )}
+              </div>
+              <p className="text-sm text-gray-400 mt-1">
+                Run AI models locally with LM Studio.
+                Fast responses, no API costs, requires LM Studio to be running.
+              </p>
+              {healthStatus.lmstudio && !healthStatus.lmstudio.available && (
+                <p className="text-sm text-red-400 mt-2 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  {healthStatus.lmstudio.error || 'LM Studio is not available'}
+                </p>
+              )}
+            </div>
+          </label>
+
           {/* OpenRouter */}
           <label className={`
             flex items-start gap-4 p-4 rounded-lg border cursor-pointer transition-colors
-            ${settings.provider === 'openrouter' 
-              ? 'border-red-500 bg-red-500/10' 
+            ${settings.provider === 'openrouter'
+              ? 'border-red-500 bg-red-500/10'
               : 'border-gray-700 hover:border-gray-600'}
           `}>
             <input
@@ -233,16 +279,19 @@ export function LLMProviderSettings({
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Primary Model
               </label>
-              <input
-                type="text"
+              <select
                 value={settings.ollamaModel}
-                onChange={(e) => onSettingsChange({ 
-                  ...settings, 
-                  ollamaModel: e.target.value 
+                onChange={(e) => onSettingsChange({
+                  ...settings,
+                  ollamaModel: e.target.value
                 })}
-                placeholder="qwen3-coder:30b"
                 className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
+              >
+                <option value={settings.ollamaModel}>{settings.ollamaModel}</option>
+                {healthStatus.ollama?.models?.filter(model => model !== settings.ollamaModel).map(model => (
+                  <option key={model} value={model}>{model}</option>
+                ))}
+              </select>
               <p className="text-xs text-gray-500 mt-1">
                 Main model for complex code generation tasks
               </p>
@@ -253,16 +302,19 @@ export function LLMProviderSettings({
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Small Model
               </label>
-              <input
-                type="text"
+              <select
                 value={settings.ollamaSmallModel}
-                onChange={(e) => onSettingsChange({ 
-                  ...settings, 
-                  ollamaSmallModel: e.target.value 
+                onChange={(e) => onSettingsChange({
+                  ...settings,
+                  ollamaSmallModel: e.target.value
                 })}
-                placeholder="qwen3:4b"
                 className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
+              >
+                <option value={settings.ollamaSmallModel}>{settings.ollamaSmallModel}</option>
+                {healthStatus.ollama?.models?.filter(model => model !== settings.ollamaSmallModel).map(model => (
+                  <option key={model} value={model}>{model}</option>
+                ))}
+              </select>
               <p className="text-xs text-gray-500 mt-1">
                 Faster model for quick tasks like intent analysis
               </p>
@@ -277,6 +329,77 @@ export function LLMProviderSettings({
                 <div className="flex flex-wrap gap-2">
                   {healthStatus.ollama.models.map(model => (
                     <span 
+                      key={model}
+                      className="px-2 py-1 bg-gray-700 rounded text-xs text-gray-300"
+                    >
+                      {model}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* LM Studio Settings */}
+      {(settings.provider === 'lmstudio' || settings.provider === 'auto') && (
+        <Card variant="outlined" padding="lg">
+          <h3 className="text-lg font-semibold mb-4">LM Studio Settings</h3>
+
+          <div className="space-y-4">
+            {/* Endpoint */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                LM Studio Endpoint
+              </label>
+              <input
+                type="text"
+                value={settings.lmstudioEndpoint}
+                onChange={(e) => onSettingsChange({
+                  ...settings,
+                  lmstudioEndpoint: e.target.value
+                })}
+                placeholder="http://localhost:1234"
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                The URL where LM Studio is running
+              </p>
+            </div>
+
+            {/* Model */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Model
+              </label>
+              <select
+                value={settings.lmstudioModel}
+                onChange={(e) => onSettingsChange({
+                  ...settings,
+                  lmstudioModel: e.target.value
+                })}
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                <option value={settings.lmstudioModel}>{settings.lmstudioModel}</option>
+                {healthStatus.lmstudio?.models?.filter(model => model !== settings.lmstudioModel).map(model => (
+                  <option key={model} value={model}>{model}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                The model name to use for generation
+              </p>
+            </div>
+
+            {/* Available models info */}
+            {healthStatus.lmstudio?.models && healthStatus.lmstudio.models.length > 0 && (
+              <div className="p-3 bg-gray-800/50 rounded-lg">
+                <p className="text-sm font-medium text-gray-300 mb-2">
+                  Available Models:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {healthStatus.lmstudio.models.map(model => (
+                    <span
                       key={model}
                       className="px-2 py-1 bg-gray-700 rounded text-xs text-gray-300"
                     >

@@ -12,9 +12,11 @@ import type {
   HealthCheckResult,
   ModelSize,
   ModelSelectionHints,
+  UserLLMSettings,
 } from './types';
 import { getOllamaClient, checkOllamaHealth, getOllamaConfig } from './ollama-client';
 import { getOpenRouterClient, checkOpenRouterHealth, getOpenRouterConfig } from './openrouter-client';
+import { getLMStudioClient, checkLMStudioHealth, getLMStudioConfig } from './lmstudio-client';
 
 // Health check interval: 30 seconds
 const HEALTH_CHECK_INTERVAL_MS = 30000;
@@ -24,25 +26,30 @@ let routerState: LLMRouterState = {
   primaryProvider: 'auto',
   ollamaAvailable: false,
   openrouterAvailable: false,
+  lmstudioAvailable: false,
   lastHealthCheck: null,
 };
 
 /**
- * Get LLM configuration from environment
+ * Get LLM configuration from environment and user settings
  */
-export function getLLMConfig(): LLMConfig {
+export function getLLMConfig(userSettings?: UserLLMSettings): LLMConfig {
   const ollamaConfig = getOllamaConfig();
   const openrouterConfig = getOpenRouterConfig();
+  const lmstudioConfig = getLMStudioConfig();
 
   return {
-    provider: (process.env.LLM_PROVIDER || 'auto') as LLMProvider,
+    provider: (userSettings?.provider || process.env.LLM_PROVIDER || 'auto') as LLMProvider,
     ollamaEnabled: process.env.OLLAMA_ENABLED !== 'false',
-    ollamaApiUrl: ollamaConfig.apiUrl,
-    ollamaModel: ollamaConfig.model,
-    ollamaSmallModel: ollamaConfig.smallModel,
+    ollamaApiUrl: userSettings?.ollamaEndpoint || ollamaConfig.apiUrl,
+    ollamaModel: userSettings?.ollamaModel || ollamaConfig.model,
+    ollamaSmallModel: userSettings?.ollamaSmallModel || ollamaConfig.smallModel,
     openrouterApiKey: openrouterConfig.apiKey,
     openrouterApiUrl: openrouterConfig.apiUrl,
     openrouterModel: openrouterConfig.model,
+    lmstudioEnabled: process.env.LMSTUDIO_ENABLED !== 'false',
+    lmstudioApiUrl: userSettings?.lmstudioEndpoint || lmstudioConfig.apiUrl,
+    lmstudioModel: userSettings?.lmstudioModel || lmstudioConfig.model,
     fallbackEnabled: process.env.LLM_FALLBACK_ENABLED !== 'false',
   };
 }
@@ -73,11 +80,19 @@ export async function checkAllHealth(): Promise<HealthCheckResult[]> {
   results.push(openrouterHealth);
   routerState.openrouterAvailable = openrouterHealth.available;
 
+  // Check LM Studio
+  if (config.lmstudioEnabled) {
+    const lmstudioHealth = await checkLMStudioHealth();
+    results.push(lmstudioHealth);
+    routerState.lmstudioAvailable = lmstudioHealth.available;
+  }
+
   routerState.lastHealthCheck = new Date();
 
   console.log('🔍 Health check results:', {
     ollama: routerState.ollamaAvailable,
     openrouter: routerState.openrouterAvailable,
+    lmstudio: routerState.lmstudioAvailable,
   });
 
   return results;
@@ -106,9 +121,10 @@ async function ensureFreshHealthCheck(): Promise<void> {
  */
 export async function selectProvider(
   requestedProvider?: LLMProvider,
-  hints?: ModelSelectionHints
+  hints?: ModelSelectionHints,
+  userSettings?: UserLLMSettings
 ): Promise<{ provider: LLMProvider; client: LLMClient }> {
-  const config = getLLMConfig();
+  const config = getLLMConfig(userSettings);
 
   // Refresh health check if stale
   await ensureFreshHealthCheck();
@@ -117,9 +133,11 @@ export async function selectProvider(
   let targetProvider = requestedProvider || config.provider;
 
   if (targetProvider === 'auto') {
-    // Auto mode: prefer Ollama if available
+    // Auto mode: prefer local providers (Ollama, then LM Studio), then OpenRouter
     if (config.ollamaEnabled && routerState.ollamaAvailable) {
       targetProvider = 'ollama';
+    } else if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
+      targetProvider = 'lmstudio';
     } else if (routerState.openrouterAvailable) {
       targetProvider = 'openrouter';
     } else {
@@ -130,23 +148,51 @@ export async function selectProvider(
   // Get the client for the selected provider
   if (targetProvider === 'ollama') {
     if (!routerState.ollamaAvailable && config.fallbackEnabled) {
-      console.log('⚠️ Ollama unavailable, falling back to OpenRouter');
-      targetProvider = 'openrouter';
+      if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
+        console.log('⚠️ Ollama unavailable, falling back to LM Studio');
+        targetProvider = 'lmstudio';
+      } else if (routerState.openrouterAvailable) {
+        console.log('⚠️ Ollama unavailable, falling back to OpenRouter');
+        targetProvider = 'openrouter';
+      }
     } else if (!routerState.ollamaAvailable) {
       throw new Error('Ollama is not available and fallback is disabled');
     }
   }
 
+  if (targetProvider === 'lmstudio') {
+    if (!routerState.lmstudioAvailable && config.fallbackEnabled) {
+      if (config.ollamaEnabled && routerState.ollamaAvailable) {
+        console.log('⚠️ LM Studio unavailable, falling back to Ollama');
+        targetProvider = 'ollama';
+      } else if (routerState.openrouterAvailable) {
+        console.log('⚠️ LM Studio unavailable, falling back to OpenRouter');
+        targetProvider = 'openrouter';
+      }
+    } else if (!routerState.lmstudioAvailable) {
+      throw new Error('LM Studio is not available and fallback is disabled');
+    }
+  }
+
   if (targetProvider === 'openrouter') {
-    if (!routerState.openrouterAvailable && config.fallbackEnabled && routerState.ollamaAvailable) {
-      console.log('⚠️ OpenRouter unavailable, falling back to Ollama');
-      targetProvider = 'ollama';
+    if (!routerState.openrouterAvailable && config.fallbackEnabled) {
+      if (config.ollamaEnabled && routerState.ollamaAvailable) {
+        console.log('⚠️ OpenRouter unavailable, falling back to Ollama');
+        targetProvider = 'ollama';
+      } else if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
+        console.log('⚠️ OpenRouter unavailable, falling back to LM Studio');
+        targetProvider = 'lmstudio';
+      }
     } else if (!routerState.openrouterAvailable) {
       throw new Error('OpenRouter is not available');
     }
   }
 
-  const client = targetProvider === 'ollama' ? getOllamaClient() : getOpenRouterClient();
+  const client = targetProvider === 'ollama'
+    ? getOllamaClient()
+    : targetProvider === 'lmstudio'
+      ? getLMStudioClient()
+      : getOpenRouterClient();
 
   return { provider: targetProvider, client };
 }
@@ -156,12 +202,17 @@ export async function selectProvider(
  */
 export function selectModel(
   provider: LLMProvider,
-  size: ModelSize = 'large'
+  size: ModelSize = 'large',
+  userSettings?: UserLLMSettings
 ): string {
-  const config = getLLMConfig();
+  const config = getLLMConfig(userSettings);
 
   if (provider === 'ollama') {
     return size === 'small' ? config.ollamaSmallModel : config.ollamaModel;
+  }
+
+  if (provider === 'lmstudio') {
+    return config.lmstudioModel;
   }
 
   return config.openrouterModel;
@@ -176,11 +227,11 @@ export function createRoutedClient(): LLMClient {
 
     async isAvailable(): Promise<boolean> {
       await ensureFreshHealthCheck();
-      return routerState.ollamaAvailable || routerState.openrouterAvailable;
+      return routerState.ollamaAvailable || routerState.openrouterAvailable || routerState.lmstudioAvailable;
     },
 
     async complete(options: CompletionOptions): Promise<string> {
-      const { provider, client } = await selectProvider(options.provider);
+      const { provider, client } = await selectProvider(options.provider, undefined, options.userSettings);
 
       console.log(`🔀 Router: Using ${provider} for completion`);
 
@@ -190,16 +241,42 @@ export function createRoutedClient(): LLMClient {
         // Try fallback
         const config = getLLMConfig();
         if (config.fallbackEnabled) {
-          const fallbackProvider = provider === 'ollama' ? 'openrouter' : 'ollama';
-          const fallbackAvailable = fallbackProvider === 'ollama' 
-            ? routerState.ollamaAvailable 
-            : routerState.openrouterAvailable;
+          let fallbackProvider: LLMProvider | null = null;
+          let fallbackAvailable = false;
 
-          if (fallbackAvailable) {
+          if (provider === 'ollama') {
+            if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
+              fallbackProvider = 'lmstudio';
+              fallbackAvailable = true;
+            } else if (routerState.openrouterAvailable) {
+              fallbackProvider = 'openrouter';
+              fallbackAvailable = true;
+            }
+          } else if (provider === 'lmstudio') {
+            if (config.ollamaEnabled && routerState.ollamaAvailable) {
+              fallbackProvider = 'ollama';
+              fallbackAvailable = true;
+            } else if (routerState.openrouterAvailable) {
+              fallbackProvider = 'openrouter';
+              fallbackAvailable = true;
+            }
+          } else { // openrouter
+            if (config.ollamaEnabled && routerState.ollamaAvailable) {
+              fallbackProvider = 'ollama';
+              fallbackAvailable = true;
+            } else if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
+              fallbackProvider = 'lmstudio';
+              fallbackAvailable = true;
+            }
+          }
+
+          if (fallbackAvailable && fallbackProvider) {
             console.log(`⚠️ ${provider} failed, trying ${fallbackProvider}`);
-            const fallbackClient = fallbackProvider === 'ollama' 
-              ? getOllamaClient() 
-              : getOpenRouterClient();
+            const fallbackClient = fallbackProvider === 'ollama'
+              ? getOllamaClient()
+              : fallbackProvider === 'lmstudio'
+                ? getLMStudioClient()
+                : getOpenRouterClient();
             return await fallbackClient.complete(options);
           }
         }
@@ -208,7 +285,7 @@ export function createRoutedClient(): LLMClient {
     },
 
     async *streamComplete(options: CompletionOptions): AsyncGenerator<string> {
-      const { provider, client } = await selectProvider(options.provider);
+      const { provider, client } = await selectProvider(options.provider, undefined, options.userSettings);
 
       console.log(`🔀 Router: Using ${provider} for streaming`);
 
@@ -218,16 +295,42 @@ export function createRoutedClient(): LLMClient {
         // Try fallback
         const config = getLLMConfig();
         if (config.fallbackEnabled) {
-          const fallbackProvider = provider === 'ollama' ? 'openrouter' : 'ollama';
-          const fallbackAvailable = fallbackProvider === 'ollama' 
-            ? routerState.ollamaAvailable 
-            : routerState.openrouterAvailable;
+          let fallbackProvider: LLMProvider | null = null;
+          let fallbackAvailable = false;
 
-          if (fallbackAvailable) {
+          if (provider === 'ollama') {
+            if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
+              fallbackProvider = 'lmstudio';
+              fallbackAvailable = true;
+            } else if (routerState.openrouterAvailable) {
+              fallbackProvider = 'openrouter';
+              fallbackAvailable = true;
+            }
+          } else if (provider === 'lmstudio') {
+            if (config.ollamaEnabled && routerState.ollamaAvailable) {
+              fallbackProvider = 'ollama';
+              fallbackAvailable = true;
+            } else if (routerState.openrouterAvailable) {
+              fallbackProvider = 'openrouter';
+              fallbackAvailable = true;
+            }
+          } else { // openrouter
+            if (config.ollamaEnabled && routerState.ollamaAvailable) {
+              fallbackProvider = 'ollama';
+              fallbackAvailable = true;
+            } else if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
+              fallbackProvider = 'lmstudio';
+              fallbackAvailable = true;
+            }
+          }
+
+          if (fallbackAvailable && fallbackProvider) {
             console.log(`⚠️ ${provider} failed, trying ${fallbackProvider}`);
-            const fallbackClient = fallbackProvider === 'ollama' 
-              ? getOllamaClient() 
-              : getOpenRouterClient();
+            const fallbackClient = fallbackProvider === 'ollama'
+              ? getOllamaClient()
+              : fallbackProvider === 'lmstudio'
+                ? getLMStudioClient()
+                : getOpenRouterClient();
             yield* fallbackClient.streamComplete(options);
             return;
           }
@@ -237,7 +340,7 @@ export function createRoutedClient(): LLMClient {
     },
 
     async completeJSON<T>(options: CompletionOptions & { schema?: string }): Promise<T> {
-      const { provider, client } = await selectProvider(options.provider);
+      const { provider, client } = await selectProvider(options.provider, undefined, options.userSettings);
 
       console.log(`🔀 Router: Using ${provider} for JSON completion`);
 
@@ -247,16 +350,42 @@ export function createRoutedClient(): LLMClient {
         // Try fallback
         const config = getLLMConfig();
         if (config.fallbackEnabled) {
-          const fallbackProvider = provider === 'ollama' ? 'openrouter' : 'ollama';
-          const fallbackAvailable = fallbackProvider === 'ollama' 
-            ? routerState.ollamaAvailable 
-            : routerState.openrouterAvailable;
+          let fallbackProvider: LLMProvider | null = null;
+          let fallbackAvailable = false;
 
-          if (fallbackAvailable) {
+          if (provider === 'ollama') {
+            if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
+              fallbackProvider = 'lmstudio';
+              fallbackAvailable = true;
+            } else if (routerState.openrouterAvailable) {
+              fallbackProvider = 'openrouter';
+              fallbackAvailable = true;
+            }
+          } else if (provider === 'lmstudio') {
+            if (config.ollamaEnabled && routerState.ollamaAvailable) {
+              fallbackProvider = 'ollama';
+              fallbackAvailable = true;
+            } else if (routerState.openrouterAvailable) {
+              fallbackProvider = 'openrouter';
+              fallbackAvailable = true;
+            }
+          } else { // openrouter
+            if (config.ollamaEnabled && routerState.ollamaAvailable) {
+              fallbackProvider = 'ollama';
+              fallbackAvailable = true;
+            } else if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
+              fallbackProvider = 'lmstudio';
+              fallbackAvailable = true;
+            }
+          }
+
+          if (fallbackAvailable && fallbackProvider) {
             console.log(`⚠️ ${provider} failed, trying ${fallbackProvider}`);
-            const fallbackClient = fallbackProvider === 'ollama' 
-              ? getOllamaClient() 
-              : getOpenRouterClient();
+            const fallbackClient = fallbackProvider === 'ollama'
+              ? getOllamaClient()
+              : fallbackProvider === 'lmstudio'
+                ? getLMStudioClient()
+                : getOpenRouterClient();
             return await fallbackClient.completeJSON<T>(options);
           }
         }

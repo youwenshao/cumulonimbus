@@ -15,6 +15,7 @@ export type {
   HealthCheckResult,
   ModelSize,
   ModelSelectionHints,
+  UserLLMSettings,
 } from './types';
 
 // Ollama client
@@ -31,6 +32,14 @@ export {
   checkOpenRouterHealth,
   getOpenRouterConfig,
 } from './openrouter-client';
+
+// LM Studio client
+export {
+  getLMStudioClient,
+  checkLMStudioHealth,
+  listLMStudioModels,
+  getLMStudioConfig,
+} from './lmstudio-client';
 
 // Router
 export {

@@ -5,9 +5,10 @@
 
 import { BaseAgent } from './base-agent';
 import { generateId } from '@/lib/utils';
-import type { 
-  ConversationState, 
-  AgentResponse, 
+import type { UserLLMSettings } from '@/lib/llm';
+import type {
+  ConversationState,
+  AgentResponse,
   OrchestratorDecision,
   AgentAction,
   ParsedIntent,

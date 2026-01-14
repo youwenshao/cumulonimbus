@@ -14,6 +14,8 @@ interface LLMSettingsData {
   ollamaEndpoint: string;
   ollamaModel: string;
   ollamaSmallModel: string;
+  // lmstudioEndpoint: string;  // TODO: Enable after DB migration
+  // lmstudioModel: string;     // TODO: Enable after DB migration
   fallbackEnabled: boolean;
 }
 
@@ -38,6 +40,8 @@ export async function GET() {
         ollamaEndpoint: true,
         ollamaModel: true,
         ollamaSmallModel: true,
+        // lmstudioEndpoint: true,  // TODO: Enable after DB migration
+        // lmstudioModel: true,     // TODO: Enable after DB migration
       },
     });
 
@@ -54,6 +58,8 @@ export async function GET() {
       ollamaEndpoint: user.ollamaEndpoint || config.ollamaApiUrl,
       ollamaModel: user.ollamaModel || config.ollamaModel,
       ollamaSmallModel: user.ollamaSmallModel || config.ollamaSmallModel,
+      // lmstudioEndpoint: user.lmstudioEndpoint || config.lmstudioApiUrl,  // TODO: Enable after DB migration
+      // lmstudioModel: user.lmstudioModel || config.lmstudioModel,          // TODO: Enable after DB migration
       fallbackEnabled: config.fallbackEnabled,
     });
   } catch (error) {
@@ -78,10 +84,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body: LLMSettingsData = await request.json();
-    const { provider, ollamaEndpoint, ollamaModel, ollamaSmallModel } = body;
+    const { provider, ollamaEndpoint, ollamaModel, ollamaSmallModel } = body; // lmstudioEndpoint, lmstudioModel TODO: Enable after DB migration
 
     // Validate provider
-    if (!['auto', 'ollama', 'openrouter'].includes(provider)) {
+    if (!['auto', 'ollama', 'openrouter', 'lmstudio'].includes(provider)) {
       return NextResponse.json(
         { error: 'Invalid provider' },
         { status: 400 }
@@ -96,6 +102,8 @@ export async function POST(request: NextRequest) {
         ollamaEndpoint,
         ollamaModel,
         ollamaSmallModel,
+        // lmstudioEndpoint,  // TODO: Enable after DB migration
+        // lmstudioModel,     // TODO: Enable after DB migration
       },
     });
 
@@ -105,6 +113,8 @@ export async function POST(request: NextRequest) {
       ollamaEndpoint,
       ollamaModel,
       ollamaSmallModel,
+      // lmstudioEndpoint,  // TODO: Enable after DB migration
+      // lmstudioModel,     // TODO: Enable after DB migration
     });
 
     return NextResponse.json({

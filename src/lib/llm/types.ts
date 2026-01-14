@@ -3,7 +3,7 @@
  * Shared type definitions for LLM providers
  */
 
-export type LLMProvider = 'ollama' | 'openrouter' | 'auto';
+export type LLMProvider = 'ollama' | 'openrouter' | 'lmstudio' | 'auto';
 
 export interface LLMConfig {
   provider: LLMProvider;
@@ -16,6 +16,10 @@ export interface LLMConfig {
   openrouterApiKey: string;
   openrouterApiUrl: string;
   openrouterModel: string;
+  // LM Studio settings
+  lmstudioEnabled: boolean;
+  lmstudioApiUrl: string;
+  lmstudioModel: string;
   // Router settings
   fallbackEnabled: boolean;
 }
@@ -31,6 +35,16 @@ export interface CompletionOptions {
   maxTokens?: number;
   model?: string; // Override default model
   provider?: LLMProvider; // Override default provider
+  userSettings?: UserLLMSettings; // User-specific LLM settings
+}
+
+export interface UserLLMSettings {
+  provider?: LLMProvider;
+  ollamaEndpoint?: string;
+  ollamaModel?: string;
+  ollamaSmallModel?: string;
+  lmstudioEndpoint?: string;
+  lmstudioModel?: string;
 }
 
 export interface StreamChunk {
@@ -69,6 +83,7 @@ export interface LLMRouterState {
   primaryProvider: LLMProvider;
   ollamaAvailable: boolean;
   openrouterAvailable: boolean;
+  lmstudioAvailable: boolean;
   lastHealthCheck: Date | null;
 }
 

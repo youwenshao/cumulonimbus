@@ -21,10 +21,12 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   // LLM Preferences
-  preferredLLMProvider  String?  @default("auto")  // "ollama" | "openrouter" | "auto"
+  preferredLLMProvider  String?  @default("auto")  // "ollama" | "openrouter" | "lmstudio" | "auto"
   ollamaEndpoint        String?  @default("http://localhost:11434")
   ollamaModel           String?  @default("qwen3-coder:30b")
   ollamaSmallModel      String?  @default("qwen3:4b")
+  lmstudioEndpoint      String?  @default("http://localhost:1234")
+  lmstudioModel         String?  @default("local-model")
 }
 
 model App {

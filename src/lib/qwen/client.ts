@@ -6,10 +6,13 @@
  */
 
 import {
-  getRoutedClient,
+  complete as llmComplete,
+  streamComplete as llmStreamComplete,
+  completeJSON as llmCompleteJSON,
   getLLMConfig,
   type ChatMessage as LLMChatMessage,
   type CompletionOptions,
+  type UserLLMSettings,
 } from '@/lib/llm';
 
 export type QwenProvider = 'openrouter' | 'ollama' | 'auto';
@@ -25,6 +28,7 @@ export interface ChatCompletionOptions {
   temperature?: number;
   maxTokens?: number;
   stream?: boolean;
+  userSettings?: UserLLMSettings;
 }
 
 // Get model name for backward compatibility
@@ -45,15 +49,14 @@ export const qwenClient = {
  * Non-streaming completion using the LLM router
  */
 export async function complete(options: Omit<ChatCompletionOptions, 'stream'>): Promise<string> {
-  const client = getRoutedClient();
-
   try {
     console.log('🚀 Making AI request via LLM router');
 
-    const result = await client.complete({
+    const result = await llmComplete({
       messages: options.messages as LLMChatMessage[],
       temperature: options.temperature,
       maxTokens: options.maxTokens,
+      userSettings: options.userSettings,
     });
 
     console.log('✅ AI response received, length:', result.length);
@@ -70,14 +73,13 @@ export async function complete(options: Omit<ChatCompletionOptions, 'stream'>): 
  * Streaming completion using the LLM router
  */
 export async function* streamComplete(options: Omit<ChatCompletionOptions, 'stream'>): AsyncGenerator<string> {
-  const client = getRoutedClient();
-
   console.log('🚀 Starting AI stream via LLM router');
 
-  yield* client.streamComplete({
+  yield* llmStreamComplete({
     messages: options.messages as LLMChatMessage[],
     temperature: options.temperature,
     maxTokens: options.maxTokens,
+    userSettings: options.userSettings,
   });
 }
 
@@ -85,16 +87,15 @@ export async function* streamComplete(options: Omit<ChatCompletionOptions, 'stre
  * JSON mode completion using the LLM router
  */
 export async function completeJSON<T>(options: Omit<ChatCompletionOptions, 'stream'> & { schema?: string }): Promise<T> {
-  const client = getRoutedClient();
-
   try {
     console.log('🚀 Making JSON AI request via LLM router');
 
-    const result = await client.completeJSON<T>({
+    const result = await llmCompleteJSON<T>({
       messages: options.messages as LLMChatMessage[],
       temperature: options.temperature,
       maxTokens: options.maxTokens,
       schema: options.schema,
+      userSettings: options.userSettings,
     });
 
     console.log('✅ JSON parsed successfully');

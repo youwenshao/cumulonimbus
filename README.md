@@ -49,8 +49,8 @@ Cumulonimbus is an intent-to-application platform that allows non-technical user
 - **Framework**: Next.js 14 (App Router)
 - **Language**: TypeScript
 - **Database**: PostgreSQL (via Prisma ORM)
-- **AI**: Smart LLM routing (Local Ollama + OpenRouter fallback)
-  - **Local Models**: Ollama (Qwen3-coder:30b, Qwen3:4b)
+- **AI**: Smart LLM routing (Local Ollama/LM Studio + OpenRouter fallback)
+  - **Local Models**: Ollama (Qwen3-coder:30b, Qwen3:4b) or LM Studio (any model)
   - **Cloud Fallback**: Qwen API via OpenRouter (free tier)
 - **Auth**: NextAuth.js
 - **Styling**: Tailwind CSS
@@ -62,8 +62,9 @@ Cumulonimbus is an intent-to-application platform that allows non-technical user
 
 - Node.js 18+
 - PostgreSQL database
-- **AI Options** (choose one or both):
-  - **Local AI**: Ollama (recommended for privacy and offline use)
+- **AI Options** (choose one or more):
+  - **Local AI - Ollama**: Ollama (recommended for privacy and offline use)
+  - **Local AI - LM Studio**: LM Studio (alternative local option with any model)
   - **Cloud AI**: Qwen API key from OpenRouter (free tier available)
 
 ### Installation
@@ -103,8 +104,15 @@ Cumulonimbus is an intent-to-application platform that allows non-technical user
    - Create an API key
    - Copy the key for environment setup
 
-   **Option C: Both (recommended for reliability)**
-   - Set up both Ollama and OpenRouter for automatic fallback
+   **Option C: LM Studio (alternative local AI)**
+   ```bash
+   # Download and install LM Studio from https://lmstudio.ai/
+   # Start LM Studio and download your preferred models
+   # Start the local server (default port 1234)
+   ```
+
+   **Option D: Multiple providers (recommended for maximum reliability)**
+   - Set up Ollama, LM Studio, and/or OpenRouter for automatic fallback
 
 4. Set up environment variables:
    ```bash
@@ -141,8 +149,14 @@ This will:
 - Set up the database
 - Generate Prisma client
 
-**Note**: The setup script will configure environment variables for both Ollama and OpenRouter. Make sure to:
-- Install and start Ollama if using local AI
+**Note**: Configure your AI providers in `.env`:
+- For Ollama: Install Ollama and run `ollama pull qwen3-coder:30b` and `ollama pull qwen3:4b`
+- For LM Studio: Download from lmstudio.ai and load your preferred models
+- For OpenRouter: Get an API key from openrouter.ai
+
+**Note**: The setup script will configure environment variables for Ollama, LM Studio, and OpenRouter. Make sure to:
+- Install and start Ollama if using Ollama
+- Install and start LM Studio if using LM Studio
 - Add your OpenRouter API key if using cloud AI
 
 ## Project Structure
@@ -194,8 +208,8 @@ cumulonimbus/
 
 Cumulonimbus uses a smart LLM routing system that automatically selects the best available AI provider:
 
-- **Local Priority**: Prefers Ollama (local models) for privacy, speed, and offline capability
-- **Cloud Fallback**: Falls back to OpenRouter (Qwen API) when Ollama is unavailable
+- **Local Priority**: Prefers local providers (Ollama → LM Studio) for privacy, speed, and offline capability
+- **Cloud Fallback**: Falls back to OpenRouter (Qwen API) when local providers are unavailable
 - **Health Monitoring**: Continuously monitors provider availability and switches automatically
 - **Streaming Support**: Real-time code generation with live progress updates
 
@@ -244,7 +258,7 @@ NEXTAUTH_SECRET="your-secret-key"  # Generate with: openssl rand -base64 32
 NEXTAUTH_URL="http://localhost:3000"  # Your app URL
 
 # AI/LLM Configuration - Choose your provider(s)
-LLM_PROVIDER="auto"  # "auto", "ollama", or "openrouter"
+LLM_PROVIDER="auto"  # "auto", "ollama", "openrouter", or "lmstudio"
 LLM_FALLBACK_ENABLED="true"  # Enable automatic fallback between providers
 
 # Ollama Configuration (Local AI)
@@ -252,6 +266,11 @@ OLLAMA_ENABLED="true"  # Set to false to disable local AI
 OLLAMA_API_URL="http://localhost:11434"  # Ollama server URL
 OLLAMA_MODEL="qwen3-coder:30b"  # Main model for complex tasks
 OLLAMA_SMALL_MODEL="qwen3:4b"  # Smaller model for simple tasks
+
+# LM Studio Configuration (Local AI - Alternative to Ollama)
+LMSTUDIO_ENABLED="false"  # Set to true to enable LM Studio
+LMSTUDIO_API_URL="http://localhost:1234"  # LM Studio server URL
+LMSTUDIO_MODEL="local-model"  # Model name (will be auto-discovered)
 
 # OpenRouter Configuration (Cloud AI - Fallback)
 OPENROUTER_API_KEY="your-openrouter-api-key"  # Get from https://openrouter.ai
@@ -267,10 +286,18 @@ For production deployment, set these in your hosting platform:
 DATABASE_URL=           # Your production PostgreSQL URL
 NEXTAUTH_SECRET=        # Generate with: openssl rand -base64 32
 NEXTAUTH_URL=           # Your production URL (e.g., https://yourdomain.com)
-QWEN_API_KEY=           # Your OpenRouter API key
-QWEN_API_URL=           # https://openrouter.ai/api/v1
-QWEN_MODEL=             # qwen/qwen-2.5-coder-32b-instruct
-QWEN_PROVIDER=          # openrouter
+OLLAMA_ENABLED=         # true/false - Enable Ollama
+OLLAMA_API_URL=         # http://localhost:11434
+OLLAMA_MODEL=           # qwen3-coder:30b
+OLLAMA_SMALL_MODEL=     # qwen3:4b
+LMSTUDIO_ENABLED=       # true/false - Enable LM Studio
+LMSTUDIO_API_URL=       # http://localhost:1234
+LMSTUDIO_MODEL=         # local-model
+OPENROUTER_API_KEY=     # Your OpenRouter API key
+OPENROUTER_API_URL=     # https://openrouter.ai/api/v1
+OPENROUTER_MODEL=       # qwen/qwen-2.5-coder-32b-instruct
+LLM_PROVIDER=           # auto/ollama/lmstudio/openrouter
+LLM_FALLBACK_ENABLED=   # true/false
 ```
 
 ### Getting an OpenRouter API Key
@@ -329,21 +356,53 @@ ollama ps
 - **Connection errors**: Verify Ollama is running with `ollama serve`
 - **Memory issues**: Try the smaller `qwen3:4b` model for resource-constrained systems
 
+### LM Studio Setup and Management
+
+#### Installing LM Studio
+
+1. Visit [LM Studio website](https://lmstudio.ai/)
+2. Download and install the application for your platform (macOS, Windows, Linux)
+3. Launch LM Studio
+
+#### Starting LM Studio and Loading Models
+
+```bash
+# LM Studio GUI Steps:
+# 1. Open LM Studio
+# 2. Go to "My Models" tab
+# 3. Search and download your preferred models
+# 4. Go to "Chat" or "Local Server" tab
+# 5. Load a model
+# 6. Start the local server (default port 1234)
+```
+
+#### LM Studio Local Server
+
+LM Studio provides an OpenAI-compatible API server that runs on `http://localhost:1234` by default. Cumulonimbus will automatically discover available models when you load them in LM Studio.
+
+#### Troubleshooting LM Studio
+
+- **Server won't start**: Make sure port 1234 is available
+- **Models not loading**: Ensure you have sufficient RAM/VRAM for the selected model
+- **Connection errors**: Verify LM Studio server is running and accessible
+- **Performance issues**: Try smaller models or adjust context length
+
 ### AI Provider Configuration
 
 Cumulonimbus automatically selects the best available AI provider based on your configuration:
 
 #### Configuration Options
 
-- **`LLM_PROVIDER="auto"`** (Recommended): Automatically prefers Ollama, falls back to OpenRouter
+- **`LLM_PROVIDER="auto"`** (Recommended): Automatically prefers local providers (Ollama → LM Studio), falls back to OpenRouter
 - **`LLM_PROVIDER="ollama"`**: Forces use of local Ollama models only
+- **`LLM_PROVIDER="lmstudio"`**: Forces use of local LM Studio models only
 - **`LLM_PROVIDER="openrouter"`**: Forces use of cloud OpenRouter models only
 
 #### Provider Priority Logic
 
-1. **Health Check**: System checks if Ollama and OpenRouter are available
-2. **Auto Mode**: If `LLM_PROVIDER="auto"` and Ollama is available → use Ollama
-3. **Fallback**: If primary provider fails and `LLM_FALLBACK_ENABLED="true"` → try other provider
+1. **Health Check**: System checks if Ollama, LM Studio, and OpenRouter are available
+2. **Auto Mode**: If `LLM_PROVIDER="auto"` → prefers Ollama, then LM Studio, then OpenRouter
+3. **Fallback**: If primary provider fails and `LLM_FALLBACK_ENABLED="true"` → try other providers in priority order
 4. **Error**: If no providers available → show error message
 
 #### Model Selection
@@ -353,9 +412,10 @@ Cumulonimbus automatically selects the best available AI provider based on your 
 
 #### Privacy and Performance
 
-- **Local AI (Ollama)**: Maximum privacy, no API costs, works offline
+- **Local AI (Ollama)**: Maximum privacy, no API costs, works offline, Qwen models optimized
+- **Local AI (LM Studio)**: Maximum privacy, no API costs, works offline, supports any model
 - **Cloud AI (OpenRouter)**: Always available, handles large workloads, API costs apply
-- **Hybrid**: Best of both worlds with automatic failover
+- **Hybrid**: Best of both worlds with automatic failover between all providers
 
 ## Available Scripts
 

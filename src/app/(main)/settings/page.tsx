@@ -14,6 +14,8 @@ const defaultLLMSettings: LLMSettings = {
   ollamaEndpoint: 'http://localhost:11434',
   ollamaModel: 'qwen3-coder:30b',
   ollamaSmallModel: 'qwen3:4b',
+  lmstudioEndpoint: 'http://localhost:1234',
+  lmstudioModel: 'local-model',
   fallbackEnabled: true,
 };
 
@@ -38,6 +40,8 @@ export default function SettingsPage() {
           ollamaEndpoint: data.ollamaEndpoint || defaultLLMSettings.ollamaEndpoint,
           ollamaModel: data.ollamaModel || defaultLLMSettings.ollamaModel,
           ollamaSmallModel: data.ollamaSmallModel || defaultLLMSettings.ollamaSmallModel,
+          lmstudioEndpoint: data.lmstudioEndpoint || defaultLLMSettings.lmstudioEndpoint,
+          lmstudioModel: data.lmstudioModel || defaultLLMSettings.lmstudioModel,
           fallbackEnabled: data.fallbackEnabled ?? true,
         });
       }

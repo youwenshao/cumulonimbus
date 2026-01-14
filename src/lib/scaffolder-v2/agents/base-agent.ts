@@ -3,7 +3,7 @@
  * Common functionality for all V2 agents
  */
 
-import { streamComplete, completeJSON, type ChatMessage } from '@/lib/qwen';
+import { streamComplete, completeJSON, type ChatMessage, type UserLLMSettings } from '@/lib/qwen';
 import type { AgentResponse, ConversationState } from '../types';
 
 export interface AgentConfig {
@@ -12,6 +12,7 @@ export interface AgentConfig {
   model?: string;
   temperature?: number;
   maxTokens?: number;
+  userSettings?: UserLLMSettings;
 }
 
 export abstract class BaseAgent {
@@ -23,6 +24,13 @@ export abstract class BaseAgent {
       maxTokens: 4096,
       ...config,
     };
+  }
+
+  /**
+   * Update user settings for this agent
+   */
+  setUserSettings(userSettings?: UserLLMSettings): void {
+    this.config.userSettings = userSettings;
   }
 
   /**
@@ -50,6 +58,7 @@ export abstract class BaseAgent {
       schema,
       temperature: this.config.temperature,
       maxTokens: this.config.maxTokens,
+      userSettings: this.config.userSettings,
     });
   }
 
@@ -63,6 +72,7 @@ export abstract class BaseAgent {
       messages,
       temperature: this.config.temperature,
       maxTokens: this.config.maxTokens,
+      userSettings: this.config.userSettings,
     })) {
       yield chunk;
     }

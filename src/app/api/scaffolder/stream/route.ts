@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { getServerSession } from '@/lib/auth';
 import { streamComplete, type ChatMessage } from '@/lib/qwen';
 import { wrapError } from '@/lib/error-handling/scaffolder-errors';
+import prisma from '@/lib/db';
+import type { UserLLMSettings } from '@/lib/llm';
 
 /**
  * Streaming API endpoint for AI responses
@@ -47,6 +49,28 @@ export async function POST(request: NextRequest) {
 
     console.log(`🚀 Starting stream for context: ${context}`);
 
+    // Get user LLM settings
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        preferredLLMProvider: true,
+        ollamaEndpoint: true,
+        ollamaModel: true,
+        ollamaSmallModel: true,
+        // lmstudioEndpoint: true,  // TODO: Enable after DB migration
+        // lmstudioModel: true,     // TODO: Enable after DB migration
+      },
+    });
+
+    const userSettings: UserLLMSettings | undefined = user ? {
+      provider: user.preferredLLMProvider || undefined,
+      ollamaEndpoint: user.ollamaEndpoint || undefined,
+      ollamaModel: user.ollamaModel || undefined,
+      ollamaSmallModel: user.ollamaSmallModel || undefined,
+      // lmstudioEndpoint: user.lmstudioEndpoint || undefined,  // TODO: Enable after DB migration
+      // lmstudioModel: user.lmstudioModel || undefined,        // TODO: Enable after DB migration
+    } : undefined;
+
     // Build messages array
     const messages: ChatMessage[] = [
       { role: 'system', content: SYSTEM_PROMPTS[context as keyof typeof SYSTEM_PROMPTS] || SYSTEM_PROMPTS.parse },
@@ -69,7 +93,7 @@ export async function POST(request: NextRequest) {
           );
 
           // Stream AI response
-          for await (const chunk of streamComplete({ messages, temperature: 0.7 })) {
+          for await (const chunk of streamComplete({ messages, temperature: 0.7, userSettings })) {
             fullContent += chunk;
             
             // Send chunk

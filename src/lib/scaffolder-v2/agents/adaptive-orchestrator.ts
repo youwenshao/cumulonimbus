@@ -5,10 +5,11 @@
 
 import { BaseAgent } from './base-agent';
 import { generateId } from '@/lib/utils';
-import type { 
+import type { UserLLMSettings } from '@/lib/llm';
+import type {
   ConversationState,
   DynamicConversationState,
-  AgentResponse, 
+  AgentResponse,
   EnhancedOrchestratorDecision,
   ParallelAction,
   ReadinessScores,
@@ -127,13 +128,14 @@ ${(dynamicState.workflows?.length || 0) > 0 ? `${dynamicState.workflows.length} 
    */
   async process(
     message: string,
-    state: ConversationState
+    state: ConversationState,
+    userSettings?: UserLLMSettings
   ): Promise<AgentResponse> {
     const dynamicState = this.ensureDynamicState(state);
     this.log('Processing with adaptive orchestrator', { message: message.substring(0, 100) });
 
     // Step 1: Analyze the request and determine actions
-    const decision = await this.analyzeAndDecide(message, dynamicState);
+    const decision = await this.analyzeAndDecide(message, dynamicState, userSettings);
     this.log('Decision made', { 
       actions: decision.parallelActions.length,
       generateProposals: decision.generateProposals 
@@ -153,7 +155,8 @@ ${(dynamicState.workflows?.length || 0) > 0 ? `${dynamicState.workflows.length} 
    */
   async analyzeAndDecide(
     message: string,
-    state: DynamicConversationState
+    state: DynamicConversationState,
+    userSettings?: UserLLMSettings
   ): Promise<EnhancedOrchestratorDecision> {
     const systemPrompt = this.buildSystemPrompt(state);
     
@@ -212,7 +215,7 @@ Respond with JSON.`;
         priority: a.priority || 5,
         dependsOn: a.dependsOn,
         estimatedMs: a.estimatedMs || 2000,
-        context: { userMessage: message },
+        context: { userMessage: message, userSettings },
       }));
 
       // Calculate expected readiness
@@ -233,7 +236,7 @@ Respond with JSON.`;
       };
     } catch (error) {
       this.log('Analysis failed, using fallback', { error });
-      return this.createFallbackDecision(message, state);
+      return this.createFallbackDecision(message, state, userSettings);
     }
   }
 
@@ -320,6 +323,13 @@ Provide a comprehensive analysis as JSON.`;
 
         try {
           const userMessage = (action.context?.userMessage as string) || '';
+          const userSettings = action.context?.userSettings as UserLLMSettings;
+
+          // Set user settings on the agent
+          if (agent.setUserSettings) {
+            agent.setUserSettings(userSettings);
+          }
+
           const result = await agent.process(userMessage, state);
           return {
             actionId: action.id,
@@ -727,7 +737,8 @@ Provide a comprehensive analysis as JSON.`;
    */
   private createFallbackDecision(
     message: string,
-    state: DynamicConversationState
+    state: DynamicConversationState,
+    userSettings?: UserLLMSettings
   ): EnhancedOrchestratorDecision {
     const hasSchema = state.schemas.length > 0;
     const hasLayout = state.layout !== undefined;
@@ -790,7 +801,7 @@ Provide a comprehensive analysis as JSON.`;
           agent: 'schema',
           action: 'refine',
           priority: 8,
-          context: { feedback: message },
+          context: { feedback: message, userSettings },
           estimatedMs: 2000,
         });
       }
@@ -800,7 +811,7 @@ Provide a comprehensive analysis as JSON.`;
           agent: 'ui',
           action: 'refine',
           priority: 8,
-          context: { feedback: message },
+          context: { feedback: message, userSettings },
           estimatedMs: 2000,
         });
       }
@@ -811,7 +822,7 @@ Provide a comprehensive analysis as JSON.`;
           agent: hasSchema ? 'schema' : 'intent',
           action: hasSchema ? 'refine' : 'extract',
           priority: 5,
-          context: { feedback: message },
+          context: { feedback: message, userSettings },
           estimatedMs: 2000,
         });
       }
