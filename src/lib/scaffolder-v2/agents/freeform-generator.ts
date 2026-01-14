@@ -22,20 +22,23 @@ AVAILABLE GLOBALS (do not import these):
 - React (with all hooks: useState, useEffect, useCallback, useMemo, useRef)
 - useAppData() hook - returns { data, isLoading, error, addRecord, deleteRecord, updateRecord, refresh }
 
-CRITICAL: 
+CRITICAL SYNTAX RULES:
 - Do NOT use import statements - all dependencies are provided globally
 - Do NOT use 'use client' directive
 - Define a single 'App' function component as the entry point
 - Use window.SandboxAPI.fetch() for API calls if needed beyond useAppData
+- AVOID backticks (\`) in Tailwind classes - they create syntax errors in template literals
+- Use standard Tailwind classes only, avoid arbitrary values with backticks like content-['text']
+- For custom content in CSS, use standard approaches without backticks
 
 EXAMPLE STRUCTURE:
 \`\`\`
 function App() {
   const { data, isLoading, addRecord, deleteRecord } = useAppData();
   const [formState, setFormState] = React.useState({});
-  
+
   // Your app logic here
-  
+
   return (
     <div className="min-h-screen bg-black text-white p-6">
       {/* Your UI here */}
@@ -44,7 +47,7 @@ function App() {
 }
 \`\`\`
 
-Generate clean, well-organized code with clear variable names and comments for complex logic.`;
+Generate clean, well-organized code with VALID JavaScript syntax. Test mentally for syntax errors before outputting.`;
 
 const DESIGN_SYSTEM_PROMPT = `You are an expert app designer. Analyze the user's request and design a complete application.
 
@@ -277,10 +280,23 @@ Generate ONLY the code, no markdown code blocks or explanations.`;
     }
 
     // Clean up the final code
-    const cleanedCode = fullCode
+    let cleanedCode = fullCode
       .replace(/```(?:typescript|tsx|javascript|jsx)?\n?/g, '')
       .replace(/```$/g, '')
       .trim();
+
+    // Fix common syntax issues from LLM generation
+    cleanedCode = cleanedCode
+      // Remove backticks from Tailwind arbitrary values that cause syntax errors
+      .replace(/content-\['[^']*'\]/g, 'content-empty')
+      // Fix other potential backtick issues in class names
+      .replace(/`([^`]*)`/g, (match, content) => {
+        // Only replace backticks that are inside className strings
+        if (content.includes('className=') || content.includes('class=')) {
+          return content.replace(/`/g, '');
+        }
+        return match;
+      });
 
     yield { type: 'complete', content: cleanedCode };
   }

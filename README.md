@@ -49,7 +49,9 @@ Cumulonimbus is an intent-to-application platform that allows non-technical user
 - **Framework**: Next.js 14 (App Router)
 - **Language**: TypeScript
 - **Database**: PostgreSQL (via Prisma ORM)
-- **AI**: Qwen API (via OpenRouter - free tier)
+- **AI**: Smart LLM routing (Local Ollama + OpenRouter fallback)
+  - **Local Models**: Ollama (Qwen3-coder:30b, Qwen3:4b)
+  - **Cloud Fallback**: Qwen API via OpenRouter (free tier)
 - **Auth**: NextAuth.js
 - **Styling**: Tailwind CSS
 - **Charts**: Recharts
@@ -60,7 +62,9 @@ Cumulonimbus is an intent-to-application platform that allows non-technical user
 
 - Node.js 18+
 - PostgreSQL database
-- Qwen API key (from OpenRouter)
+- **AI Options** (choose one or both):
+  - **Local AI**: Ollama (recommended for privacy and offline use)
+  - **Cloud AI**: Qwen API key from OpenRouter (free tier available)
 
 ### Installation
 
@@ -75,14 +79,41 @@ Cumulonimbus is an intent-to-application platform that allows non-technical user
    npm install
    ```
 
-3. Set up environment variables:
+3. **Set up AI providers** (choose your preferred option):
+
+   **Option A: Local AI with Ollama (Recommended)**
+   ```bash
+   # Install Ollama (macOS)
+   brew install ollama
+
+   # Install Ollama (Linux)
+   curl -fsSL https://ollama.ai/install.sh | sh
+
+   # Start Ollama service
+   ollama serve
+
+   # Pull recommended models (in another terminal)
+   ollama pull qwen3-coder:30b  # Main model for code generation
+   ollama pull qwen3:4b         # Smaller model for faster tasks
+   ```
+
+   **Option B: Cloud AI with OpenRouter**
+   - Visit [OpenRouter.ai](https://openrouter.ai)
+   - Sign up for a free account
+   - Create an API key
+   - Copy the key for environment setup
+
+   **Option C: Both (recommended for reliability)**
+   - Set up both Ollama and OpenRouter for automatic fallback
+
+4. Set up environment variables:
    ```bash
    cp .env.example .env
    ```
-   
+
    Then edit `.env` with your values (see [Environment Variables](#environment-variables) section below)
 
-4. Set up the database:
+5. Set up the database:
    ```bash
    npm run db:setup
    # or manually:
@@ -90,12 +121,12 @@ Cumulonimbus is an intent-to-application platform that allows non-technical user
    npx prisma generate
    ```
 
-5. Start the development server:
+6. Start the development server:
    ```bash
    npm run dev
    ```
 
-6. Open [http://localhost:3000](http://localhost:3000)
+7. Open [http://localhost:3000](http://localhost:3000)
 
 ### Quick Setup Script
 
@@ -109,6 +140,10 @@ This will:
 - Copy `.env.example` to `.env` (if it doesn't exist)
 - Set up the database
 - Generate Prisma client
+
+**Note**: The setup script will configure environment variables for both Ollama and OpenRouter. Make sure to:
+- Install and start Ollama if using local AI
+- Add your OpenRouter API key if using cloud AI
 
 ## Project Structure
 
@@ -155,6 +190,15 @@ cumulonimbus/
 
 ## How It Works
 
+### AI Architecture
+
+Cumulonimbus uses a smart LLM routing system that automatically selects the best available AI provider:
+
+- **Local Priority**: Prefers Ollama (local models) for privacy, speed, and offline capability
+- **Cloud Fallback**: Falls back to OpenRouter (Qwen API) when Ollama is unavailable
+- **Health Monitoring**: Continuously monitors provider availability and switches automatically
+- **Streaming Support**: Real-time code generation with live progress updates
+
 ### User Journey
 
 1. **Landing & Authentication**: Sign up or sign in to access the platform
@@ -199,11 +243,20 @@ DATABASE_URL="postgresql://user:password@localhost:5432/cumulonimbus"
 NEXTAUTH_SECRET="your-secret-key"  # Generate with: openssl rand -base64 32
 NEXTAUTH_URL="http://localhost:3000"  # Your app URL
 
-# AI/LLM Configuration
-QWEN_API_KEY="your-openrouter-api-key"  # Get from https://openrouter.ai
-QWEN_API_URL="https://openrouter.ai/api/v1"  # OpenRouter API endpoint
-QWEN_MODEL="qwen/qwen-2.5-coder-32b-instruct"  # Model name
-QWEN_PROVIDER="openrouter"  # Provider: "openrouter" or "puter"
+# AI/LLM Configuration - Choose your provider(s)
+LLM_PROVIDER="auto"  # "auto", "ollama", or "openrouter"
+LLM_FALLBACK_ENABLED="true"  # Enable automatic fallback between providers
+
+# Ollama Configuration (Local AI)
+OLLAMA_ENABLED="true"  # Set to false to disable local AI
+OLLAMA_API_URL="http://localhost:11434"  # Ollama server URL
+OLLAMA_MODEL="qwen3-coder:30b"  # Main model for complex tasks
+OLLAMA_SMALL_MODEL="qwen3:4b"  # Smaller model for simple tasks
+
+# OpenRouter Configuration (Cloud AI - Fallback)
+OPENROUTER_API_KEY="your-openrouter-api-key"  # Get from https://openrouter.ai
+OPENROUTER_API_URL="https://openrouter.ai/api/v1"  # OpenRouter API endpoint
+OPENROUTER_MODEL="qwen/qwen-2.5-coder-32b-instruct"  # Cloud model
 ```
 
 ### Production Environment Variables
@@ -227,6 +280,82 @@ QWEN_PROVIDER=          # openrouter
 3. Navigate to Keys section
 4. Create a new API key
 5. Copy the key to your `.env` file
+
+### Ollama Setup and Management
+
+#### Installing Ollama
+
+**macOS:**
+```bash
+brew install ollama
+```
+
+**Linux:**
+```bash
+curl -fsSL https://ollama.ai/install.sh | sh
+```
+
+**Windows:**
+Download from [ollama.ai](https://ollama.ai/download)
+
+#### Starting Ollama and Installing Models
+
+```bash
+# Start the Ollama service
+ollama serve
+
+# In another terminal, pull the recommended models
+ollama pull qwen3-coder:30b  # Main model for complex code generation
+ollama pull qwen3:4b         # Smaller model for faster tasks
+```
+
+#### Managing Models
+
+```bash
+# List installed models
+ollama list
+
+# Remove unused models
+ollama rm model_name
+
+# Check running models
+ollama ps
+```
+
+#### Troubleshooting Ollama
+
+- **Service won't start**: Make sure port 11434 is available
+- **Models not downloading**: Check your internet connection and available disk space
+- **Connection errors**: Verify Ollama is running with `ollama serve`
+- **Memory issues**: Try the smaller `qwen3:4b` model for resource-constrained systems
+
+### AI Provider Configuration
+
+Cumulonimbus automatically selects the best available AI provider based on your configuration:
+
+#### Configuration Options
+
+- **`LLM_PROVIDER="auto"`** (Recommended): Automatically prefers Ollama, falls back to OpenRouter
+- **`LLM_PROVIDER="ollama"`**: Forces use of local Ollama models only
+- **`LLM_PROVIDER="openrouter"`**: Forces use of cloud OpenRouter models only
+
+#### Provider Priority Logic
+
+1. **Health Check**: System checks if Ollama and OpenRouter are available
+2. **Auto Mode**: If `LLM_PROVIDER="auto"` and Ollama is available → use Ollama
+3. **Fallback**: If primary provider fails and `LLM_FALLBACK_ENABLED="true"` → try other provider
+4. **Error**: If no providers available → show error message
+
+#### Model Selection
+
+- **Complex tasks** (code generation): Uses main model (`qwen3-coder:30b` or cloud equivalent)
+- **Simple tasks** (validation, parsing): Uses small model (`qwen3:4b` or cloud equivalent)
+
+#### Privacy and Performance
+
+- **Local AI (Ollama)**: Maximum privacy, no API costs, works offline
+- **Cloud AI (OpenRouter)**: Always available, handles large workloads, API costs apply
+- **Hybrid**: Best of both worlds with automatic failover
 
 ## Available Scripts
 

@@ -74,12 +74,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Create a readable stream for SSE
+    let controllerClosed = false;
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
 
         const sendEvent = (event: SSEEvent) => {
-          controller.enqueue(encoder.encode(encodeSSE(event)));
+          // #region agent log
+          fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:81',message:'Attempting to send SSE event',data:{eventType:event.type,controllerClosed},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H1'})}).catch(()=>{});
+          // #endregion
+          try {
+            if (!controllerClosed) {
+              controller.enqueue(encoder.encode(encodeSSE(event)));
+            } else {
+              console.warn('Attempted to send event after controller closed:', event.type);
+            }
+          } catch (enqueueError) {
+            // #region agent log
+            fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:89',message:'Failed to enqueue SSE event',data:{eventType:event.type,error:enqueueError.message,controllerClosed},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H1'})}).catch(()=>{});
+            // #endregion
+            console.error('Failed to enqueue SSE event:', enqueueError);
+          }
         };
 
         try {
@@ -105,25 +120,43 @@ export async function POST(request: NextRequest) {
           let fullCode = '';
           let chunkCount = 0;
 
-          for await (const result of freeformGenerator.streamGenerateCode(prompt, design)) {
-            if (result.type === 'chunk') {
-              fullCode += result.content;
-              chunkCount++;
-              
-              // Send chunks periodically for smoother UI
-              if (chunkCount % 3 === 0) {
-                const progress = Math.min(85, 20 + (chunkCount * 0.5));
-                sendEvent({
-                  type: 'chunk',
-                  data: { 
-                    content: result.content, 
-                    progress,
-                  },
-                });
+          // #region agent log
+          fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:108',message:'Starting streaming code generation',data:{promptLength:prompt.length,designFeatures:design.features?.length},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H3'})}).catch(()=>{});
+          // #endregion
+
+          try {
+            for await (const result of freeformGenerator.streamGenerateCode(prompt, design)) {
+              // #region agent log
+              fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:115',message:'Received streaming result',data:{type:result.type,contentLength:result.content?.length,chunkCount},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H3'})}).catch(()=>{});
+              // #endregion
+
+              if (result.type === 'chunk') {
+                fullCode += result.content;
+                chunkCount++;
+
+                // Send chunks periodically for smoother UI
+                if (chunkCount % 3 === 0) {
+                  const progress = Math.min(85, 20 + (chunkCount * 0.5));
+                  sendEvent({
+                    type: 'chunk',
+                    data: {
+                      content: result.content,
+                      progress,
+                    },
+                  });
+                }
+              } else if (result.type === 'complete') {
+                fullCode = result.content;
               }
-            } else if (result.type === 'complete') {
-              fullCode = result.content;
             }
+            // #region agent log
+            fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:127',message:'Streaming loop completed',data:{totalChunks:chunkCount,fullCodeLength:fullCode.length},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H3'})}).catch(()=>{});
+            // #endregion
+          } catch (streamError) {
+            // #region agent log
+            fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:154',message:'Streaming loop failed',data:{errorMessage:streamError instanceof Error ? streamError.message : String(streamError)},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H3'})}).catch(()=>{});
+            // #endregion
+            throw streamError; // Re-throw to be caught by outer try-catch
           }
 
           // Step 3: Bundle the code
@@ -132,11 +165,19 @@ export async function POST(request: NextRequest) {
             data: { progress: 90, message: 'Bundling app...' },
           });
 
+          // #region agent log
+          fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:135',message:'Starting code bundling',data:{fullCodeLength:fullCode.length,hasSchema:!!design.schema},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H4'})}).catch(()=>{});
+          // #endregion
+
           const bundle = bundleCode({
             appId: existingAppId || generateId(),
             appCode: fullCode,
             schema: design.schema,
           });
+
+          // #region agent log
+          fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:142',message:'Code bundling completed',data:{bundleSize:bundle.bundleSize,filesCount:Object.keys(bundle.files).length},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H4'})}).catch(()=>{});
+          // #endregion
 
           // Step 4: Save to database
           sendEvent({
@@ -145,6 +186,10 @@ export async function POST(request: NextRequest) {
           });
 
           let appId: string;
+
+          // #region agent log
+          fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:149',message:'Starting database save',data:{regenerate,existingAppId:!!existingAppId},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H5'})}).catch(()=>{});
+          // #endregion
 
           if (regenerate && existingAppId) {
             // Update existing app
@@ -198,14 +243,21 @@ export async function POST(request: NextRequest) {
             });
           }
         } catch (error) {
+          // #region agent log
+          fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:201',message:'Caught generation error',data:{errorMessage:error instanceof Error ? error.message : String(error)},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H1'})}).catch(()=>{});
+          // #endregion
           console.error('Generation error:', error);
           sendEvent({
             type: 'error',
-            data: { 
+            data: {
               error: error instanceof Error ? error.message : 'Generation failed',
             },
           });
         } finally {
+          // #region agent log
+          fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:209',message:'Closing controller in finally block',data:{controllerClosed},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H2'})}).catch(()=>{});
+          // #endregion
+          controllerClosed = true;
           controller.close();
         }
       },

@@ -33,7 +33,10 @@ export default async function AppPage({ params }: PageProps) {
     redirect('/dashboard');
   }
 
-  const spec = app.spec as unknown as ProjectSpec;
+  // For v2 apps, use Schema type; for v1 apps, use ProjectSpec
+  const spec = app.version === 'v2'
+    ? (app.spec as unknown as Schema)
+    : (app.spec as unknown as ProjectSpec);
   const data = (app.data || []) as DataRecord[];
   const generatedCode = app.generatedCode as unknown as GeneratedCode | null;
   const componentFiles = app.componentFiles as Record<string, string> | null;
@@ -66,7 +69,7 @@ export default async function AppPage({ params }: PageProps) {
         appId={app.id}
         name={app.name}
         description={app.description}
-        schema={spec}
+        schema={spec as Schema}
         layout={app.layoutDefinition as any}
         componentFiles={componentFiles as any}
         initialData={data}
@@ -82,7 +85,7 @@ export default async function AppPage({ params }: PageProps) {
         appId={app.id}
         name={app.name}
         description={app.description}
-        spec={spec}
+        spec={spec as ProjectSpec}
         generatedCode={generatedCode.pageComponent}
         initialData={data}
       />
@@ -95,7 +98,7 @@ export default async function AppPage({ params }: PageProps) {
       appId={app.id}
       name={app.name}
       description={app.description}
-      spec={spec}
+      spec={spec as ProjectSpec}
       initialData={data}
     />
   );

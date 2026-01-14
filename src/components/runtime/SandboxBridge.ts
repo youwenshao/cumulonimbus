@@ -15,7 +15,7 @@ export interface SandboxMessage {
   payload?: {
     // Init payload
     appId?: string;
-    data?: unknown[];
+    data?: unknown;
     // Error payload
     message?: string;
     stack?: string;

@@ -39,6 +39,7 @@ export function IframeSandbox({
 
   // Generate HTML document for the iframe
   const iframeSrcDoc = useMemo(() => {
+    console.log('[DEBUG] IframeSandbox - generating HTML for app:', appId, 'bundledCode length:', bundledCode.length);
     return generateSandboxHTML(appId, bundledCode, initialData);
   }, [appId, bundledCode, initialData]);
 
@@ -126,7 +127,10 @@ export function IframeSandbox({
       }
     };
 
-    iframe.addEventListener('load', handleLoad);
+    iframe.addEventListener('load', () => {
+      console.log('[DEBUG] Iframe loaded for app:', appId);
+      handleLoad();
+    });
 
     return () => {
       iframe.removeEventListener('load', handleLoad);
@@ -222,8 +226,9 @@ export function IframeSandbox({
         srcDoc={iframeSrcDoc}
         className="w-full bg-black"
         style={{ height: isFullscreen ? 'calc(100% - 44px)' : '600px' }}
-        sandbox="allow-scripts"
+        sandbox="allow-scripts allow-same-origin"
         title={`App: ${appId}`}
+        onLoad={() => console.log('[DEBUG] Iframe DOM load event fired for app:', appId)}
       />
     </div>
   );
@@ -245,34 +250,13 @@ function generateSandboxHTML(
   <title>Sandbox: ${appId}</title>
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
-    script-src 'unsafe-inline' 'unsafe-eval' https://unpkg.com;
-    style-src 'unsafe-inline' https://unpkg.com https://cdn.tailwindcss.com;
+    script-src 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net;
+    style-src 'unsafe-inline' https://unpkg.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net;
     img-src 'self' data: https:;
     font-src 'self' https:;
+    connect-src 'self' https:;
   ">
-  
-  <!-- React -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  
-  <!-- Babel for JSX transformation -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            primary: '#ef4444',
-          }
-        }
-      }
-    }
-  </script>
-  
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body, #root { height: 100%; }
@@ -286,219 +270,186 @@ function generateSandboxHTML(
       color: #ef4444;
       text-align: center;
     }
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      font-size: 18px;
+      color: #666;
+    }
   </style>
 </head>
-<body class="dark">
-  <div id="root"></div>
-  
+<body>
+  <div id="root">
+    <div class="loading">Loading React application...</div>
+  </div>
+
+  <!-- Load React first -->
   <script>
-    // Sandbox Bridge Client
-    const SandboxAPI = {
-      _pendingRequests: new Map(),
-      _data: ${JSON.stringify(initialData)},
-      _appId: '${appId}',
-      
-      init() {
-        window.addEventListener('message', (event) => {
-          try {
-            const message = event.data;
-            if (message.type === 'init') {
-              this._data = message.payload?.data || [];
-              this._notifyReady();
-            } else if (message.type === 'api-response') {
-              const { requestId, success, data, error } = message.payload || {};
-              const pending = this._pendingRequests.get(requestId);
-              if (pending) {
-                this._pendingRequests.delete(requestId);
-                if (success) {
-                  pending.resolve(data);
-                } else {
-                  pending.reject(new Error(error || 'Request failed'));
-                }
-              }
-            }
-          } catch (e) {
-            console.error('Sandbox message error:', e);
-          }
-        });
-      },
-      
-      _notifyReady() {
-        window.parent.postMessage({ type: 'ready' }, '*');
-      },
-      
-      _notifyError(message) {
-        window.parent.postMessage({ type: 'error', payload: { message } }, '*');
-      },
-      
-      _generateId() {
-        return 'req_' + Math.random().toString(36).substring(2, 9);
-      },
-      
-      async fetch(endpoint, options = {}) {
-        const requestId = this._generateId();
-        
-        return new Promise((resolve, reject) => {
-          this._pendingRequests.set(requestId, { resolve, reject });
-          
-          window.parent.postMessage({
-            type: 'api-request',
-            payload: {
-              requestId,
-              method: options.method || 'GET',
-              endpoint,
-              body: options.body,
-            }
-          }, '*');
-          
-          // Timeout after 30 seconds
-          setTimeout(() => {
-            if (this._pendingRequests.has(requestId)) {
-              this._pendingRequests.delete(requestId);
-              reject(new Error('Request timeout'));
-            }
-          }, 30000);
-        });
-      },
-      
-      getData() {
-        return this._data;
-      },
-      
-      updateData(data) {
-        this._data = data;
-        window.parent.postMessage({
-          type: 'data-update',
-          payload: { data }
-        }, '*');
-      }
-    };
-    
-    SandboxAPI.init();
-    
-    // Make API available globally
-    window.SandboxAPI = SandboxAPI;
+    console.log('[DEBUG] Starting to load React...');
+    window.REACT_LOADED = false;
+    window.BABEL_LOADED = false;
+    window.TAILWIND_LOADED = false;
   </script>
-  
-  <script type="text/babel" data-type="module">
-    const { useState, useEffect, useCallback, useMemo } = React;
-    
-    // App Data Hook
-    function useAppData() {
-      const [data, setData] = useState(window.SandboxAPI.getData());
-      const [isLoading, setIsLoading] = useState(false);
-      const [error, setError] = useState(null);
-      
-      const refresh = useCallback(async () => {
+
+  <!-- Load React from jsdelivr (more reliable CDN) -->
+  <script crossorigin src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js" onload="console.log('[DEBUG] React loaded from jsdelivr'); window.REACT_LOADED = true;" onerror="console.error('[DEBUG] React failed to load from jsdelivr, trying unpkg...'); loadScript('https://unpkg.com/react@18/umd/react.production.min.js', 'react-fallback');"></script>
+
+  <script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js" onload="console.log('[DEBUG] ReactDOM loaded from jsdelivr');" onerror="console.error('[DEBUG] ReactDOM failed to load from jsdelivr, trying unpkg...'); loadScript('https://unpkg.com/react-dom@18/umd/react-dom.production.min.js', 'reactdom-fallback');"></script>
+
+  <!-- Load Babel -->
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js" onload="console.log('[DEBUG] Babel loaded from jsdelivr'); window.BABEL_LOADED = true;" onerror="console.error('[DEBUG] Babel failed to load from jsdelivr, trying unpkg...'); loadScript('https://unpkg.com/@babel/standalone/babel.min.js', 'babel-fallback');"></script>
+
+  <!-- Load Tailwind -->
+  <script src="https://cdn.tailwindcss.com" onload="console.log('[DEBUG] Tailwind loaded'); window.TAILWIND_LOADED = true;" onerror="console.error('[DEBUG] Tailwind failed to load');"></script>
+
+  <script>
+    function loadScript(url, id) {
+      const script = document.createElement('script');
+      script.src = url;
+      script.onload = function() {
+        console.log('[DEBUG] Fallback script loaded:', id);
+        if (id === 'react-fallback') window.REACT_LOADED = true;
+        if (id === 'babel-fallback') window.BABEL_LOADED = true;
+      };
+      script.onerror = function() {
+        console.error('[DEBUG] Fallback script failed:', id);
+        document.getElementById('root').innerHTML = '<div class="sandbox-error"><h2>Network Error</h2><p>Failed to load required dependencies. Check your internet connection.</p></div>';
+      };
+      document.head.appendChild(script);
+    }
+  </script>
+
+  <!-- Initialize app once dependencies are loaded -->
+  <script>
+    console.log('[DEBUG] Setting up dependency check...');
+
+    function checkDependencies() {
+      if (window.REACT_LOADED && window.BABEL_LOADED) {
+        console.log('[DEBUG] All dependencies loaded, initializing app...');
+        initializeApp();
+      } else {
+        console.log('[DEBUG] Waiting for dependencies... React:', window.REACT_LOADED, 'Babel:', window.BABEL_LOADED);
+        setTimeout(checkDependencies, 100);
+      }
+    }
+
+    function initializeApp() {
+      console.log('[DEBUG] Initializing SandboxAPI...');
+      try {
+        // Sandbox Bridge Client
+        const SandboxAPI = {
+          _pendingRequests: new Map(),
+          _data: ${JSON.stringify(initialData)},
+          _appId: '${appId}',
+
+          init() {
+            console.log('[DEBUG] SandboxAPI init called');
+            window.addEventListener('message', (event) => {
+              try {
+                const message = event.data;
+                console.log('[DEBUG] SandboxAPI received message:', message.type);
+                if (message.type === 'init') {
+                  this._data = message.payload?.data || [];
+                  this._notifyReady();
+                } else if (message.type === 'api-response') {
+                  const { requestId, success, data, error } = message.payload || {};
+                  const pending = this._pendingRequests.get(requestId);
+                  if (pending) {
+                    this._pendingRequests.delete(requestId);
+                    if (success) {
+                      pending.resolve(data);
+                    } else {
+                      pending.reject(new Error(error || 'Request failed'));
+                    }
+                  }
+                }
+              } catch (e) {
+                console.error('Sandbox message error:', e);
+              }
+            });
+          },
+
+          _notifyReady() {
+            console.log('[DEBUG] Notifying parent app is ready');
+            window.parent.postMessage({ type: 'ready' }, '*');
+          },
+
+          _notifyError(message) {
+            console.log('[DEBUG] Notifying parent of error:', message);
+            window.parent.postMessage({ type: 'error', payload: { message } }, '*');
+          },
+
+          _generateId() {
+            return 'req_' + Math.random().toString(36).substring(2, 9);
+          },
+
+          async fetch(endpoint, options = {}) {
+            const requestId = this._generateId();
+
+            return new Promise((resolve, reject) => {
+              this._pendingRequests.set(requestId, { resolve, reject });
+
+              window.parent.postMessage({
+                type: 'api-request',
+                payload: {
+                  requestId,
+                  method: options.method || 'GET',
+                  endpoint,
+                  body: options.body,
+                }
+              }, '*');
+
+              // Timeout after 30 seconds
+              setTimeout(() => {
+                if (this._pendingRequests.has(requestId)) {
+                  this._pendingRequests.delete(requestId);
+                  reject(new Error('Request timeout'));
+                }
+              }, 30000);
+            });
+          },
+
+          getData() {
+            return this._data;
+          },
+
+          updateData(data) {
+            this._data = data;
+            window.parent.postMessage({
+              type: 'data-update',
+              payload: { data }
+            }, '*');
+          }
+        };
+
+        SandboxAPI.init();
+        window.SandboxAPI = SandboxAPI;
+        console.log('[DEBUG] SandboxAPI initialized successfully');
+
+        // Now execute the app code
+        console.log('[DEBUG] About to execute bundled code, length:', ${bundledCode.length});
         try {
-          setIsLoading(true);
-          const result = await window.SandboxAPI.fetch('');
-          const newData = result.data || [];
-          setData(newData);
-          window.SandboxAPI.updateData(newData);
+          ${bundledCode}
+          console.log('[DEBUG] Bundled code executed successfully');
         } catch (e) {
-          setError(e.message);
-        } finally {
-          setIsLoading(false);
+          console.error('[DEBUG] Failed to execute bundled code:', e);
+          document.getElementById('root').innerHTML = '<div class="sandbox-error"><h2>App Code Error</h2><p>' + e.message + '</p></div>';
+          window.SandboxAPI._notifyError('Failed to load app: ' + e.message);
+          return;
         }
-      }, []);
-      
-      const addRecord = useCallback(async (record) => {
-        try {
-          setIsLoading(true);
-          const result = await window.SandboxAPI.fetch('', {
-            method: 'POST',
-            body: record
-          });
-          const newData = [...data, result.record];
-          setData(newData);
-          window.SandboxAPI.updateData(newData);
-          return result.record;
-        } catch (e) {
-          setError(e.message);
-          throw e;
-        } finally {
-          setIsLoading(false);
-        }
-      }, [data]);
-      
-      const deleteRecord = useCallback(async (id) => {
-        try {
-          setIsLoading(true);
-          await window.SandboxAPI.fetch('?id=' + id, { method: 'DELETE' });
-          const newData = data.filter(r => r.id !== id);
-          setData(newData);
-          window.SandboxAPI.updateData(newData);
-        } catch (e) {
-          setError(e.message);
-          throw e;
-        } finally {
-          setIsLoading(false);
-        }
-      }, [data]);
-      
-      return { data, isLoading, error, refresh, addRecord, deleteRecord };
-    }
-    
-    // Make hook available globally
-    window.useAppData = useAppData;
-    
-    // Error Boundary
-    class ErrorBoundary extends React.Component {
-      constructor(props) {
-        super(props);
-        this.state = { hasError: false, error: null };
-      }
-      
-      static getDerivedStateFromError(error) {
-        return { hasError: true, error };
-      }
-      
-      componentDidCatch(error, info) {
-        console.error('Sandbox error:', error, info);
-        window.SandboxAPI._notifyError(error.message);
-      }
-      
-      render() {
-        if (this.state.hasError) {
-          return (
-            <div className="sandbox-error">
-              <h2>Something went wrong</h2>
-              <p>{this.state.error?.message || 'Unknown error'}</p>
-            </div>
-          );
-        }
-        return this.props.children;
+
+        console.log('[DEBUG] App initialization completed');
+
+      } catch (error) {
+        console.error('[DEBUG] SandboxAPI initialization failed:', error);
+        document.getElementById('root').innerHTML = '<div class="sandbox-error"><h2>Initialization Error</h2><p>' + error.message + '</p></div>';
       }
     }
-    
-    // User's Generated App Code
-    try {
-      ${bundledCode}
-    } catch (e) {
-      console.error('Failed to execute app code:', e);
-      window.SandboxAPI._notifyError('Failed to load app: ' + e.message);
-    }
-    
-    // Render the app
-    try {
-      const root = ReactDOM.createRoot(document.getElementById('root'));
-      root.render(
-        <ErrorBoundary>
-          {typeof App !== 'undefined' ? <App /> : (
-            <div className="p-8 text-center text-gray-500">
-              No App component defined
-            </div>
-          )}
-        </ErrorBoundary>
-      );
-      
-      // Notify parent that we're ready
-      window.SandboxAPI._notifyReady();
-    } catch (e) {
-      console.error('Failed to render app:', e);
-      window.SandboxAPI._notifyError('Failed to render app: ' + e.message);
-    }
+
+    // Start checking for dependencies
+    checkDependencies();
   </script>
 </body>
 </html>`;

@@ -31,7 +31,7 @@ export function AppRuntime({ appId, name, description, spec, initialData }: AppR
   const [viewMode, setViewMode] = useState<ViewMode>('both');
 
   // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppRuntime.tsx:30',message:'Checking for V2 vs V1 format',data:{isV2Format:spec.name && spec.fields && !spec.views && !spec.dataStore,isV1Format:spec.views && spec.dataStore},sessionId:'debug-session',runId:'v2-runtime-fix',hypothesisId:'H1'})}).catch(()=>{});
+  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppRuntime.tsx:30',message:'Checking for V2 vs V1 format',data:{isV2Format:spec.name && (spec as any).fields && !spec.views && !spec.dataStore,isV1Format:spec.views && spec.dataStore},sessionId:'debug-session',runId:'v2-runtime-fix',hypothesisId:'H1'})}).catch(()=>{});
   // #endregion
 
   const handleAddRecord = useCallback(async (values: Record<string, unknown>) => {
@@ -71,7 +71,7 @@ export function AppRuntime({ appId, name, description, spec, initialData }: AppR
   }, [appId]);
 
   // Check if this is V2 data (should not be handled by AppRuntime)
-  if (spec.name && spec.fields && !spec.views && !spec.dataStore) {
+  if (spec.name && (spec as any).fields && !spec.views && !spec.dataStore) {
     return (
       <div className="h-screen bg-black flex items-center justify-center">
         <div className="text-center">

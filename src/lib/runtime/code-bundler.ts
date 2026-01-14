@@ -327,7 +327,65 @@ export function bundleCode(options: BundleOptions): BundleResult {
 
   // Add the main app code or generate default
   if (appCode && appCode.trim()) {
-    bundledCode += `\n// Main App Component\n${cleanCode(appCode)}\n`;
+    const cleanedAppCode = cleanCode(appCode);
+
+    // Extract the main component name from the cleaned code
+    let mainComponentName = 'App'; // default fallback
+
+    // Debug: Log the cleaned code structure
+    console.log('[DEBUG] Code bundler - cleaned code analysis:', {
+      firstLines: cleanedAppCode.split('\n').slice(0, 10).join('\n'),
+      hasFunction: /function\s+\w+\(/.test(cleanedAppCode),
+      hasArrow: /const\s+\w+\s*=.*=>/.test(cleanedAppCode),
+      hasExport: /export/.test(cleanedAppCode)
+    });
+
+    // Try to find function declaration like "function ComponentName("
+    const functionMatch = cleanedAppCode.match(/function\s+(\w+)\s*\(/);
+    if (functionMatch) {
+      mainComponentName = functionMatch[1];
+      console.log('[DEBUG] Code bundler - found function:', mainComponentName);
+    } else {
+      // Try to find arrow function like "const ComponentName = "
+      const arrowMatch = cleanedAppCode.match(/const\s+(\w+)\s*=\s*(?:\([^)]*\)\s*=>|.*=>)/);
+      if (arrowMatch) {
+        mainComponentName = arrowMatch[1];
+        console.log('[DEBUG] Code bundler - found arrow function:', mainComponentName);
+      } else {
+        console.log('[DEBUG] Code bundler - no component name found, using default App');
+      }
+    }
+
+    // Add code to make the component globally available as 'App'
+    bundledCode += `\n// Main App Component\n${cleanedAppCode}\n`;
+    bundledCode += `\n// Make component globally available\nwindow.App = ${mainComponentName};\n`;
+
+    // Debug logging - check for syntax errors
+    console.log('[DEBUG] Code bundler - Component detection:', {
+      detectedComponentName: mainComponentName,
+      cleanedCodeLength: cleanedAppCode.length,
+      cleanedCodeLastLines: cleanedAppCode.slice(-100),
+      bundledCodeSnippet: bundledCode.slice(-200),
+      hasWindowAppAssignment: bundledCode.includes('window.App ='),
+      totalBundleSize: bundledCode.length
+    });
+
+    // Check if the bundled code is valid JavaScript
+    try {
+      new Function(bundledCode);
+      console.log('[DEBUG] Bundled code syntax validation: PASSED');
+    } catch (syntaxError) {
+      console.error('[DEBUG] Bundled code syntax validation: FAILED', syntaxError instanceof Error ? syntaxError.message : String(syntaxError));
+      console.error('[DEBUG] Syntax error details:', {
+        error: syntaxError instanceof Error ? syntaxError.message : String(syntaxError),
+        position: syntaxError instanceof Error ? syntaxError.toString() : String(syntaxError),
+        bundledCodePreview: bundledCode.slice(Math.max(0, bundledCode.length - 1000))
+      });
+      // Throw the syntax error to prevent bundling of invalid code
+      throw new Error(`Generated code contains syntax errors: ${syntaxError instanceof Error ? syntaxError.message : String(syntaxError)}`);
+    }
+
+
   } else {
     bundledCode += `\n// Generated App Component\n${generateDefaultApp(schema)}\n`;
   }

@@ -8,6 +8,33 @@ export interface QuestionOption {
   description?: string;
 }
 
+export interface QuestionNode {
+  id: string;
+  question: string;
+  type: 'single' | 'multiple' | 'text';
+  category: 'data' | 'logic' | 'ui' | 'integration';
+  options: QuestionOption[];
+  priority: number; // 1-5, higher = more important
+  dependencies?: QuestionDependency[];
+  skipConditions?: SkipCondition[];
+  defaultAnswer?: string | string[];
+}
+
+export interface QuestionDependency {
+  questionId: string;
+  requiredAnswer?: string | string[];
+  condition: 'equals' | 'contains' | 'not_equals' | 'exists';
+}
+
+export interface SkipCondition {
+  questionId: string;
+  answer: string | string[];
+  condition: 'if_equals' | 'if_contains' | 'if_not_equals';
+}
+
+// Alias for backwards compatibility
+export type Question = QuestionNode;
+
 /**
  * Component plan describing a single UI component
  */
