@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import { SessionProvider } from '@/components/providers/SessionProvider';
+import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import './globals.css';
 
 // Font loaders must be called at module scope with const
@@ -36,9 +37,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${sourceSerifPro.variable} ${jetbrainsMono.variable}`}>
-      <body className="min-h-screen bg-black font-sans text-white antialiased">
+      <body className="min-h-screen font-sans antialiased">
         <SessionProvider>
-          {children}
+          <ThemeProvider>
+            {children}
+          </ThemeProvider>
         </SessionProvider>
       </body>
     </html>

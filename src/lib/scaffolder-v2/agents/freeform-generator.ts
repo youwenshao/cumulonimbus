@@ -13,7 +13,7 @@ const FREEFORM_SYSTEM_PROMPT = `You are an expert React developer creating compl
 CRITICAL REQUIREMENTS:
 1. Generate a complete, self-contained React application
 2. Use modern React patterns (hooks, functional components)
-3. Style with Tailwind CSS using a dark theme (bg-black, bg-gray-900, text-white)
+3. Style with Tailwind CSS using a dark theme (bg-black, bg-gray-900, text-text-primary)
 4. Use red-500/red-600 as the accent color for interactive elements
 5. Handle loading, error, and empty states gracefully
 6. Include proper TypeScript-style type safety where possible
@@ -40,7 +40,7 @@ function App() {
   // Your app logic here
 
   return (
-    <div className="min-h-screen bg-black text-white p-6">
+    <div className="min-h-screen bg-black text-text-primary p-6">
       {/* Your UI here */}
     </div>
   );
@@ -384,10 +384,10 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-6">
+    <div className="min-h-screen bg-black text-text-primary p-6">
       <div className="max-w-6xl mx-auto">
         <header className="mb-8">
-          <h1 className="text-3xl font-bold text-white">${design.appName}</h1>
+          <h1 className="text-3xl font-bold text-text-primary">${design.appName}</h1>
           <p className="text-gray-400">${design.description}</p>
         </header>
 
@@ -400,12 +400,12 @@ function App() {
                 <label className="block text-sm text-gray-400 mb-1">${f.label}</label>
                 <input
                   type="${f.type === 'number' ? 'number' : 'text'}"
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-text-primary"
                   value={formData.${f.name} || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, ${f.name}: e.target.value }))}
                 />
               </div>`).join('')}
-              <button type="submit" className="w-full py-2 bg-red-600 hover:bg-red-700 rounded text-white">
+              <button type="submit" className="w-full py-2 bg-accent-yellow hover:bg-accent-yellow/90 rounded text-text-primary">
                 Add Entry
               </button>
             </form>
@@ -424,7 +424,7 @@ function App() {
                     </div>
                     <button
                       onClick={() => handleDelete(item.id)}
-                      className="text-red-400 hover:text-red-300"
+                      className="text-accent-yellow hover:text-accent-yellow/80"
                     >
                       Delete
                     </button>

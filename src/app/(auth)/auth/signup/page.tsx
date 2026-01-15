@@ -71,7 +71,7 @@ export default function SignUpPage() {
   const passwordStrength = password.length >= 8 ? 'strong' : password.length >= 4 ? 'medium' : 'weak';
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-6">
+    <div className="min-h-screen bg-surface-base flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex justify-center mb-8">
@@ -80,7 +80,7 @@ export default function SignUpPage() {
 
         {/* Form Card */}
         <Card variant="outlined" padding="lg" className="animate-confident">
-          <h1 className="text-2xl font-bold text-white text-center mb-2">
+          <h1 className="text-3xl font-serif font-medium text-text-primary text-center mb-2">
             Create your account
           </h1>
           <p className="text-text-secondary text-center mb-8">
@@ -88,7 +88,7 @@ export default function SignUpPage() {
           </p>
 
           {error && (
-            <div className="flex items-center gap-2 p-4 mb-6 rounded-xl bg-pastel-yellow text-black border border-outline-light">
+            <div className="flex items-center gap-2 p-4 mb-6 rounded-xl bg-pastel-yellow text-text-primary border border-outline-light">
               <AlertCircle className="w-5 h-5 flex-shrink-0" />
               <p className="text-sm">{error}</p>
             </div>
@@ -96,7 +96,7 @@ export default function SignUpPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-white mb-2">
+              <label htmlFor="name" className="block text-sm font-medium text-text-primary mb-2">
                 Name
               </label>
               <div className="relative">
@@ -106,14 +106,14 @@ export default function SignUpPage() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 rounded-xl border border-outline-light bg-surface-light text-white placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-red/50 focus:border-accent-red transition-all"
+                  className="w-full pl-12 pr-4 py-3 rounded-xl border border-outline-light bg-surface-light text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-yellow/50 focus:border-accent-yellow transition-all"
                   placeholder="Your name"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-white mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-text-primary mb-2">
                 Email
               </label>
               <div className="relative">
@@ -123,7 +123,7 @@ export default function SignUpPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 rounded-xl border border-outline-light bg-surface-light text-white placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-red/50 focus:border-accent-red transition-all"
+                  className="w-full pl-12 pr-4 py-3 rounded-xl border border-outline-light bg-surface-light text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-yellow/50 focus:border-accent-yellow transition-all"
                   placeholder="you@example.com"
                   required
                 />
@@ -131,7 +131,7 @@ export default function SignUpPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-white mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-text-primary mb-2">
                 Password
               </label>
               <div className="relative">
@@ -141,14 +141,14 @@ export default function SignUpPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 rounded-xl border border-outline-light bg-surface-light text-white placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-red/50 focus:border-accent-red transition-all"
+                  className="w-full pl-12 pr-4 py-3 rounded-xl border border-outline-light bg-surface-light text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-yellow/50 focus:border-accent-yellow transition-all"
                   placeholder="••••••••"
                   required
                 />
               </div>
               {password && (
                 <div className="flex items-center gap-2 mt-2">
-                  <div className={`h-1 flex-1 rounded-full ${passwordStrength === 'strong' ? 'bg-pastel-green' : passwordStrength === 'medium' ? 'bg-pastel-yellow' : 'bg-accent-red'}`} />
+                  <div className={`h-1 flex-1 rounded-full ${passwordStrength === 'strong' ? 'bg-pastel-green' : passwordStrength === 'medium' ? 'bg-pastel-yellow' : 'bg-accent-yellow'}`} />
                   <span className="text-xs text-text-tertiary">
                     {passwordStrength === 'strong' ? 'Strong' : passwordStrength === 'medium' ? 'Medium' : 'Weak'}
                   </span>
@@ -157,7 +157,7 @@ export default function SignUpPage() {
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-white mb-2">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-text-primary mb-2">
                 Confirm Password
               </label>
               <div className="relative">
@@ -167,7 +167,7 @@ export default function SignUpPage() {
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 rounded-xl border border-outline-light bg-surface-light text-white placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-red/50 focus:border-accent-red transition-all"
+                  className="w-full pl-12 pr-4 py-3 rounded-xl border border-outline-light bg-surface-light text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-yellow/50 focus:border-accent-yellow transition-all"
                   placeholder="••••••••"
                   required
                 />
@@ -195,7 +195,7 @@ export default function SignUpPage() {
           <div className="mt-6 text-center">
             <p className="text-text-secondary">
               Already have an account?{' '}
-              <Link href="/auth/signin" className="text-accent-red hover:text-white font-medium transition-colors">
+              <Link href="/auth/signin" className="text-accent-yellow hover:text-text-primary font-medium transition-colors">
                 Sign in
               </Link>
             </p>

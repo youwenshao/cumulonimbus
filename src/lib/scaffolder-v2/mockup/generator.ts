@@ -16,29 +16,34 @@ const MOCKUP_HEIGHT = 300;
 const PADDING = 16;
 const COMPONENT_GAP = 12;
 
-// Color palette (dark theme)
-const COLORS = {
-  background: '#0a0a0a',
-  card: '#1a1a1a',
-  cardHover: '#252525',
-  border: '#333',
-  accent: '#f43f5e',
-  accentLight: 'rgba(244, 63, 94, 0.2)',
-  text: '#fff',
-  textMuted: '#888',
-  input: '#2a2a2a',
+// Theme-aware color palette
+const getMockupColors = () => {
+  // For mockups, we'll use dark theme this.colors as they're more visually distinct
+  return {
+    background: '#0a0a0a',
+    card: '#1a1a1a',
+    cardHover: '#252525',
+    border: '#333333',
+    accent: '#fca000', // accent-yellow
+    accentLight: 'rgba(252, 160, 0, 0.2)',
+    text: '#ffffff',
+    textMuted: '#888888',
+    input: '#2a2a2a',
+  };
 };
 
 export class MockupGenerator {
+  private colors = getMockupColors();
+
   /**
    * Generate SVG mockup from layout
    */
   generateSVG(layout: LayoutNode, schema: Schema, title?: string): MockupData {
     const elements: string[] = [];
-    
+
     // Background
     elements.push(`
-      <rect width="${MOCKUP_WIDTH}" height="${MOCKUP_HEIGHT}" fill="${COLORS.background}" rx="8"/>
+      <rect width="${MOCKUP_WIDTH}" height="${MOCKUP_HEIGHT}" fill="${this.colors.background}" rx="8"/>
     `);
     
     // Header
@@ -58,7 +63,7 @@ export class MockupGenerator {
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${MOCKUP_WIDTH} ${MOCKUP_HEIGHT}">
         <defs>
           <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" style="stop-color:${COLORS.accent};stop-opacity:1" />
+            <stop offset="0%" style="stop-color:${this.colors.accent};stop-opacity:1" />
             <stop offset="100%" style="stop-color:#ec4899;stop-opacity:1" />
           </linearGradient>
         </defs>
@@ -78,9 +83,9 @@ export class MockupGenerator {
    */
   private renderHeader(title: string): string {
     return `
-      <rect x="0" y="0" width="${MOCKUP_WIDTH}" height="44" fill="${COLORS.card}"/>
-      <text x="${PADDING}" y="28" fill="${COLORS.text}" font-family="system-ui, sans-serif" font-size="14" font-weight="600">${this.escapeXml(title)}</text>
-      <line x1="0" y1="44" x2="${MOCKUP_WIDTH}" y2="44" stroke="${COLORS.border}" stroke-width="1"/>
+      <rect x="0" y="0" width="${MOCKUP_WIDTH}" height="44" fill="${this.colors.card}"/>
+      <text x="${PADDING}" y="28" fill="${this.colors.text}" font-family="system-ui, sans-serif" font-size="14" font-weight="600">${this.escapeXml(title)}</text>
+      <line x1="0" y1="44" x2="${MOCKUP_WIDTH}" y2="44" stroke="${this.colors.border}" stroke-width="1"/>
     `;
   }
 
@@ -217,12 +222,12 @@ export class MockupGenerator {
     
     // Card background
     elements.push(`
-      <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${COLORS.card}" rx="6"/>
+      <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${this.colors.card}" rx="6"/>
     `);
     
     // Title
     elements.push(`
-      <text x="${x + 10}" y="${y + 18}" fill="${COLORS.textMuted}" font-family="system-ui, sans-serif" font-size="10">Add Entry</text>
+      <text x="${x + 10}" y="${y + 18}" fill="${this.colors.textMuted}" font-family="system-ui, sans-serif" font-size="10">Add Entry</text>
     `);
     
     // Input fields (simplified)
@@ -232,7 +237,7 @@ export class MockupGenerator {
     for (let i = 0; i < Math.min(3, maxFields); i++) {
       // Input box
       elements.push(`
-        <rect x="${x + 8}" y="${fieldY}" width="${width - 16}" height="${inputHeight}" fill="${COLORS.input}" rx="3"/>
+        <rect x="${x + 8}" y="${fieldY}" width="${width - 16}" height="${inputHeight}" fill="${this.colors.input}" rx="3"/>
       `);
       fieldY += inputHeight + fieldGap;
     }
@@ -241,7 +246,7 @@ export class MockupGenerator {
     if (height > 80) {
       elements.push(`
         <rect x="${x + 8}" y="${y + height - 28}" width="${width - 16}" height="${20}" fill="url(#accentGradient)" rx="4"/>
-        <text x="${x + width/2}" y="${y + height - 14}" fill="${COLORS.text}" font-family="system-ui, sans-serif" font-size="9" text-anchor="middle">Add</text>
+        <text x="${x + width/2}" y="${y + height - 14}" fill="${this.colors.text}" font-family="system-ui, sans-serif" font-size="9" text-anchor="middle">Add</text>
       `);
     }
   }
@@ -258,19 +263,19 @@ export class MockupGenerator {
     
     // Card background
     elements.push(`
-      <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${COLORS.card}" rx="6"/>
+      <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${this.colors.card}" rx="6"/>
     `);
     
     // Header row
     elements.push(`
-      <rect x="${x}" y="${y}" width="${width}" height="${rowHeight}" fill="${COLORS.cardHover}" rx="6"/>
+      <rect x="${x}" y="${y}" width="${width}" height="${rowHeight}" fill="${this.colors.cardHover}" rx="6"/>
     `);
     
     // Header columns
     const colWidth = (width - 16) / 3;
     for (let i = 0; i < 3; i++) {
       elements.push(`
-        <rect x="${x + 8 + (i * colWidth)}" y="${y + 6}" width="${colWidth - 8}" height="8" fill="${COLORS.input}" rx="2"/>
+        <rect x="${x + 8 + (i * colWidth)}" y="${y + 6}" width="${colWidth - 8}" height="8" fill="${this.colors.input}" rx="2"/>
       `);
     }
     
@@ -282,7 +287,7 @@ export class MockupGenerator {
       // Row separator
       if (row > 0) {
         elements.push(`
-          <line x1="${x + 8}" y1="${rowY}" x2="${x + width - 8}" y2="${rowY}" stroke="${COLORS.border}" stroke-width="0.5"/>
+          <line x1="${x + 8}" y1="${rowY}" x2="${x + width - 8}" y2="${rowY}" stroke="${this.colors.border}" stroke-width="0.5"/>
         `);
       }
       
@@ -290,7 +295,7 @@ export class MockupGenerator {
       for (let col = 0; col < 3; col++) {
         const cellWidth = colWidth * (col === 0 ? 0.8 : 0.5);
         elements.push(`
-          <rect x="${x + 8 + (col * colWidth)}" y="${rowY + 6}" width="${cellWidth}" height="6" fill="${COLORS.input}" rx="2"/>
+          <rect x="${x + 8 + (col * colWidth)}" y="${rowY + 6}" width="${cellWidth}" height="6" fill="${this.colors.input}" rx="2"/>
         `);
       }
     }
@@ -307,12 +312,12 @@ export class MockupGenerator {
     
     // Card background
     elements.push(`
-      <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${COLORS.card}" rx="6"/>
+      <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${this.colors.card}" rx="6"/>
     `);
     
     // Chart title
     elements.push(`
-      <text x="${x + 10}" y="${y + 16}" fill="${COLORS.textMuted}" font-family="system-ui, sans-serif" font-size="9">Analytics</text>
+      <text x="${x + 10}" y="${y + 16}" fill="${this.colors.textMuted}" font-family="system-ui, sans-serif" font-size="9">Analytics</text>
     `);
     
     // Bar chart
@@ -329,7 +334,7 @@ export class MockupGenerator {
       const barY = chartY + chartHeight - barHeight;
       
       elements.push(`
-        <rect x="${barX}" y="${barY}" width="${barWidth}" height="${barHeight}" fill="${i === 2 ? COLORS.accent : COLORS.accentLight}" rx="2"/>
+        <rect x="${barX}" y="${barY}" width="${barWidth}" height="${barHeight}" fill="${i === 2 ? this.colors.accent : this.colors.accentLight}" rx="2"/>
       `);
     }
   }
@@ -350,17 +355,17 @@ export class MockupGenerator {
       
       // Stat card
       elements.push(`
-        <rect x="${statX}" y="${y}" width="${statWidth}" height="${height}" fill="${COLORS.card}" rx="6"/>
+        <rect x="${statX}" y="${y}" width="${statWidth}" height="${height}" fill="${this.colors.card}" rx="6"/>
       `);
       
       // Number
       elements.push(`
-        <text x="${statX + statWidth/2}" y="${y + height/2}" fill="${COLORS.text}" font-family="system-ui, sans-serif" font-size="16" font-weight="600" text-anchor="middle">${Math.floor(Math.random() * 100)}</text>
+        <text x="${statX + statWidth/2}" y="${y + height/2}" fill="${this.colors.text}" font-family="system-ui, sans-serif" font-size="16" font-weight="600" text-anchor="middle">${Math.floor(Math.random() * 100)}</text>
       `);
       
       // Label
       elements.push(`
-        <rect x="${statX + 8}" y="${y + height - 14}" width="${statWidth - 16}" height="6" fill="${COLORS.input}" rx="2"/>
+        <rect x="${statX + 8}" y="${y + height - 14}" width="${statWidth - 16}" height="6" fill="${this.colors.input}" rx="2"/>
       `);
     }
   }
@@ -382,12 +387,12 @@ export class MockupGenerator {
       
       // Column background
       elements.push(`
-        <rect x="${colX}" y="${y}" width="${colWidth}" height="${height}" fill="${COLORS.card}" rx="6"/>
+        <rect x="${colX}" y="${y}" width="${colWidth}" height="${height}" fill="${this.colors.card}" rx="6"/>
       `);
       
       // Column header
       elements.push(`
-        <text x="${colX + 8}" y="${y + 14}" fill="${COLORS.textMuted}" font-family="system-ui, sans-serif" font-size="8">${colLabels[i]}</text>
+        <text x="${colX + 8}" y="${y + 14}" fill="${this.colors.textMuted}" font-family="system-ui, sans-serif" font-size="8">${colLabels[i]}</text>
       `);
       
       // Cards in column
@@ -395,8 +400,8 @@ export class MockupGenerator {
       for (let j = 0; j <= cardCount; j++) {
         const cardY = y + 22 + (j * 24);
         elements.push(`
-          <rect x="${colX + 4}" y="${cardY}" width="${colWidth - 8}" height="20" fill="${COLORS.cardHover}" rx="3"/>
-          <rect x="${colX + 8}" y="${cardY + 6}" width="${colWidth - 20}" height="4" fill="${COLORS.input}" rx="1"/>
+          <rect x="${colX + 4}" y="${cardY}" width="${colWidth - 8}" height="20" fill="${this.colors.cardHover}" rx="3"/>
+          <rect x="${colX + 8}" y="${cardY + 6}" width="${colWidth - 20}" height="4" fill="${this.colors.input}" rx="1"/>
         `);
       }
     }
@@ -419,9 +424,9 @@ export class MockupGenerator {
         const cardY = y + 8 + (row * (cardHeight + 8));
         
         elements.push(`
-          <rect x="${cardX}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" fill="${COLORS.card}" rx="6"/>
-          <rect x="${cardX + 8}" y="${cardY + 10}" width="${cardWidth - 16}" height="8" fill="${COLORS.input}" rx="2"/>
-          <rect x="${cardX + 8}" y="${cardY + 24}" width="${cardWidth - 32}" height="6" fill="${COLORS.input}" rx="2"/>
+          <rect x="${cardX}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" fill="${this.colors.card}" rx="6"/>
+          <rect x="${cardX + 8}" y="${cardY + 10}" width="${cardWidth - 16}" height="8" fill="${this.colors.input}" rx="2"/>
+          <rect x="${cardX + 8}" y="${cardY + 24}" width="${cardWidth - 32}" height="6" fill="${this.colors.input}" rx="2"/>
         `);
       }
     }
@@ -438,8 +443,8 @@ export class MockupGenerator {
     const { x, y, width, height } = bounds;
     
     elements.push(`
-      <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${COLORS.card}" rx="6"/>
-      <text x="${x + width/2}" y="${y + height/2}" fill="${COLORS.textMuted}" font-family="system-ui, sans-serif" font-size="10" text-anchor="middle">${type}</text>
+      <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${this.colors.card}" rx="6"/>
+      <text x="${x + width/2}" y="${y + height/2}" fill="${this.colors.textMuted}" font-family="system-ui, sans-serif" font-size="10" text-anchor="middle">${type}</text>
     `);
   }
 

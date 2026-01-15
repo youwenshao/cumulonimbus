@@ -79,9 +79,9 @@ export function LivePreview({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-outline-mid bg-surface-light">
         <div className="flex items-center gap-3">
-          <Monitor className="w-5 h-5 text-accent-red" />
+          <Monitor className="w-5 h-5 text-accent-yellow" />
           <div>
-            <h3 className="font-medium text-white">{appName}</h3>
+            <h3 className="font-medium text-text-primary">{appName}</h3>
             <p className="text-xs text-text-secondary">Live Preview</p>
           </div>
         </div>
@@ -94,8 +94,8 @@ export function LivePreview({
               className={cn(
                 'p-2 rounded-md transition-colors',
                 deviceView === 'mobile' 
-                  ? 'bg-accent-red text-white' 
-                  : 'text-text-secondary hover:text-white'
+                  ? 'bg-accent-yellow text-text-primary' 
+                  : 'text-text-secondary hover:text-text-primary'
               )}
               title="Mobile view"
             >
@@ -106,8 +106,8 @@ export function LivePreview({
               className={cn(
                 'p-2 rounded-md transition-colors',
                 deviceView === 'tablet' 
-                  ? 'bg-accent-red text-white' 
-                  : 'text-text-secondary hover:text-white'
+                  ? 'bg-accent-yellow text-text-primary' 
+                  : 'text-text-secondary hover:text-text-primary'
               )}
               title="Tablet view"
             >
@@ -118,8 +118,8 @@ export function LivePreview({
               className={cn(
                 'p-2 rounded-md transition-colors',
                 deviceView === 'desktop' 
-                  ? 'bg-accent-red text-white' 
-                  : 'text-text-secondary hover:text-white'
+                  ? 'bg-accent-yellow text-text-primary' 
+                  : 'text-text-secondary hover:text-text-primary'
               )}
               title="Desktop view"
             >
@@ -130,14 +130,14 @@ export function LivePreview({
           {/* Actions */}
           <button
             onClick={handleRefresh}
-            className="p-2 text-text-secondary hover:text-white transition-colors"
+            className="p-2 text-text-secondary hover:text-text-primary transition-colors"
             title="Refresh preview"
           >
             <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
           </button>
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-2 text-text-secondary hover:text-white transition-colors"
+            className="p-2 text-text-secondary hover:text-text-primary transition-colors"
             title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
           >
             {isFullscreen ? (
@@ -148,7 +148,7 @@ export function LivePreview({
           </button>
           <button
             onClick={handleOpenInNewTab}
-            className="p-2 text-text-secondary hover:text-white transition-colors"
+            className="p-2 text-text-secondary hover:text-text-primary transition-colors"
             title="Open in new tab"
           >
             <ExternalLink className="w-4 h-4" />
@@ -179,8 +179,8 @@ export function LivePreview({
           {isLoading && (
             <div className="absolute inset-0 bg-gray-900/80 flex items-center justify-center z-20 rounded-lg">
               <div className="text-center">
-                <Loader2 className="w-8 h-8 animate-spin text-accent-red mx-auto mb-2" />
-                <p className="text-white text-sm">Loading preview...</p>
+                <Loader2 className="w-8 h-8 animate-spin text-accent-yellow mx-auto mb-2" />
+                <p className="text-text-primary text-sm">Loading preview...</p>
               </div>
             </div>
           )}
@@ -190,10 +190,10 @@ export function LivePreview({
             <div className="absolute inset-0 bg-gray-900/80 flex items-center justify-center z-20 rounded-lg">
               <div className="text-center">
                 <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-2" />
-                <p className="text-white text-sm mb-2">Failed to load preview</p>
+                <p className="text-text-primary text-sm mb-2">Failed to load preview</p>
                 <button
                   onClick={handleRefresh}
-                  className="px-4 py-2 bg-accent-red text-white rounded-lg text-sm hover:bg-accent-red/90"
+                  className="px-4 py-2 bg-accent-yellow text-text-primary rounded-lg text-sm hover:bg-accent-yellow/90"
                 >
                   Try Again
                 </button>
@@ -224,7 +224,7 @@ export function LivePreview({
             {onReportIssue && (
               <button
                 onClick={onReportIssue}
-                className="flex items-center gap-2 px-4 py-2 bg-surface-dark border border-outline-light rounded-lg text-white hover:bg-surface-light transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-surface-dark border border-outline-light rounded-lg text-text-primary hover:bg-surface-light transition-colors"
               >
                 <AlertTriangle className="w-4 h-4 text-yellow-400" />
                 Report Issues
@@ -233,7 +233,7 @@ export function LivePreview({
             {onAccept && (
               <button
                 onClick={onAccept}
-                className="flex items-center gap-2 px-6 py-2 bg-accent-red text-white rounded-lg font-medium hover:bg-accent-red/90 transition-colors"
+                className="flex items-center gap-2 px-6 py-2 bg-accent-yellow text-text-primary rounded-lg font-medium hover:bg-accent-yellow/90 transition-colors"
               >
                 <Check className="w-4 h-4" />
                 Accept & Go to App

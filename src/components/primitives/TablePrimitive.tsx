@@ -92,7 +92,7 @@ export function TablePrimitive({ data, config, onEdit, onDelete }: TablePrimitiv
             placeholder="Search entries..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 rounded-xl border border-outline-light bg-surface-dark text-white placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-red/50 focus:border-accent-red transition-all"
+            className="w-full pl-10 pr-4 py-3 rounded-xl border border-outline-light bg-surface-dark text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-yellow/50 focus:border-accent-yellow transition-all"
           />
         </div>
       </div>
@@ -105,20 +105,20 @@ export function TablePrimitive({ data, config, onEdit, onDelete }: TablePrimitiv
               {config.columns.map(column => (
                 <th
                   key={column.field}
-                  className="px-4 py-3 text-left text-sm font-semibold text-white"
+                  className="px-4 py-3 text-left text-sm font-semibold text-text-primary"
                 >
                   <div className="flex items-center gap-2">
                     {column.sortable ? (
                       <button
                         onClick={() => handleSort(column.field)}
-                        className="flex items-center gap-1 hover:text-accent-red transition-colors"
+                        className="flex items-center gap-1 hover:text-accent-yellow transition-colors"
                       >
                         {column.label}
                         {sortField === column.field ? (
                           sortDirection === 'asc' ? (
-                            <ArrowUp className="w-4 h-4 text-accent-red" />
+                            <ArrowUp className="w-4 h-4 text-accent-yellow" />
                           ) : (
-                            <ArrowDown className="w-4 h-4 text-accent-red" />
+                            <ArrowDown className="w-4 h-4 text-accent-yellow" />
                           )
                         ) : (
                           <ArrowUpDown className="w-4 h-4 opacity-50 text-text-tertiary" />
@@ -135,7 +135,7 @@ export function TablePrimitive({ data, config, onEdit, onDelete }: TablePrimitiv
                           ...prev,
                           [column.field]: e.target.value,
                         }))}
-                        className="ml-2 text-xs px-2 py-1 rounded border border-outline-light bg-surface-dark text-white"
+                        className="ml-2 text-xs px-2 py-1 rounded border border-outline-light bg-surface-dark text-text-primary"
                       >
                         <option value="">All</option>
                         {getUniqueValues(column.field).map(val => (
@@ -147,7 +147,7 @@ export function TablePrimitive({ data, config, onEdit, onDelete }: TablePrimitiv
                 </th>
               ))}
               {onDelete && (
-                <th className="px-4 py-3 text-right text-sm font-semibold text-white">
+                <th className="px-4 py-3 text-right text-sm font-semibold text-text-primary">
                   Actions
                 </th>
               )}
@@ -168,8 +168,8 @@ export function TablePrimitive({ data, config, onEdit, onDelete }: TablePrimitiv
                 <tr
                   key={record.id}
                   className={cn(
-                    "border-t border-outline-light hover:bg-surface-light/50 transition-colors",
-                    index % 2 === 0 ? "bg-surface-dark" : "bg-surface-mid/30"
+                    "border-t border-outline-light hover:bg-surface-elevated/50 transition-colors",
+                    index % 2 === 0 ? "bg-surface-base" : "bg-surface-layer/30"
                   )}
                 >
                   {config.columns.map(column => (
@@ -184,10 +184,10 @@ export function TablePrimitive({ data, config, onEdit, onDelete }: TablePrimitiv
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => onDelete(record.id)}
-                        className="p-2 hover:bg-accent-red/20 rounded-lg transition-colors"
+                        className="p-2 hover:bg-accent-yellow/20 rounded-lg transition-colors"
                         title="Delete"
                       >
-                        <Trash2 className="w-4 h-4 text-accent-red" />
+                        <Trash2 className="w-4 h-4 text-accent-yellow" />
                       </button>
                     </td>
                   )}

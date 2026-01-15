@@ -73,16 +73,16 @@ export function FormPrimitive({
           <div key={field.name}>
             <label
               htmlFor={field.name}
-              className="block text-sm font-medium text-white mb-1.5"
+              className="block text-sm font-medium text-text-primary mb-1.5"
             >
               {field.label}
-              {field.required && <span className="text-accent-red ml-1">*</span>}
+              {field.required && <span className="text-accent-yellow ml-1">*</span>}
             </label>
 
             {renderField(field, values[field.name], handleChange)}
 
             {errors[field.name] && (
-              <p className="text-sm text-accent-red mt-1">{errors[field.name]}</p>
+              <p className="text-sm text-accent-yellow mt-1">{errors[field.name]}</p>
             )}
           </div>
         ))}
@@ -92,9 +92,9 @@ export function FormPrimitive({
             type="submit"
             disabled={isLoading}
             className={cn(
-              "w-full flex items-center justify-center gap-2 py-3 px-4 bg-accent-red text-white rounded-xl font-medium",
-              "hover:bg-accent-red/90 transition-all duration-200 shadow-lg shadow-accent-red/25 hover:shadow-xl hover:shadow-accent-red/30",
-              "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-accent-red"
+              "w-full flex items-center justify-center gap-2 py-3 px-4 bg-accent-yellow text-text-primary rounded-xl font-medium",
+              "hover:bg-accent-yellow/90 transition-all duration-200 shadow-lg shadow-accent-yellow/25 hover:shadow-xl hover:shadow-accent-yellow/30",
+              "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-accent-yellow"
             )}
           >
             {isLoading ? (
@@ -118,8 +118,8 @@ function renderField(
   onChange: (name: string, value: unknown) => void
 ) {
   const baseInputClass = cn(
-    "w-full px-4 py-3 rounded-xl border border-outline-light bg-surface-light text-white placeholder-text-tertiary",
-    "focus:outline-none focus:ring-2 focus:ring-accent-red/50 focus:border-accent-red",
+    "w-full px-4 py-3 rounded-xl border border-outline-light bg-surface-light text-text-primary placeholder-text-tertiary",
+    "focus:outline-none focus:ring-2 focus:ring-accent-yellow/50 focus:border-accent-yellow",
     "transition-all duration-200"
   );
 
@@ -169,7 +169,7 @@ function renderField(
             type="checkbox"
             checked={(value as boolean) || false}
             onChange={(e) => onChange(field.name, e.target.checked)}
-            className="w-5 h-5 rounded border-outline-light bg-surface-light text-accent-red focus:ring-accent-red/50"
+            className="w-5 h-5 rounded border-outline-light bg-surface-light text-accent-yellow focus:ring-accent-yellow/50"
           />
           <span className="text-text-secondary">Yes</span>
         </label>
@@ -185,7 +185,7 @@ function renderField(
         >
           <option value="" className="bg-surface-light text-text-tertiary">Select {field.label}</option>
           {field.options?.map(opt => (
-            <option key={opt} value={opt} className="bg-surface-light text-white">{opt}</option>
+            <option key={opt} value={opt} className="bg-surface-light text-text-primary">{opt}</option>
           ))}
         </select>
       );

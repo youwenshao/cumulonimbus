@@ -70,14 +70,14 @@ export function DashboardContent({ apps, userEmail }: DashboardContentProps) {
   return (
     <div className="flex-1 flex flex-col min-w-0">
       {/* Header */}
-      <header className="border-b border-outline-mid bg-surface-dark/50 backdrop-blur-sm px-8 py-6">
+      <header className="border-b border-outline-mid bg-surface-base/50 backdrop-blur-sm px-8 py-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-serif font-medium text-white">Dashboard</h1>
+          <h1 className="text-3xl font-serif font-medium text-text-primary">Dashboard</h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-text-tertiary">{userEmail}</span>
             <Link 
               href="/api/auth/signout" 
-              className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-secondary hover:text-white hover:bg-surface-light rounded-lg transition-all duration-200"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-elevated rounded-lg transition-all duration-200"
             >
               <LogOut className="w-4 h-4" />
               Sign Out
@@ -103,7 +103,7 @@ export function DashboardContent({ apps, userEmail }: DashboardContentProps) {
                     placeholder="Search apps..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-surface-light border border-outline-mid rounded-lg text-white placeholder-text-tertiary focus:outline-none focus:border-accent-red/50 focus:ring-1 focus:ring-accent-red/50 transition-all"
+                    className="w-full pl-10 pr-4 py-2 bg-surface-elevated border border-outline-mid rounded-lg text-text-primary placeholder-text-tertiary focus:outline-none focus:border-accent-yellow/50 focus:ring-1 focus:ring-accent-yellow/50 transition-all"
                   />
                 </div>
 
@@ -114,8 +114,8 @@ export function DashboardContent({ apps, userEmail }: DashboardContentProps) {
                     onClick={() => toggleSort('name')}
                     className={`px-3 py-1.5 rounded-lg text-sm transition-all duration-200 flex items-center gap-1 ${
                       sortBy === 'name'
-                        ? 'bg-accent-red text-white'
-                        : 'bg-surface-light text-text-secondary hover:text-white hover:bg-surface-mid'
+                        ? 'bg-accent-yellow text-text-primary'
+                        : 'bg-surface-elevated text-text-secondary hover:text-text-primary hover:bg-surface-layer'
                     }`}
                   >
                     Name
@@ -127,8 +127,8 @@ export function DashboardContent({ apps, userEmail }: DashboardContentProps) {
                     onClick={() => toggleSort('date')}
                     className={`px-3 py-1.5 rounded-lg text-sm transition-all duration-200 flex items-center gap-1 ${
                       sortBy === 'date'
-                        ? 'bg-accent-red text-white'
-                        : 'bg-surface-light text-text-secondary hover:text-white hover:bg-surface-mid'
+                        ? 'bg-accent-yellow text-text-primary'
+                        : 'bg-surface-light text-text-secondary hover:text-text-primary hover:bg-surface-mid'
                     }`}
                   >
                     Date
@@ -140,8 +140,8 @@ export function DashboardContent({ apps, userEmail }: DashboardContentProps) {
                     onClick={() => toggleSort('status')}
                     className={`px-3 py-1.5 rounded-lg text-sm transition-all duration-200 flex items-center gap-1 ${
                       sortBy === 'status'
-                        ? 'bg-accent-red text-white'
-                        : 'bg-surface-light text-text-secondary hover:text-white hover:bg-surface-mid'
+                        ? 'bg-accent-yellow text-text-primary'
+                        : 'bg-surface-light text-text-secondary hover:text-text-primary hover:bg-surface-mid'
                     }`}
                   >
                     Status
@@ -193,10 +193,10 @@ function EmptyState() {
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <Card variant="outlined" padding="lg" className="text-center max-w-md animate-fade-in">
-        <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-accent-red/10 border border-accent-red/20 flex items-center justify-center">
-          <Plus className="w-8 h-8 text-accent-red" />
+        <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-accent-yellow/10 border border-accent-yellow/20 flex items-center justify-center">
+          <Plus className="w-8 h-8 text-accent-yellow" />
         </div>
-        <h3 className="text-3xl font-serif font-medium text-white mb-3">No apps yet</h3>
+        <h3 className="text-3xl font-serif font-medium text-text-primary mb-3">No apps yet</h3>
         <p className="text-text-secondary mb-8 leading-relaxed">
           Create your first app to get started. Describe what you want and we&apos;ll build it for you.
         </p>
@@ -222,14 +222,14 @@ function AppCard({
     ACTIVE: 'bg-pastel-green/20 text-pastel-green border border-pastel-green/30',
     DRAFT: 'bg-pastel-yellow/20 text-pastel-yellow border border-pastel-yellow/30',
     GENERATING: 'bg-pastel-blue/20 text-pastel-blue border border-pastel-blue/30',
-    ARCHIVED: 'bg-surface-light text-text-tertiary border border-outline-mid',
+    ARCHIVED: 'bg-surface-elevated text-text-tertiary border border-outline-mid',
   };
 
   return (
     <Card
       variant="outlined"
       padding="lg"
-      className="animate-confident hover:border-accent-red/50 transition-all duration-300 group relative"
+      className="animate-confident hover:border-accent-yellow/50 transition-all duration-300 group relative"
       style={{ animationDelay: `${index * 0.05}s` }}
     >
       <div className="flex items-start justify-between mb-4">
@@ -240,12 +240,12 @@ function AppCard({
         >
           {app.status}
         </div>
-        <button className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-surface-light rounded-lg transition-all">
-          <Settings className="w-4 h-4 text-text-tertiary hover:text-white" />
+        <button className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-surface-elevated rounded-lg transition-all">
+          <Settings className="w-4 h-4 text-text-tertiary hover:text-text-primary" />
         </button>
       </div>
 
-      <h3 className="text-lg font-semibold text-white mb-2 line-clamp-1">{app.name}</h3>
+      <h3 className="text-lg font-semibold text-text-primary mb-2 line-clamp-1">{app.name}</h3>
       <p className="text-sm text-text-secondary line-clamp-2 mb-4 leading-relaxed min-h-[2.5rem]">
         {app.description || 'No description available'}
       </p>

@@ -83,7 +83,7 @@ export function V2SandboxRuntime({
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="border-b border-outline-mid bg-surface-dark px-6 py-4">
+        <header className="border-b border-outline-mid bg-surface-base px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link href="/dashboard" className="btn-ghost p-2">
@@ -91,8 +91,8 @@ export function V2SandboxRuntime({
               </Link>
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold text-white">{name}</h1>
-                  <span className="text-xs bg-gradient-to-r from-purple-600 to-pink-600 px-2 py-1 rounded text-white">
+                  <h1 className="text-xl font-bold text-text-primary">{name}</h1>
+                  <span className="text-xs bg-gradient-to-r from-purple-600 to-pink-600 px-2 py-1 rounded text-text-primary">
                     Sandbox
                   </span>
                 </div>
@@ -107,8 +107,8 @@ export function V2SandboxRuntime({
                   onClick={() => setViewMode('app')}
                   className={`px-3 py-1.5 rounded text-sm transition-colors ${
                     viewMode === 'app'
-                      ? 'bg-red-500 text-white'
-                      : 'text-gray-400 hover:text-white'
+                      ? 'bg-red-500 text-text-primary'
+                      : 'text-gray-400 hover:text-text-primary'
                   }`}
                 >
                   App
@@ -117,8 +117,8 @@ export function V2SandboxRuntime({
                   onClick={() => setViewMode('code')}
                   className={`px-3 py-1.5 rounded text-sm transition-colors ${
                     viewMode === 'code'
-                      ? 'bg-red-500 text-white'
-                      : 'text-gray-400 hover:text-white'
+                      ? 'bg-red-500 text-text-primary'
+                      : 'text-gray-400 hover:text-text-primary'
                   }`}
                 >
                   Code
@@ -127,8 +127,8 @@ export function V2SandboxRuntime({
                   onClick={() => setViewMode('split')}
                   className={`px-3 py-1.5 rounded text-sm transition-colors ${
                     viewMode === 'split'
-                      ? 'bg-red-500 text-white'
-                      : 'text-gray-400 hover:text-white'
+                      ? 'bg-red-500 text-text-primary'
+                      : 'text-gray-400 hover:text-text-primary'
                   }`}
                 >
                   Split

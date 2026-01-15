@@ -8,4 +8,5 @@ export { ContextPanel } from './ContextPanel';
 export { ChatInput } from './ChatInput';
 export { ChatMessage, StreamingMessage } from './ChatMessage';
 export { StatusPanel, StatusIndicator } from './StatusPanel';
+export { ThemeToggle } from './ThemeToggle';
 export type { StatusMessage, StatusPhase, StatusSeverity } from './StatusPanel';

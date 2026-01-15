@@ -12,7 +12,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
 
     const variantClasses = {
       default: 'glass-atmospheric',
-      outlined: 'border border-outline-light bg-surface-dark/50 hover:border-outline-mid',
+      outlined: 'border border-outline-light bg-surface-base/50 hover:border-outline-mid',
       elevated: 'glass-surface shadow-lg shadow-black/50',
     };
 

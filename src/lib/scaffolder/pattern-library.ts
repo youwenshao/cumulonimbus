@@ -59,7 +59,7 @@ export const PATTERN_LIBRARY: AppTemplate[] = [
     longDescription: 'A comprehensive expense tracking app that helps you monitor your spending habits, categorize purchases, and visualize your budget over time.',
     category: 'expense',
     icon: '💰',
-    color: '#10B981', // Green
+    color: '#8bd9b1', // pastel-green
     preview: {
       demoData: [
         { id: '1', amount: 45.99, category: 'Food', description: 'Grocery shopping', date: '2026-01-10', createdAt: new Date().toISOString() },
@@ -132,7 +132,7 @@ export const PATTERN_LIBRARY: AppTemplate[] = [
     longDescription: 'Track your daily habits, build streaks, and visualize your progress. Perfect for morning routines, fitness goals, and personal development.',
     category: 'habit',
     icon: '✅',
-    color: '#8B5CF6', // Purple
+    color: '#c8b0f0', // pastel-purple
     preview: {
       demoData: [
         { id: '1', habitName: 'Morning meditation', completed: true, date: '2026-01-10', streak: 15, notes: 'Felt peaceful', createdAt: new Date().toISOString() },
@@ -192,7 +192,7 @@ export const PATTERN_LIBRARY: AppTemplate[] = [
     longDescription: 'A flexible task management system with status tracking, priority levels, and due dates. Perfect for personal projects or small team collaboration.',
     category: 'project',
     icon: '📋',
-    color: '#F59E0B', // Amber
+    color: '#f0d890', // pastel-yellow
     preview: {
       demoData: [
         { id: '1', taskName: 'Design homepage mockup', status: 'Done', priority: 'High', dueDate: '2026-01-08', assignee: 'Me', createdAt: new Date().toISOString() },
@@ -253,7 +253,7 @@ export const PATTERN_LIBRARY: AppTemplate[] = [
     longDescription: 'Monitor your overall health and wellness with daily metric tracking. Track weight, sleep quality, water intake, and more.',
     category: 'health',
     icon: '❤️',
-    color: '#EF4444', // Red
+    color: '#fca000', // accent-yellow (using accent as red alternative)
     preview: {
       demoData: [
         { id: '1', metric: 'Weight', value: 72.5, unit: 'kg', date: '2026-01-10', notes: 'Morning measurement', createdAt: new Date().toISOString() },
@@ -315,7 +315,7 @@ export const PATTERN_LIBRARY: AppTemplate[] = [
     longDescription: 'Track how you spend your time across different activities, projects, and clients. Perfect for freelancers or anyone wanting to understand their time usage.',
     category: 'time',
     icon: '⏱️',
-    color: '#3B82F6', // Blue
+    color: '#6bb1e0', // pastel-blue
     preview: {
       demoData: [
         { id: '1', activity: 'Client Project A', duration: 120, category: 'Work', date: '2026-01-10', notes: 'Feature development', createdAt: new Date().toISOString() },
@@ -376,7 +376,7 @@ export const PATTERN_LIBRARY: AppTemplate[] = [
     longDescription: 'A simple inventory management system for tracking items, their quantities, and locations. Great for home inventory, collections, or small business stock.',
     category: 'inventory',
     icon: '📦',
-    color: '#6366F1', // Indigo
+    color: '#c8b0f0', // pastel-purple
     preview: {
       demoData: [
         { id: '1', itemName: 'USB Cables', quantity: 15, category: 'Electronics', location: 'Drawer A', createdAt: new Date().toISOString() },

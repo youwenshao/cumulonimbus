@@ -262,12 +262,12 @@ function generateSandboxHTML(
     html, body, #root { height: 100%; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #000;
-      color: #fff;
+      background: #0a0a0a; /* surface-dark */
+      color: #ffffff; /* text-primary */
     }
     .sandbox-error {
       padding: 2rem;
-      color: #ef4444;
+      color: #fca000; /* accent-yellow */
       text-align: center;
     }
     .loading {
@@ -276,7 +276,7 @@ function generateSandboxHTML(
       justify-content: center;
       height: 100%;
       font-size: 18px;
-      color: #666;
+      color: #888888; /* text-tertiary */
     }
   </style>
 </head>

@@ -54,7 +54,7 @@ export function ChatInput({
     <div className={cn('relative pb-8', className)} role="region" aria-label="Message input">
       {/* Dynamic rectangle container */}
       <div className="max-w-4xl mx-auto px-4 pb-4">
-        <div className="relative bg-surface-light/50 backdrop-blur-sm border border-outline-light/50 rounded-xl p-6 transition-all duration-200 hover:border-outline-mid/70 focus-within:border-accent-red/50 focus-within:bg-surface-light/70">
+        <div className="relative bg-surface-elevated/50 backdrop-blur-sm border border-outline-light/50 rounded-xl p-6 transition-all duration-200 hover:border-outline-mid/70 focus-within:border-accent-yellow/50 focus-within:bg-surface-elevated/70">
           {/* Thinking indicator */}
           {isThinking && (
             <div
@@ -62,7 +62,7 @@ export function ChatInput({
               role="status"
               aria-label="AI is thinking"
             >
-              <div className="w-2 h-2 bg-accent-red rounded-full animate-pulse-red"></div>
+              <div className="w-2 h-2 bg-accent-yellow rounded-full animate-pulse-yellow"></div>
             </div>
           )}
 
@@ -82,7 +82,7 @@ export function ChatInput({
               placeholder={placeholder}
               disabled={disabled}
               rows={1}
-              className="w-full resize-none bg-transparent border-0 outline-none text-white placeholder-text-tertiary text-base leading-relaxed min-h-[44px] max-h-[120px] focus:ring-0"
+              className="w-full resize-none bg-transparent border-0 outline-none text-text-primary placeholder-text-tertiary text-base leading-relaxed min-h-[44px] max-h-[120px] focus:ring-0"
               style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255, 255, 255, 0.2) transparent' }}
               aria-describedby="message-hint"
             />
@@ -96,8 +96,8 @@ export function ChatInput({
             className={cn(
               'w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 focus-ring-red',
               message.trim() && !disabled
-                ? 'bg-accent-red hover:bg-accent-red/90 shadow-lg shadow-accent-red/25 hover:shadow-xl hover:shadow-accent-red/30'
-                : 'bg-surface-dark text-text-tertiary cursor-not-allowed'
+                ? 'bg-accent-yellow hover:bg-accent-yellow/90 shadow-lg shadow-accent-yellow/25 hover:shadow-xl hover:shadow-accent-yellow/30'
+                : 'bg-surface-base text-text-tertiary cursor-not-allowed'
             )}
             aria-label={message.trim() ? "Send message" : "Message input is empty"}
             aria-disabled={!message.trim() || disabled}

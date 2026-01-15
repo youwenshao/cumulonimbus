@@ -90,11 +90,15 @@ export function ParticleBackground({ className }: ParticleBackgroundProps) {
         ctx.globalAlpha = particle.opacity;
         ctx.beginPath();
         ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
+
+        // Use theme-aware particle color
+        const isDark = document.documentElement.classList.contains('dark');
+        const particleColor = isDark ? '#ffffff' : '#0f172a'; // white in dark mode, dark text in light mode
+        ctx.fillStyle = particleColor;
         ctx.fill();
 
         // Add slight glow
-        ctx.shadowColor = '#ffffff';
+        ctx.shadowColor = particleColor;
         ctx.shadowBlur = particle.size * 2;
         ctx.fill();
 
@@ -111,12 +115,15 @@ export function ParticleBackground({ className }: ParticleBackgroundProps) {
     } else {
       // Static render for reduced motion
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const isDark = document.documentElement.classList.contains('dark');
+      const particleColor = isDark ? '#ffffff' : '#0f172a'; // white in dark mode, dark text in light mode
+
       particlesRef.current.forEach((particle) => {
         ctx.save();
         ctx.globalAlpha = particle.opacity * 0.5; // More subtle for accessibility
         ctx.beginPath();
         ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = particleColor;
         ctx.fill();
         ctx.restore();
       });

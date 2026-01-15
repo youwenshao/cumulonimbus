@@ -6,36 +6,48 @@ const config: Config = {
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
+  darkMode: 'class',
+  safelist: [
+    // Ensure dark mode variants are not purged
+    'dark:bg-surface-base',
+    'dark:bg-surface-layer',
+    'dark:bg-surface-elevated',
+    'dark:text-text-primary',
+    'dark:text-text-secondary',
+    'dark:text-text-tertiary',
+    'dark:border-outline-light',
+    'dark:border-outline-mid',
+  ],
   theme: {
     extend: {
       colors: {
         // Atmospheric color palette - Cumulonimbus design system
-        // Base: True black foundation
+        // Base: True black foundation (dark mode default)
         black: '#000000',
         'near-black': '#050505',
 
-        // Surfaces: Layered greys for atmospheric depth
-        'surface-dark': '#0a0a0a',
-        'surface-mid': '#111111',
-        'surface-light': '#1a1a1a',
+        // Surfaces: Layered greys for atmospheric depth (with dark mode variants)
+        'surface-base': 'rgb(var(--surface-base) / <alpha-value>)',
+        'surface-layer': 'rgb(var(--surface-layer) / <alpha-value>)',
+        'surface-elevated': 'rgb(var(--surface-elevated) / <alpha-value>)',
 
         // Outlines: Subtle separation
-        'outline-light': '#2d2d2d',
-        'outline-mid': '#333333',
+        'outline-light': 'rgb(var(--outline-light) / <alpha-value>)',
+        'outline-mid': 'rgb(var(--outline-mid) / <alpha-value>)',
 
         // Text hierarchy
-        'text-primary': '#FFFFFF',
-        'text-secondary': '#cccccc',
-        'text-tertiary': '#888888',
+        'text-primary': 'rgb(var(--text-primary) / <alpha-value>)',
+        'text-secondary': 'rgb(var(--text-secondary) / <alpha-value>)',
+        'text-tertiary': 'rgb(var(--text-tertiary) / <alpha-value>)',
 
-        // Accent Gold: Bold, energetic
-        'accent-red': '#fca000',
+        // Accent Gold: Bold, energetic (same in both themes)
+        'accent-yellow': 'rgb(var(--accent-yellow) / <alpha-value>)',
 
         // Pastel accents (for subtle differentiation)
-        'pastel-blue': '#6bb1e0', // User/Info
-        'pastel-green': '#8bd9b1', // Success/Execution
-        'pastel-yellow': '#f0d890', // Warning/System
-        'pastel-purple': '#c8b0f0', // AI/Architect
+        'pastel-blue': 'rgb(107 177 224 / <alpha-value>)', // User/Info
+        'pastel-green': 'rgb(139 219 177 / <alpha-value>)', // Success/Execution
+        'pastel-yellow': 'rgb(240 216 144 / <alpha-value>)', // Warning/System
+        'pastel-purple': 'rgb(200 176 240 / <alpha-value>)', // AI/Architect
       },
       fontFamily: {
         sans: ['var(--font-sans)', 'Inter', 'system-ui', 'sans-serif'],
@@ -50,7 +62,7 @@ const config: Config = {
         'slide-in-right': 'slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         'scale-in': 'scaleIn 0.2s ease-out',
         'pulse-soft': 'pulseSoft 2s infinite',
-        'pulse-red': 'pulseRed 2s infinite',
+        'pulse-yellow': 'pulseYellow 2s infinite',
         'confident': 'confident 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       },
       keyframes: {
@@ -78,7 +90,7 @@ const config: Config = {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0.7' },
         },
-        pulseRed: {
+        pulseYellow: {
           '0%, 100%': { opacity: '1', boxShadow: '0 0 0 0 rgba(252, 160, 0, 0.4)' },
           '50%': { opacity: '0.8', boxShadow: '0 0 0 4px rgba(252, 160, 0, 0)' },
         },

@@ -60,24 +60,24 @@ export function ChatMessage({ message, className, enableTypewriter = false }: Ch
             'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1',
             isUser
               ? 'bg-pastel-blue'
-              : 'bg-accent-red'
+              : 'bg-accent-yellow'
           )}
           role="img"
           aria-label={isUser ? 'User avatar' : 'Architect avatar'}
         >
           {isUser ? (
-            <User className="w-4 h-4 text-white" aria-hidden="true" />
+            <User className="w-4 h-4 text-text-primary" aria-hidden="true" />
           ) : (
-            <span className="text-white font-bold text-sm" aria-hidden="true">A</span>
+            <span className="text-text-primary font-bold text-sm" aria-hidden="true">A</span>
           )}
         </div>
 
         {/* Message bubble */}
         <div className={cn(
-          'px-4 py-3 rounded-2xl text-white',
+          'px-4 py-3 rounded-2xl text-text-primary',
           isUser
             ? 'message-user'
-            : 'bg-surface-light border border-outline-light'
+            : 'bg-surface-elevated border border-outline-light'
         )}>
           <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
         </div>
@@ -134,19 +134,19 @@ function TypewriterMessage({ message, className, isStreaming }: TypewriterMessag
       <div className="max-w-[85%] flex gap-3">
         {/* Avatar */}
         <div
-          className="w-8 h-8 rounded-full bg-accent-red flex items-center justify-center flex-shrink-0 mt-1"
+          className="w-8 h-8 rounded-full bg-accent-yellow flex items-center justify-center flex-shrink-0 mt-1"
           role="img"
           aria-label="Architect avatar"
         >
-          <span className="text-white font-bold text-sm" aria-hidden="true">A</span>
+          <span className="text-text-primary font-bold text-sm" aria-hidden="true">A</span>
         </div>
 
         {/* Message bubble */}
-        <div className="px-4 py-3 rounded-2xl bg-surface-light border border-outline-light text-white">
+        <div className="px-4 py-3 rounded-2xl bg-surface-elevated border border-outline-light text-text-primary">
           <p className="whitespace-pre-wrap leading-relaxed">
             {displayedContent}
             {isTyping && (
-              <span className="inline-block w-2 h-4 ml-0.5 bg-accent-red animate-pulse" />
+              <span className="inline-block w-2 h-4 ml-0.5 bg-accent-yellow animate-pulse" />
             )}
           </p>
         </div>
@@ -176,8 +176,8 @@ function CodeMessage({ message, className }: ChatMessageProps) {
     <div className={cn('flex justify-start animate-confident', className)}>
       <div className="max-w-[85%] flex gap-3">
         {/* Architect icon */}
-        <div className="w-8 h-8 rounded-full bg-accent-red flex items-center justify-center flex-shrink-0 mt-1">
-          <span className="text-white font-bold text-sm">A</span>
+        <div className="w-8 h-8 rounded-full bg-accent-yellow flex items-center justify-center flex-shrink-0 mt-1">
+          <span className="text-text-primary font-bold text-sm">A</span>
         </div>
 
         {/* Message content */}
@@ -198,7 +198,7 @@ function CodeMessage({ message, className }: ChatMessageProps) {
               );
             } else if (part.trim()) {
               return (
-                <div key={index} className="text-white leading-relaxed">
+                <div key={index} className="text-text-primary leading-relaxed">
                   <p className="whitespace-pre-wrap">{part.trim()}</p>
                 </div>
               );
@@ -217,15 +217,15 @@ function ActionMessage({ message, className }: ChatMessageProps) {
       <div className="max-w-[85%] w-full">
         <div className="message-action p-4 rounded-xl">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-5 h-5 rounded-full bg-accent-red flex items-center justify-center">
-              <Cpu className="w-3 h-3 text-white" />
+            <div className="w-5 h-5 rounded-full bg-accent-yellow flex items-center justify-center">
+              <Cpu className="w-3 h-3 text-text-primary" />
             </div>
-            <span className="text-white font-medium">Architect is executing the build plan...</span>
+            <span className="text-text-primary font-medium">Architect is executing the build plan...</span>
           </div>
 
           {/* Progress bar */}
-          <div className="w-full bg-surface-dark rounded-full h-2 overflow-hidden">
-            <div className="h-full bg-accent-red rounded-full animate-pulse" style={{ width: '60%' }}></div>
+          <div className="w-full bg-surface-layer rounded-full h-2 overflow-hidden">
+            <div className="h-full bg-accent-yellow rounded-full animate-pulse" style={{ width: '60%' }}></div>
           </div>
 
           <div className="text-xs text-text-secondary mt-2">
@@ -253,16 +253,16 @@ export function StreamingMessage({
     <div className={cn('flex justify-start animate-confident', className)} role="article" aria-label="Architect's message">
       <div className="max-w-[85%] flex gap-3">
         {/* Avatar */}
-        <div className="w-8 h-8 rounded-full bg-accent-red flex items-center justify-center flex-shrink-0 mt-1">
-          <span className="text-white font-bold text-sm">A</span>
+        <div className="w-8 h-8 rounded-full bg-accent-yellow flex items-center justify-center flex-shrink-0 mt-1">
+          <span className="text-text-primary font-bold text-sm">A</span>
         </div>
 
         {/* Message bubble */}
-        <div className="px-4 py-3 rounded-2xl bg-surface-light border border-outline-light text-white">
+        <div className="px-4 py-3 rounded-2xl bg-surface-light border border-outline-light text-text-primary">
           <p className="whitespace-pre-wrap leading-relaxed">
             {content}
             {!isComplete && (
-              <span className="inline-block w-2 h-4 ml-0.5 bg-accent-red animate-pulse" />
+              <span className="inline-block w-2 h-4 ml-0.5 bg-accent-yellow animate-pulse" />
             )}
           </p>
         </div>

@@ -12,13 +12,13 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 // Simple asChild implementation
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', loading, children, disabled, asChild, ...props }, ref) => {
-    const baseClasses = 'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 focus-ring-red disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseClasses = 'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 focus-ring-yellow disabled:opacity-50 disabled:cursor-not-allowed';
 
     const variantClasses = {
       primary: 'btn-primary',
       secondary: 'btn-secondary',
       ghost: 'btn-ghost',
-      danger: 'bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/25 hover:shadow-xl hover:shadow-red-600/30',
+      danger: 'bg-red-600 hover:bg-red-700 text-surface-base shadow-lg shadow-red-600/25 hover:shadow-xl hover:shadow-red-600/30 dark:bg-red-500 dark:hover:bg-red-600',
     };
 
     const sizeClasses = {

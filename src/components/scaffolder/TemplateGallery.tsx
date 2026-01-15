@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { Zap, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
   PATTERN_LIBRARY, 
@@ -83,7 +84,7 @@ export function TemplateGallery({ onSelectTemplate, onBack, className }: Templat
     <div className={cn('flex flex-col gap-6', className)}>
       {/* Header */}
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-white mb-2">Start with a Template</h2>
+        <h2 className="text-2xl font-bold text-text-primary mb-2">Start with a Template</h2>
         <p className="text-text-secondary">Choose a template and customize it to fit your needs</p>
       </div>
 
@@ -91,7 +92,7 @@ export function TemplateGallery({ onSelectTemplate, onBack, className }: Templat
       {onBack && (
         <button
           onClick={onBack}
-          className="self-start text-text-secondary hover:text-white transition-colors flex items-center gap-2"
+          className="self-start text-text-secondary hover:text-text-primary transition-colors flex items-center gap-2"
         >
           ← Back to conversation
         </button>
@@ -104,7 +105,7 @@ export function TemplateGallery({ onSelectTemplate, onBack, className }: Templat
           placeholder="Search templates..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full px-4 py-3 bg-surface-light border border-outline-light rounded-xl text-white placeholder:text-text-secondary focus:outline-none focus:border-accent-red"
+          className="w-full px-4 py-3 bg-surface-elevated border border-outline-light rounded-xl text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent-yellow"
         />
         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-text-secondary">🔍</span>
       </div>
@@ -114,7 +115,7 @@ export function TemplateGallery({ onSelectTemplate, onBack, className }: Templat
         <CategoryButton
           active={selectedCategory === 'all'}
           onClick={() => setSelectedCategory('all')}
-          icon="🎯"
+          icon="○"
           label="All"
           count={PATTERN_LIBRARY.length}
         />
@@ -166,15 +167,15 @@ function CategoryButton({ active, onClick, icon, label, count }: CategoryButtonP
       className={cn(
         'px-3 py-2 rounded-lg flex items-center gap-2 transition-all',
         active
-          ? 'bg-accent-red text-white'
-          : 'bg-surface-light border border-outline-light text-text-secondary hover:text-white hover:border-outline-mid'
+          ? 'bg-accent-yellow text-text-primary'
+          : 'bg-surface-elevated border border-outline-light text-text-secondary hover:text-text-primary hover:border-outline-mid'
       )}
     >
       <span>{icon}</span>
       <span className="font-medium">{label}</span>
       <span className={cn(
         'text-xs px-1.5 py-0.5 rounded-full',
-        active ? 'bg-white/20' : 'bg-surface-dark'
+        active ? 'bg-white/20' : 'bg-surface-base'
       )}>
         {count}
       </span>
@@ -191,7 +192,7 @@ function TemplateCard({ template, onSelect }: TemplateCardProps) {
   return (
     <button
       onClick={onSelect}
-      className="group bg-surface-light border border-outline-light rounded-xl p-4 text-left hover:border-accent-red/50 transition-all"
+      className="group bg-surface-elevated border border-outline-light rounded-xl p-4 text-left hover:border-accent-yellow/50 transition-all"
     >
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
@@ -202,7 +203,7 @@ function TemplateCard({ template, onSelect }: TemplateCardProps) {
           {template.icon}
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-white group-hover:text-accent-red transition-colors truncate">
+          <h3 className="font-semibold text-text-primary group-hover:text-accent-yellow transition-colors truncate">
             {template.name}
           </h3>
           <div className="flex items-center gap-2 text-xs text-text-secondary">
@@ -268,7 +269,7 @@ function TemplateCustomizer({
       <div className="flex items-start gap-4">
         <button
           onClick={onBack}
-          className="p-2 rounded-lg bg-surface-light border border-outline-light text-text-secondary hover:text-white transition-colors"
+          className="p-2 rounded-lg bg-surface-light border border-outline-light text-text-secondary hover:text-text-primary transition-colors"
         >
           ←
         </button>
@@ -281,7 +282,7 @@ function TemplateCustomizer({
               {template.icon}
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">{template.name}</h2>
+              <h2 className="text-xl font-bold text-text-primary">{template.name}</h2>
               <p className="text-sm text-text-secondary">{template.description}</p>
             </div>
           </div>
@@ -290,7 +291,7 @@ function TemplateCustomizer({
 
       {/* Long Description */}
       {template.longDescription && (
-        <p className="text-text-secondary bg-surface-light border border-outline-light rounded-xl p-4">
+        <p className="text-text-secondary bg-surface-elevated border border-outline-light rounded-xl p-4">
           {template.longDescription}
         </p>
       )}
@@ -298,7 +299,7 @@ function TemplateCustomizer({
       {/* Customization Points */}
       {template.customizationPoints.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-white">Customize Your App</h3>
+          <h3 className="text-lg font-semibold text-text-primary">Customize Your App</h3>
           
           {template.customizationPoints.map(point => (
             <CustomizationField
@@ -312,13 +313,13 @@ function TemplateCustomizer({
       )}
 
       {/* Preview of what's included */}
-      <div className="bg-surface-light border border-outline-light rounded-xl p-4">
-        <h3 className="text-sm font-semibold text-white mb-3">What's Included</h3>
+      <div className="bg-surface-elevated border border-outline-light rounded-xl p-4">
+        <h3 className="text-sm font-semibold text-text-primary mb-3">What&apos;s Included</h3>
         <div className="grid grid-cols-2 gap-3">
           <div className="flex items-center gap-2">
             <span className="text-lg">📝</span>
             <div>
-              <div className="text-sm font-medium text-white">{template.spec.dataStore.fields.length} Fields</div>
+              <div className="text-sm font-medium text-text-primary">{template.spec.dataStore.fields.length} Fields</div>
               <div className="text-xs text-text-secondary">
                 {template.spec.dataStore.fields.map(f => f.label).slice(0, 3).join(', ')}
                 {template.spec.dataStore.fields.length > 3 && '...'}
@@ -328,7 +329,7 @@ function TemplateCustomizer({
           <div className="flex items-center gap-2">
             <span className="text-lg">👁️</span>
             <div>
-              <div className="text-sm font-medium text-white">{template.spec.views.length} Views</div>
+              <div className="text-sm font-medium text-text-primary">{template.spec.views.length} Views</div>
               <div className="text-xs text-text-secondary">
                 {template.spec.views.map(v => v.type).join(', ')}
               </div>
@@ -342,7 +343,7 @@ function TemplateCustomizer({
         {template.useCases.map((useCase, i) => (
           <span
             key={i}
-            className="px-3 py-1 bg-surface-dark rounded-full text-sm text-text-secondary"
+            className="px-3 py-1 bg-surface-base rounded-full text-sm text-text-secondary"
           >
             {useCase}
           </span>
@@ -352,9 +353,9 @@ function TemplateCustomizer({
       {/* Confirm Button */}
       <button
         onClick={onConfirm}
-        className="w-full py-4 bg-accent-red text-white rounded-xl font-semibold hover:bg-accent-red/90 transition-colors flex items-center justify-center gap-2"
+        className="w-full py-4 bg-accent-yellow text-text-primary rounded-xl font-semibold hover:bg-accent-yellow/90 transition-colors flex items-center justify-center gap-2"
       >
-        <span>⚡</span> Create This App
+        <Zap className="w-4 h-4" /> Create This App
       </button>
     </div>
   );
@@ -371,9 +372,9 @@ function CustomizationField({ point, value, onChange }: CustomizationFieldProps)
     case 'field-selection':
       return (
         <div className="bg-surface-dark rounded-xl p-4">
-          <label className="block text-sm font-medium text-white mb-2">
+          <label className="block text-sm font-medium text-text-primary mb-2">
             {point.label}
-            {point.required && <span className="text-accent-red ml-1">*</span>}
+            {point.required && <span className="text-accent-yellow ml-1">*</span>}
           </label>
           {point.description && (
             <p className="text-xs text-text-secondary mb-3">{point.description}</p>
@@ -396,8 +397,8 @@ function CustomizationField({ point, value, onChange }: CustomizationFieldProps)
                   className={cn(
                     'px-3 py-1.5 rounded-lg text-sm transition-all',
                     isSelected
-                      ? 'bg-accent-red text-white'
-                      : 'bg-surface-light border border-outline-light text-text-secondary hover:text-white'
+                      ? 'bg-accent-yellow text-text-primary'
+                      : 'bg-surface-light border border-outline-light text-text-secondary hover:text-text-primary'
                   )}
                 >
                   {option.label}
@@ -411,7 +412,7 @@ function CustomizationField({ point, value, onChange }: CustomizationFieldProps)
     case 'view-type':
       return (
         <div className="bg-surface-dark rounded-xl p-4">
-          <label className="block text-sm font-medium text-white mb-2">
+          <label className="block text-sm font-medium text-text-primary mb-2">
             {point.label}
           </label>
           {point.description && (
@@ -425,8 +426,8 @@ function CustomizationField({ point, value, onChange }: CustomizationFieldProps)
                 className={cn(
                   'flex-1 px-4 py-3 rounded-lg text-sm transition-all',
                   value === option.id
-                    ? 'bg-accent-red text-white'
-                    : 'bg-surface-light border border-outline-light text-text-secondary hover:text-white'
+                    ? 'bg-accent-yellow text-text-primary'
+                    : 'bg-surface-light border border-outline-light text-text-secondary hover:text-text-primary'
                 )}
               >
                 <div className="font-medium">{option.label}</div>
@@ -442,7 +443,7 @@ function CustomizationField({ point, value, onChange }: CustomizationFieldProps)
     case 'text-input':
       return (
         <div className="bg-surface-dark rounded-xl p-4">
-          <label className="block text-sm font-medium text-white mb-2">
+          <label className="block text-sm font-medium text-text-primary mb-2">
             {point.label}
           </label>
           {point.description && (
@@ -453,7 +454,7 @@ function CustomizationField({ point, value, onChange }: CustomizationFieldProps)
             value={typeof value === 'string' ? value : ''}
             onChange={(e) => onChange(e.target.value)}
             placeholder={typeof point.defaultValue === 'string' ? point.defaultValue : ''}
-            className="w-full px-4 py-2 bg-surface-light border border-outline-light rounded-lg text-white placeholder:text-text-secondary focus:outline-none focus:border-accent-red"
+            className="w-full px-4 py-2 bg-surface-light border border-outline-light rounded-lg text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent-yellow"
           />
         </div>
       );

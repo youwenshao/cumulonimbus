@@ -39,7 +39,7 @@ export function ContextPanel({ isOpen, onClose, className }: ContextPanelProps) 
   return (
     <div
       className={cn(
-        'fixed right-0 top-0 h-full bg-surface-mid border-l border-outline-mid transition-transform duration-300 ease-out z-40',
+        'fixed right-0 top-0 h-full bg-surface-layer border-l border-outline-mid transition-transform duration-300 ease-out z-40',
         'w-80 shadow-2xl',
         isOpen ? 'translate-x-0' : 'translate-x-full',
         className
@@ -47,10 +47,10 @@ export function ContextPanel({ isOpen, onClose, className }: ContextPanelProps) 
     >
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-outline-light">
-        <h3 className="text-lg font-semibold text-white">Context Panel</h3>
+        <h3 className="text-lg font-semibold text-text-primary">Context Panel</h3>
         <button
           onClick={onClose}
-          className="p-1 hover:bg-surface-light rounded transition-colors"
+          className="p-1 hover:bg-surface-elevated rounded transition-colors"
           aria-label="Close panel"
         >
           <X className="w-5 h-5 text-text-secondary" />
@@ -70,8 +70,8 @@ export function ContextPanel({ isOpen, onClose, className }: ContextPanelProps) 
               className={cn(
                 'flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors flex-1',
                 isActive
-                  ? 'text-accent-red border-b-2 border-accent-red bg-surface-dark'
-                  : 'text-text-secondary hover:text-white hover:bg-surface-light'
+                  ? 'text-accent-yellow border-b-2 border-accent-yellow bg-surface-base'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-surface-elevated'
               )}
             >
               <Icon className="w-4 h-4" />
@@ -136,7 +136,7 @@ function DocumentationTab() {
         <input
           type="text"
           placeholder="Search docs..."
-          className="w-full px-3 py-2 bg-surface-dark border border-outline-light rounded text-sm focus:border-accent-red focus:outline-none"
+          className="w-full px-3 py-2 bg-surface-base border border-outline-light rounded text-sm focus:border-accent-yellow focus:outline-none"
         />
         <div className="text-xs text-text-tertiary">
           Documentation search functionality coming soon...

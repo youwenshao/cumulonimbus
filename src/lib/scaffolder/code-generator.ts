@@ -43,7 +43,7 @@ CRITICAL REQUIREMENTS:
 7. Follow React best practices (hooks, memoization where needed)
 
 STYLING GUIDELINES:
-- Use a dark theme: bg-black, bg-gray-900, text-white
+- Use a dark theme: bg-black, bg-gray-900, text-text-primary
 - Use accent colors: red-500/red-600 for primary actions
 - Use gray-800/gray-700 for cards and surfaces
 - Use proper spacing and responsive design
@@ -456,7 +456,7 @@ export default function ${componentName}Page() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-black text-white p-8">
+    <div className="min-h-screen bg-surface-dark text-text-primary p-8">
       <header className="mb-8">
         <h1 className="text-3xl font-bold">${spec.name}</h1>
         <p className="text-gray-400">${spec.description}</p>
@@ -469,14 +469,14 @@ ${fields.map(f => `          <div>
             <label className="block text-sm text-gray-400 mb-1">${f.label || f.name}</label>
             <input
               type="${f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'}"
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+              className="w-full px-3 py-2 bg-surface-light border border-outline-light rounded text-text-primary"
               value={String(formData['${f.name}'] || '')}
               onChange={(e) => setFormData(prev => ({ ...prev, ${f.name}: e.target.value }))}
               ${f.required ? 'required' : ''}
             />
           </div>`).join('\n')}
         </div>
-        <button type="submit" className="mt-4 px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+        <button type="submit" className="mt-4 px-6 py-2 bg-accent-yellow text-text-primary rounded hover:bg-accent-yellow/90">
           Add Entry
         </button>
       </form>

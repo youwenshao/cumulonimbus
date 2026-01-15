@@ -2,17 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Server,
-  Cloud,
-  Zap,
   CheckCircle2,
   XCircle,
   Loader2,
   RefreshCw,
   AlertCircle,
-  Palette,
 } from 'lucide-react';
 import { Button, Card } from '@/components/ui';
+import { AutoIcon, OllamaIcon, LMStudioIcon, OpenRouterIcon } from '@/components/icons/ProviderIcons';
 import type { LLMProvider, HealthCheckResult } from '@/lib/llm/types';
 
 export interface LLMSettings {
@@ -81,20 +78,20 @@ export function LLMProviderSettings({
 
   return (
     <div className="space-y-6">
-      {/* Provider Selection */}
-      <Card variant="outlined" padding="lg">
-        <h3 className="text-lg font-semibold mb-4">LLM Provider</h3>
-        <p className="text-sm text-gray-400 mb-6">
+      <div className="p-6">
+        <h2 className="text-xl font-serif font-medium mb-4 text-text-primary">
+          LLM Provider
+        </h2>
+        <p className="text-sm text-text-secondary mb-6">
           Choose which AI provider to use for generating your apps.
         </p>
 
         <div className="space-y-3">
-          {/* Auto */}
           <label className={`
-            flex items-start gap-4 p-4 rounded-lg border cursor-pointer transition-colors
+            group flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-colors
             ${settings.provider === 'auto' 
-              ? 'border-red-500 bg-red-500/10' 
-              : 'border-gray-700 hover:border-gray-600'}
+              ? 'border-accent-yellow/60 bg-accent-yellow/10' 
+              : 'border-outline-light hover:border-accent-yellow/40 bg-surface-base/80'}
           `}>
             <input
               type="radio"
@@ -102,25 +99,26 @@ export function LLMProviderSettings({
               value="auto"
               checked={settings.provider === 'auto'}
               onChange={() => handleProviderChange('auto')}
-              className="mt-1"
+              className="mt-1 accent-accent-yellow"
             />
             <div className="flex-1">
-              <div className="flex items-center gap-2 font-medium">
-                <Zap className="w-5 h-5 text-yellow-500" />
+              <div className={`flex items-center gap-2 font-medium transition-colors ${
+                settings.provider === 'auto' ? 'text-accent-yellow' : 'text-text-primary group-hover:text-accent-yellow'
+              }`}>
+                <AutoIcon className="w-6 h-6" />
                 Auto (Recommended)
               </div>
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="text-sm text-text-secondary mt-1 leading-relaxed">
                 Automatically use Ollama when available, fall back to hosted API otherwise.
               </p>
             </div>
           </label>
 
-          {/* Ollama */}
           <label className={`
-            flex items-start gap-4 p-4 rounded-lg border cursor-pointer transition-colors
+            group flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-colors
             ${settings.provider === 'ollama' 
-              ? 'border-red-500 bg-red-500/10' 
-              : 'border-gray-700 hover:border-gray-600'}
+              ? 'border-accent-yellow/60 bg-accent-yellow/10' 
+              : 'border-outline-light hover:border-accent-yellow/40 bg-surface-base/80'}
           `}>
             <input
               type="radio"
@@ -128,26 +126,28 @@ export function LLMProviderSettings({
               value="ollama"
               checked={settings.provider === 'ollama'}
               onChange={() => handleProviderChange('ollama')}
-              className="mt-1"
+              className="mt-1 accent-accent-yellow"
             />
             <div className="flex-1">
-              <div className="flex items-center gap-2 font-medium">
-                <Server className="w-5 h-5 text-blue-500" />
+              <div className={`flex items-center gap-2 font-medium transition-colors ${
+                settings.provider === 'ollama' ? 'text-accent-yellow' : 'text-text-primary group-hover:text-accent-yellow'
+              }`}>
+                <OllamaIcon className="w-6 h-6" />
                 Ollama (Local)
                 {healthStatus.ollama && (
                   healthStatus.ollama.available ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    <CheckCircle2 className="w-4 h-4 text-green-500 ml-auto" />
                   ) : (
-                    <XCircle className="w-4 h-4 text-red-500" />
+                    <XCircle className="w-4 h-4 text-red-500 ml-auto" />
                   )
                 )}
               </div>
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="text-sm text-text-secondary mt-1 leading-relaxed">
                 Run AI models locally for faster responses and no API costs.
                 Requires Ollama to be installed and running.
               </p>
               {healthStatus.ollama && !healthStatus.ollama.available && (
-                <p className="text-sm text-red-400 mt-2 flex items-center gap-1">
+                <p className="text-sm text-red-400 mt-2 flex items-center gap-1 leading-relaxed">
                   <AlertCircle className="w-4 h-4" />
                   {healthStatus.ollama.error || 'Ollama is not available'}
                 </p>
@@ -155,12 +155,11 @@ export function LLMProviderSettings({
             </div>
           </label>
 
-          {/* LM Studio */}
           <label className={`
-            flex items-start gap-4 p-4 rounded-lg border cursor-pointer transition-colors
+            group flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-colors
             ${settings.provider === 'lmstudio'
-              ? 'border-red-500 bg-red-500/10'
-              : 'border-gray-700 hover:border-gray-600'}
+              ? 'border-accent-yellow/60 bg-accent-yellow/10'
+              : 'border-outline-light hover:border-accent-yellow/40 bg-surface-base/80'}
           `}>
             <input
               type="radio"
@@ -168,26 +167,28 @@ export function LLMProviderSettings({
               value="lmstudio"
               checked={settings.provider === 'lmstudio'}
               onChange={() => handleProviderChange('lmstudio')}
-              className="mt-1"
+              className="mt-1 accent-accent-yellow"
             />
             <div className="flex-1">
-              <div className="flex items-center gap-2 font-medium">
-                <Palette className="w-5 h-5 text-pink-500" />
+              <div className={`flex items-center gap-2 font-medium transition-colors ${
+                settings.provider === 'lmstudio' ? 'text-accent-yellow' : 'text-text-primary group-hover:text-accent-yellow'
+              }`}>
+                <LMStudioIcon className="w-6 h-6" />
                 LM Studio (Local)
                 {healthStatus.lmstudio && (
                   healthStatus.lmstudio.available ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    <CheckCircle2 className="w-4 h-4 text-green-500 ml-auto" />
                   ) : (
-                    <XCircle className="w-4 h-4 text-red-500" />
+                    <XCircle className="w-4 h-4 text-red-500 ml-auto" />
                   )
                 )}
               </div>
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="text-sm text-text-secondary mt-1 leading-relaxed">
                 Run AI models locally with LM Studio.
                 Fast responses, no API costs, requires LM Studio to be running.
               </p>
               {healthStatus.lmstudio && !healthStatus.lmstudio.available && (
-                <p className="text-sm text-red-400 mt-2 flex items-center gap-1">
+                <p className="text-sm text-red-400 mt-2 flex items-center gap-1 leading-relaxed">
                   <AlertCircle className="w-4 h-4" />
                   {healthStatus.lmstudio.error || 'LM Studio is not available'}
                 </p>
@@ -195,12 +196,11 @@ export function LLMProviderSettings({
             </div>
           </label>
 
-          {/* OpenRouter */}
           <label className={`
-            flex items-start gap-4 p-4 rounded-lg border cursor-pointer transition-colors
+            group flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-colors
             ${settings.provider === 'openrouter'
-              ? 'border-red-500 bg-red-500/10'
-              : 'border-gray-700 hover:border-gray-600'}
+              ? 'border-accent-yellow/60 bg-accent-yellow/10'
+              : 'border-outline-light hover:border-accent-yellow/40 bg-surface-base/80'}
           `}>
             <input
               type="radio"
@@ -208,21 +208,23 @@ export function LLMProviderSettings({
               value="openrouter"
               checked={settings.provider === 'openrouter'}
               onChange={() => handleProviderChange('openrouter')}
-              className="mt-1"
+              className="mt-1 accent-accent-yellow"
             />
             <div className="flex-1">
-              <div className="flex items-center gap-2 font-medium">
-                <Cloud className="w-5 h-5 text-purple-500" />
+              <div className={`flex items-center gap-2 font-medium transition-colors ${
+                settings.provider === 'openrouter' ? 'text-accent-yellow' : 'text-text-primary group-hover:text-accent-yellow'
+              }`}>
+                <OpenRouterIcon className="w-6 h-6" />
                 OpenRouter (Hosted)
                 {healthStatus.openrouter && (
                   healthStatus.openrouter.available ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    <CheckCircle2 className="w-4 h-4 text-green-500 ml-auto" />
                   ) : (
-                    <XCircle className="w-4 h-4 text-red-500" />
+                    <XCircle className="w-4 h-4 text-red-500 ml-auto" />
                   )
                 )}
               </div>
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="text-sm text-text-secondary mt-1 leading-relaxed">
                 Use hosted AI models via OpenRouter API.
                 Works anywhere, requires API key.
               </p>
@@ -230,7 +232,6 @@ export function LLMProviderSettings({
           </label>
         </div>
 
-        {/* Health check button */}
         <div className="mt-4 flex justify-end">
           <Button
             variant="ghost"
@@ -246,38 +247,37 @@ export function LLMProviderSettings({
             Test Connection
           </Button>
         </div>
-      </Card>
+      </div>
 
-      {/* Ollama Settings */}
       {(settings.provider === 'ollama' || settings.provider === 'auto') && (
-        <Card variant="outlined" padding="lg">
-          <h3 className="text-lg font-semibold mb-4">Ollama Settings</h3>
+        <div className="p-6">
+          <h2 className="text-xl font-serif font-medium mb-4 text-text-primary">
+            Ollama Settings
+          </h2>
 
           <div className="space-y-4">
-            {/* Endpoint */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
                 Ollama Endpoint
               </label>
               <input
                 type="text"
                 value={settings.ollamaEndpoint}
-                onChange={(e) => onSettingsChange({ 
-                  ...settings, 
-                  ollamaEndpoint: e.target.value 
+                onChange={(e) => onSettingsChange({
+                  ...settings,
+                  ollamaEndpoint: e.target.value
                 })}
                 placeholder="http://localhost:11434"
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-4 py-2 bg-surface-elevated border border-outline-light rounded-lg text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-yellow/60"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-text-secondary mt-1.5 leading-relaxed">
                 The URL where Ollama is running
               </p>
             </div>
 
-            {/* Primary Model */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Primary Model
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
+                Main Model
               </label>
               <select
                 value={settings.ollamaModel}
@@ -285,21 +285,20 @@ export function LLMProviderSettings({
                   ...settings,
                   ollamaModel: e.target.value
                 })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-4 py-2 bg-surface-elevated border border-outline-light rounded-lg text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-yellow/60"
               >
                 <option value={settings.ollamaModel}>{settings.ollamaModel}</option>
                 {healthStatus.ollama?.models?.filter(model => model !== settings.ollamaModel).map(model => (
                   <option key={model} value={model}>{model}</option>
                 ))}
               </select>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-text-secondary mt-1.5 leading-relaxed">
                 Main model for complex code generation tasks
               </p>
             </div>
 
-            {/* Small Model */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
                 Small Model
               </label>
               <select
@@ -308,29 +307,28 @@ export function LLMProviderSettings({
                   ...settings,
                   ollamaSmallModel: e.target.value
                 })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-4 py-2 bg-surface-elevated border border-outline-light rounded-lg text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-yellow/60"
               >
                 <option value={settings.ollamaSmallModel}>{settings.ollamaSmallModel}</option>
                 {healthStatus.ollama?.models?.filter(model => model !== settings.ollamaSmallModel).map(model => (
                   <option key={model} value={model}>{model}</option>
                 ))}
               </select>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-text-secondary mt-1.5 leading-relaxed">
                 Faster model for quick tasks like intent analysis
               </p>
             </div>
 
-            {/* Available models info */}
             {healthStatus.ollama?.models && healthStatus.ollama.models.length > 0 && (
-              <div className="p-3 bg-gray-800/50 rounded-lg">
-                <p className="text-sm font-medium text-gray-300 mb-2">
+              <div className="p-3 bg-surface-elevated/70 rounded-lg border border-outline-light/60">
+                <p className="text-sm font-medium text-text-primary mb-2">
                   Available Models:
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {healthStatus.ollama.models.map(model => (
                     <span 
                       key={model}
-                      className="px-2 py-1 bg-gray-700 rounded text-xs text-gray-300"
+                      className="px-2 py-1 bg-surface-layer rounded text-xs text-text-secondary"
                     >
                       {model}
                     </span>
@@ -339,18 +337,18 @@ export function LLMProviderSettings({
               </div>
             )}
           </div>
-        </Card>
+        </div>
       )}
 
-      {/* LM Studio Settings */}
       {(settings.provider === 'lmstudio' || settings.provider === 'auto') && (
-        <Card variant="outlined" padding="lg">
-          <h3 className="text-lg font-semibold mb-4">LM Studio Settings</h3>
+        <div className="p-6">
+          <h2 className="text-xl font-serif font-medium mb-4 text-text-primary">
+            LM Studio Settings
+          </h2>
 
           <div className="space-y-4">
-            {/* Endpoint */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
                 LM Studio Endpoint
               </label>
               <input
@@ -361,16 +359,15 @@ export function LLMProviderSettings({
                   lmstudioEndpoint: e.target.value
                 })}
                 placeholder="http://localhost:1234"
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-4 py-2 bg-surface-elevated border border-outline-light rounded-lg text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-yellow/60"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-text-secondary mt-1.5 leading-relaxed">
                 The URL where LM Studio is running
               </p>
             </div>
 
-            {/* Model */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
                 Model
               </label>
               <select
@@ -379,29 +376,28 @@ export function LLMProviderSettings({
                   ...settings,
                   lmstudioModel: e.target.value
                 })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-4 py-2 bg-surface-elevated border border-outline-light rounded-lg text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-yellow/60"
               >
                 <option value={settings.lmstudioModel}>{settings.lmstudioModel}</option>
                 {healthStatus.lmstudio?.models?.filter(model => model !== settings.lmstudioModel).map(model => (
                   <option key={model} value={model}>{model}</option>
                 ))}
               </select>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-text-secondary mt-1.5 leading-relaxed">
                 The model name to use for generation
               </p>
             </div>
 
-            {/* Available models info */}
             {healthStatus.lmstudio?.models && healthStatus.lmstudio.models.length > 0 && (
-              <div className="p-3 bg-gray-800/50 rounded-lg">
-                <p className="text-sm font-medium text-gray-300 mb-2">
+              <div className="p-3 bg-surface-elevated/70 rounded-lg border border-outline-light/60">
+                <p className="text-sm font-medium text-text-primary mb-2">
                   Available Models:
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {healthStatus.lmstudio.models.map(model => (
                     <span
                       key={model}
-                      className="px-2 py-1 bg-gray-700 rounded text-xs text-gray-300"
+                      className="px-2 py-1 bg-surface-layer rounded text-xs text-text-secondary"
                     >
                       {model}
                     </span>
@@ -410,12 +406,13 @@ export function LLMProviderSettings({
               </div>
             )}
           </div>
-        </Card>
+        </div>
       )}
 
-      {/* Fallback Settings */}
-      <Card variant="outlined" padding="lg">
-        <h3 className="text-lg font-semibold mb-4">Fallback Settings</h3>
+      <div className="p-6">
+        <h2 className="text-xl font-serif font-medium mb-4 text-text-primary">
+          Fallback Settings
+        </h2>
 
         <label className="flex items-center gap-3 cursor-pointer">
           <input
@@ -425,20 +422,19 @@ export function LLMProviderSettings({
               ...settings, 
               fallbackEnabled: e.target.checked 
             })}
-            className="w-5 h-5 rounded border-gray-600 text-red-500 focus:ring-red-500 focus:ring-offset-0 bg-gray-800"
+            className="w-5 h-5 rounded border-outline-mid text-accent-yellow focus:ring-accent-yellow focus:ring-offset-0 bg-surface-elevated accent-accent-yellow"
           />
           <div>
-            <span className="font-medium">Enable Automatic Fallback</span>
-            <p className="text-sm text-gray-400">
+            <span className="font-medium text-text-primary">Enable Automatic Fallback</span>
+            <p className="text-sm text-text-secondary leading-relaxed">
               Automatically switch to another provider if the primary one fails
             </p>
           </div>
         </label>
-      </Card>
+      </div>
 
-      {/* Save Button */}
       {onSave && (
-        <div className="flex justify-end">
+        <div className="flex justify-end pt-2 px-6">
           <Button
             variant="primary"
             onClick={onSave}

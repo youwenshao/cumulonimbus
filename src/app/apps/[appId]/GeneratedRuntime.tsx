@@ -151,7 +151,7 @@ export function GeneratedRuntime({
       setFormData(prev => ({ ...prev, [field.name]: newValue }));
     };
 
-    const baseClass = 'w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-red-500 transition-colors';
+    const baseClass = 'w-full px-3 py-2 bg-surface-light border border-outline-light rounded-lg text-text-primary focus:outline-none focus:border-accent-yellow transition-colors';
 
     switch (field.type) {
       case 'textarea':
@@ -249,7 +249,7 @@ export function GeneratedRuntime({
   };
 
   return (
-    <div className="min-h-screen bg-black flex">
+    <div className="min-h-screen bg-surface-dark flex">
       {/* Navigation Rail */}
       <div className="hidden md:block">
         <NavigationRail />
@@ -261,11 +261,11 @@ export function GeneratedRuntime({
         <header className="border-b border-gray-800 bg-gray-900 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link href="/dashboard" className="p-2 text-gray-400 hover:text-white transition-colors">
+              <Link href="/dashboard" className="p-2 text-text-tertiary hover:text-text-primary transition-colors">
                 <ArrowLeft className="w-5 h-5" />
               </Link>
               <div>
-                <h1 className="text-xl font-bold text-white">{name}</h1>
+                <h1 className="text-xl font-bold text-text-primary">{name}</h1>
                 <p className="text-sm text-gray-400">{description}</p>
               </div>
             </div>
@@ -285,7 +285,7 @@ export function GeneratedRuntime({
           <div className="max-w-6xl mx-auto space-y-8">
             {/* Form Section */}
             <Card variant="outlined" padding="lg">
-              <h2 className="text-lg font-semibold text-white mb-4">Add New Entry</h2>
+              <h2 className="text-lg font-semibold text-text-primary mb-4">Add New Entry</h2>
               
               {error && (
                 <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2 text-red-400">
@@ -298,7 +298,7 @@ export function GeneratedRuntime({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {fields.map((field) => (
                     <div key={field.name} className="space-y-1">
-                      <label className="text-sm font-medium text-white flex items-center gap-1">
+                      <label className="text-sm font-medium text-text-primary flex items-center gap-1">
                         {field.label}
                         {field.required && <span className="text-red-500">*</span>}
                       </label>
@@ -309,7 +309,7 @@ export function GeneratedRuntime({
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="mt-6 px-6 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="mt-6 px-6 py-2 bg-accent-yellow text-text-primary rounded-lg font-medium hover:bg-accent-yellow/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {isLoading ? 'Adding...' : 'Add Entry'}
                 </button>
@@ -318,7 +318,7 @@ export function GeneratedRuntime({
 
             {/* Table Section */}
             <Card variant="outlined" padding="lg">
-              <h2 className="text-lg font-semibold text-white mb-4">
+              <h2 className="text-lg font-semibold text-text-primary mb-4">
                 All Entries ({sortedData.length})
               </h2>
 
@@ -334,7 +334,7 @@ export function GeneratedRuntime({
                         {fields.map((field) => (
                           <th
                             key={field.name}
-                            className="px-4 py-3 text-left text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors"
+                            className="px-4 py-3 text-left text-sm font-medium text-text-tertiary cursor-pointer hover:text-text-primary transition-colors"
                             onClick={() => handleSort(field.name)}
                           >
                             <span className="flex items-center gap-1">
@@ -356,7 +356,7 @@ export function GeneratedRuntime({
                       {sortedData.map((record) => (
                         <tr key={record.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                           {fields.map((field) => (
-                            <td key={field.name} className="px-4 py-3 text-sm text-white">
+                            <td key={field.name} className="px-4 py-3 text-sm text-text-primary">
                               {formatCellValue(record[field.name], field.type)}
                             </td>
                           ))}

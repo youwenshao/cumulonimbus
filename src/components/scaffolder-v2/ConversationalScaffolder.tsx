@@ -293,14 +293,14 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
    */
   const getPhaseColor = (currentPhase: string) => {
     const colors: Record<string, string> = {
-      intent: '#f59e0b',
-      schema: '#8b5cf6',
-      ui: '#3b82f6',
-      code: '#10b981',
-      preview: '#ec4899',
-      complete: '#22c55e',
+      intent: '#f0d890', // pastel-yellow
+      schema: '#c8b0f0', // pastel-purple
+      ui: '#6bb1e0', // pastel-blue
+      code: '#8bd9b1', // pastel-green
+      preview: '#fca000', // accent-yellow
+      complete: '#8bd9b1', // pastel-green
     };
-    return colors[currentPhase] || '#666';
+    return colors[currentPhase] || '#888888'; // text-tertiary
   };
 
   return (
@@ -323,12 +323,12 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
           </div>
         </div>
         {schema && (
-          <button 
+          <button
             className="finalize-button"
             onClick={handleFinalize}
             disabled={isLoading || readiness.overall < 60}
           >
-            {isLoading ? 'Creating...' : '🚀 Build App'}
+            {isLoading ? 'Creating...' : 'Build App'}
           </button>
         )}
       </div>
@@ -344,9 +344,9 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
                 <h2>What would you like to build?</h2>
                 <p>Describe your app idea in natural language. For example:</p>
                 <ul>
-                  <li>"I want to track my daily expenses with categories"</li>
-                  <li>"Help me build a habit tracker with streaks"</li>
-                  <li>"I need a project task manager with priorities"</li>
+                  <li>&quot;I want to track my daily expenses with categories&quot;</li>
+                  <li>&quot;Help me build a habit tracker with streaks&quot;</li>
+                  <li>&quot;I need a project task manager with priorities&quot;</li>
                 </ul>
               </div>
             ) : (
@@ -457,8 +457,8 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
           display: flex;
           flex-direction: column;
           height: 100%;
-          background: #0a0a0a;
-          color: #fff;
+          background: var(--background);
+          color: var(--foreground);
         }
 
         .scaffolder-header {
@@ -466,7 +466,7 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
           align-items: center;
           justify-content: space-between;
           padding: 1rem 1.5rem;
-          border-bottom: 1px solid #222;
+          border-bottom: 1px solid var(--border);
         }
 
         .header-left {
@@ -490,26 +490,26 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
         .readiness-bar {
           width: 100px;
           height: 6px;
-          background: #333;
+          background: var(--muted);
           border-radius: 3px;
           overflow: hidden;
         }
 
         .readiness-fill {
           height: 100%;
-          background: linear-gradient(90deg, #f43f5e 0%, #22c55e 100%);
+          background: linear-gradient(90deg, hsl(var(--destructive)) 0%, hsl(var(--primary)) 100%);
           transition: width 0.3s ease;
         }
 
         .readiness-label {
           font-size: 0.75rem;
-          color: #888;
+          color: var(--muted-foreground);
         }
 
         .finalize-button {
           padding: 0.5rem 1rem;
-          background: #f43f5e;
-          color: #fff;
+          background: hsl(var(--destructive));
+          color: hsl(var(--destructive-foreground));
           border: none;
           border-radius: 6px;
           font-size: 0.875rem;
@@ -519,7 +519,7 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
         }
 
         .finalize-button:hover:not(:disabled) {
-          background: #e11d48;
+          background: hsl(var(--destructive) / 0.9);
         }
 
         .finalize-button:disabled {
@@ -547,7 +547,7 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
         .chat-panel {
           display: flex;
           flex-direction: column;
-          border-right: 1px solid #222;
+          border-right: 1px solid var(--border);
           overflow: hidden;
         }
 
@@ -560,11 +560,11 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
         .welcome-message {
           text-align: center;
           padding: 3rem 1rem;
-          color: #666;
+          color: var(--muted-foreground);
         }
 
         .welcome-message h2 {
-          color: #fff;
+          color: var(--foreground);
           margin-bottom: 1rem;
         }
 
@@ -576,7 +576,7 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
 
         .welcome-message li {
           padding: 0.5rem;
-          background: #1a1a1a;
+          background: var(--muted);
           border-radius: 6px;
           margin: 0.5rem 0;
           font-size: 0.875rem;
@@ -584,7 +584,7 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
         }
 
         .welcome-message li:hover {
-          background: #222;
+          background: var(--muted) / 0.8;
         }
 
         .message {
@@ -597,19 +597,19 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
         }
 
         .message-user .message-content {
-          background: #f43f5e;
+          background: hsl(var(--destructive));
           border-radius: 12px 12px 0 12px;
         }
 
         .message-assistant .message-content {
-          background: #1a1a1a;
+          background: var(--muted);
           border-radius: 12px 12px 12px 0;
         }
 
         .message-system .message-content {
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.3);
-          color: #f87171;
+          background: hsl(var(--destructive) / 0.1);
+          border: 1px solid hsl(var(--destructive) / 0.3);
+          color: hsl(var(--destructive));
           border-radius: 8px;
         }
 
@@ -621,14 +621,14 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
           font-size: 1.125rem;
           font-weight: 600;
           margin: 0 0 0.5rem 0;
-          color: #f43f5e;
+          color: hsl(var(--destructive));
         }
 
         :global(.message-subheader) {
           font-size: 0.875rem;
           font-weight: 600;
           margin: 0.75rem 0 0.25rem 0;
-          color: #999;
+          color: #cccccc; /* text-secondary */
         }
 
         :global(.message-paragraph) {
@@ -643,13 +643,13 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
 
         :global(.message-divider) {
           border: none;
-          border-top: 1px solid #333;
+          border-top: 1px solid #2d2d2d; /* outline-light */
           margin: 1rem 0;
         }
 
         .message-time {
           font-size: 0.625rem;
-          color: #666;
+          color: #888888; /* text-tertiary */
           margin-top: 0.25rem;
           text-align: right;
         }
@@ -659,14 +659,14 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
           flex-wrap: wrap;
           gap: 0.5rem;
           padding: 0.5rem 1.5rem;
-          border-top: 1px solid #222;
+          border-top: 1px solid var(--border);
         }
 
         .suggested-action {
           padding: 0.5rem 0.75rem;
-          background: #1a1a1a;
-          border: 1px solid #333;
-          color: #fff;
+          background: var(--muted);
+          border: 1px solid var(--border);
+          color: var(--foreground);
           border-radius: 9999px;
           font-size: 0.75rem;
           cursor: pointer;
@@ -674,8 +674,8 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
         }
 
         .suggested-action:hover {
-          background: #222;
-          border-color: #444;
+          background: var(--muted) / 0.8;
+          border-color: var(--border) / 0.8;
         }
 
         .suggestions-panel {
@@ -683,13 +683,13 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
           align-items: center;
           gap: 0.75rem;
           padding: 0.5rem 1.5rem;
-          border-top: 1px solid #222;
-          background: rgba(244, 63, 94, 0.03);
+          border-top: 1px solid var(--border);
+          background: hsl(var(--destructive) / 0.03);
         }
 
         .suggestions-label {
           font-size: 0.75rem;
-          color: #666;
+          color: var(--muted-foreground);
           white-space: nowrap;
         }
 
@@ -704,9 +704,9 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
           align-items: center;
           gap: 0.25rem;
           padding: 0.375rem 0.625rem;
-          background: rgba(244, 63, 94, 0.1);
-          border: 1px solid rgba(244, 63, 94, 0.2);
-          color: #f43f5e;
+          background: hsl(var(--destructive) / 0.1);
+          border: 1px solid hsl(var(--destructive) / 0.2);
+          color: hsl(var(--destructive));
           border-radius: 6px;
           font-size: 0.75rem;
           cursor: pointer;
@@ -714,8 +714,8 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
         }
 
         .suggestion-chip:hover {
-          background: rgba(244, 63, 94, 0.2);
-          border-color: rgba(244, 63, 94, 0.4);
+          background: hsl(var(--destructive) / 0.2);
+          border-color: hsl(var(--destructive) / 0.4);
         }
 
         .suggestion-icon {
@@ -725,31 +725,31 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
         :global(.proposal-section) {
           margin: 1rem 0;
           padding: 1rem;
-          background: #111;
+          background: #111111; /* surface-mid */
           border-radius: 12px;
-          border: 1px solid #222;
+          border: 1px solid #2d2d2d; /* outline-light */
         }
 
         .chat-input-form {
           display: flex;
           gap: 0.5rem;
           padding: 1rem 1.5rem;
-          border-top: 1px solid #222;
+          border-top: 1px solid #2d2d2d; /* outline-light */
         }
 
         .chat-input {
           flex: 1;
           padding: 0.75rem 1rem;
-          background: #1a1a1a;
-          border: 1px solid #333;
+          background: #1a1a1a; /* surface-light */
+          border: 1px solid #333333; /* outline-mid */
           border-radius: 8px;
-          color: #fff;
+          color: #ffffff; /* text-primary */
           font-size: 0.875rem;
         }
 
         .chat-input:focus {
           outline: none;
-          border-color: #f43f5e;
+          border-color: #fca000; /* accent-yellow */
         }
 
         .chat-input:disabled {
@@ -758,8 +758,8 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
 
         .send-button {
           padding: 0.75rem 1rem;
-          background: #f43f5e;
-          color: #fff;
+          background: #fca000; /* accent-yellow */
+          color: #0a0a0a; /* surface-dark for contrast */
           border: none;
           border-radius: 8px;
           font-size: 1rem;
@@ -769,7 +769,7 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
         }
 
         .send-button:hover:not(:disabled) {
-          background: #e11d48;
+          background: hsl(var(--destructive) / 0.9);
         }
 
         .send-button:disabled {
@@ -782,7 +782,7 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
           width: 16px;
           height: 16px;
           border: 2px solid rgba(255, 255, 255, 0.3);
-          border-top-color: #fff;
+          border-top-color: #ffffff; /* text-primary */
           border-radius: 50%;
           animation: spin 0.8s linear infinite;
         }
@@ -795,7 +795,7 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
           display: flex;
           flex-direction: column;
           overflow: hidden;
-          background: #111;
+          background: var(--card);
         }
 
         .preview-header {
@@ -803,19 +803,19 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
           align-items: center;
           justify-content: space-between;
           padding: 0.75rem 1rem;
-          border-bottom: 1px solid #222;
+          border-bottom: 1px solid var(--border);
         }
 
         .preview-header h2 {
           font-size: 0.875rem;
           font-weight: 500;
           margin: 0;
-          color: #999;
+          color: #cccccc; /* text-secondary */
         }
 
         .app-name {
           font-size: 0.75rem;
-          color: #666;
+          color: #888888; /* text-tertiary */
         }
 
         :global(.preview-container) {

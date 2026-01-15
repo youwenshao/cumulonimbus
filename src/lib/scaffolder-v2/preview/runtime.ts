@@ -117,8 +117,8 @@ export function generatePreviewHTML(
     body {
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0a0a0a;
-      color: #ffffff;
+      background: #0a0a0a; /* surface-dark */
+      color: #ffffff; /* text-primary */
     }
     
     .preview-container {
@@ -144,19 +144,19 @@ export function generatePreviewHTML(
     }
     
     .component-wrapper {
-      background: #1a1a1a;
-      border: 1px solid #333;
+      background: #1a1a1a; /* surface-light */
+      border: 1px solid #333333; /* outline-mid */
       border-radius: 8px;
       padding: 1rem;
     }
-    
+
     .component-placeholder {
-      background: #1a1a1a;
-      border: 2px dashed #333;
+      background: #1a1a1a; /* surface-light */
+      border: 2px dashed #333333; /* outline-mid */
       border-radius: 8px;
       padding: 2rem;
       text-align: center;
-      color: #666;
+      color: #888888; /* text-tertiary */
     }
     
     /* Form styles */

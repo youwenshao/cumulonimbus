@@ -27,16 +27,22 @@ interface ChartPrimitiveProps {
   title?: string;
 }
 
-const COLORS = [
-  '#fcad00', // accent-gold
-  'rgba(107, 177, 224, 0.8)', // pastel-blue
-  'rgba(139, 219, 177, 0.8)', // pastel-green
-  'rgba(240, 216, 144, 0.8)', // pastel-yellow
-  'rgba(200, 176, 240, 0.8)', // pastel-purple
-  'rgba(252, 173, 0, 0.6)', // accent-gold with opacity
-  'rgba(107, 177, 224, 0.6)', // pastel-blue with opacity
-  'rgba(139, 219, 177, 0.6)', // pastel-green with opacity
-];
+// Theme-based colors for charts
+const getChartColors = () => {
+  // Check if we're in dark mode
+  const isDark = document.documentElement.classList.contains('dark');
+
+  return [
+    'rgb(252, 173, 0)', // accent-yellow (same in both themes)
+    'rgb(107, 177, 224)', // pastel-blue
+    'rgb(139, 219, 177)', // pastel-green
+    'rgb(240, 216, 144)', // pastel-yellow
+    'rgb(200, 176, 240)', // pastel-purple
+    isDark ? 'rgba(252, 173, 0, 0.6)' : 'rgba(252, 173, 0, 0.6)', // accent-yellow with opacity
+    'rgba(107, 177, 224, 0.6)', // pastel-blue with opacity
+    'rgba(139, 219, 177, 0.6)', // pastel-green with opacity
+  ];
+};
 
 export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
   const { chartType, xAxis, yAxis, groupBy, aggregation = 'sum' } = config;
@@ -114,7 +120,7 @@ export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
     return (
       <Card variant="outlined" padding="lg">
         {title && (
-          <h3 className="text-lg font-semibold text-white mb-4">
+          <h3 className="text-lg font-semibold text-text-primary mb-4">
             {title}
           </h3>
         )}
@@ -126,20 +132,30 @@ export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
   }
 
   const renderChart = () => {
+    const isDark = document.documentElement.classList.contains('dark');
+    const colors = getChartColors();
+
+    // Theme-aware colors
+    const gridColor = isDark ? '#2d2d2d' : '#cbd5e1';
+    const textColor = isDark ? '#cccccc' : '#475569';
+    const tooltipBg = isDark ? '#1a1a1a' : '#ffffff';
+    const tooltipBorder = isDark ? '#2d2d2d' : '#cbd5e1';
+    const tooltipText = isDark ? '#ffffff' : '#0f172a';
+
     switch (chartType) {
       case 'bar':
         return (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2d2d2d" />
-              <XAxis dataKey="name" tick={{ fill: '#cccccc' }} />
-              <YAxis tick={{ fill: '#cccccc' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+              <XAxis dataKey="name" tick={{ fill: textColor }} />
+              <YAxis tick={{ fill: textColor }} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#1a1a1a',
-                  border: '1px solid #2d2d2d',
+                  backgroundColor: tooltipBg,
+                  border: `1px solid ${tooltipBorder}`,
                   borderRadius: '12px',
-                  color: '#ffffff',
+                  color: tooltipText,
                 }}
               />
               <Legend />
@@ -147,7 +163,7 @@ export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
                 <Bar
                   key={group}
                   dataKey={group}
-                  fill={COLORS[index % COLORS.length]}
+                  fill={colors[index % colors.length]}
                   radius={[4, 4, 0, 0]}
                 />
               ))}
@@ -159,15 +175,15 @@ export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
         return (
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2d2d2d" />
-              <XAxis dataKey="name" tick={{ fill: '#cccccc' }} />
-              <YAxis tick={{ fill: '#cccccc' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+              <XAxis dataKey="name" tick={{ fill: textColor }} />
+              <YAxis tick={{ fill: textColor }} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#1a1a1a',
-                  border: '1px solid #2d2d2d',
+                  backgroundColor: tooltipBg,
+                  border: `1px solid ${tooltipBorder}`,
                   borderRadius: '12px',
-                  color: '#ffffff',
+                  color: tooltipText,
                 }}
               />
               <Legend />
@@ -176,9 +192,9 @@ export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
                   key={group}
                   type="monotone"
                   dataKey={group}
-                  stroke={COLORS[index % COLORS.length]}
+                  stroke={colors[index % colors.length]}
                   strokeWidth={2}
-                  dot={{ fill: COLORS[index % COLORS.length] }}
+                  dot={{ fill: colors[index % colors.length] }}
                 />
               ))}
             </LineChart>
@@ -189,15 +205,15 @@ export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
         return (
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2d2d2d" />
-              <XAxis dataKey="name" tick={{ fill: '#cccccc' }} />
-              <YAxis tick={{ fill: '#cccccc' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+              <XAxis dataKey="name" tick={{ fill: textColor }} />
+              <YAxis tick={{ fill: textColor }} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#1a1a1a',
-                  border: '1px solid #2d2d2d',
+                  backgroundColor: tooltipBg,
+                  border: `1px solid ${tooltipBorder}`,
                   borderRadius: '12px',
-                  color: '#ffffff',
+                  color: tooltipText,
                 }}
               />
               <Legend />
@@ -206,9 +222,9 @@ export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
                   key={group}
                   type="monotone"
                   dataKey={group}
-                  fill={COLORS[index % COLORS.length]}
+                  fill={colors[index % colors.length]}
                   fillOpacity={0.4}
-                  stroke={COLORS[index % COLORS.length]}
+                  stroke={colors[index % colors.length]}
                   strokeWidth={2}
                 />
               ))}
@@ -230,15 +246,15 @@ export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
                 label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
               >
                 {chartData.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
                 ))}
               </Pie>
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#1a1a1a',
-                  border: '1px solid #2d2d2d',
+                  backgroundColor: tooltipBg,
+                  border: `1px solid ${tooltipBorder}`,
                   borderRadius: '12px',
-                  color: '#ffffff',
+                  color: tooltipText,
                 }}
               />
               <Legend />
@@ -254,7 +270,7 @@ export function ChartPrimitive({ data, config, title }: ChartPrimitiveProps) {
   return (
     <Card variant="outlined" padding="lg">
       {title && (
-        <h3 className="text-lg font-semibold text-white mb-4">
+        <h3 className="text-lg font-semibold text-text-primary mb-4">
           {title}
         </h3>
       )}

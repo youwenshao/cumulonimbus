@@ -169,12 +169,12 @@ export function CodeViewer({ conversationId, onComplete, onError, className }: C
   ];
 
   return (
-    <div className={cn('bg-surface-dark border border-outline-mid rounded-xl overflow-hidden', className)}>
+    <div className={cn('bg-surface-base border border-outline-mid rounded-xl overflow-hidden', className)}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-outline-mid bg-surface-light">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-outline-mid bg-surface-elevated">
         <div className="flex items-center gap-2">
-          <Code className="w-5 h-5 text-accent-red" />
-          <span className="font-medium text-white">Generated Code</span>
+          <Code className="w-5 h-5 text-accent-yellow" />
+          <span className="font-medium text-text-primary">Generated Code</span>
         </div>
         <div className="flex items-center gap-2">
           {status === 'connecting' && (
@@ -208,7 +208,7 @@ export function CodeViewer({ conversationId, onComplete, onError, className }: C
       {status !== 'complete' && status !== 'error' && (
         <div className="h-1 bg-surface-light">
           <div 
-            className="h-full bg-accent-red transition-all duration-300 ease-out"
+            className="h-full bg-accent-yellow transition-all duration-300 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -223,8 +223,8 @@ export function CodeViewer({ conversationId, onComplete, onError, className }: C
             className={cn(
               'px-4 py-2 text-sm font-medium transition-colors border-b-2',
               activeTab === tab.id
-                ? 'text-accent-red border-accent-red'
-                : 'text-text-secondary border-transparent hover:text-white'
+                ? 'text-accent-yellow border-accent-yellow'
+                : 'text-text-secondary border-transparent hover:text-text-primary'
             )}
           >
             {tab.label}
@@ -259,7 +259,7 @@ export function CodeViewer({ conversationId, onComplete, onError, className }: C
       </pre>
 
       {/* Footer */}
-      <div className="px-4 py-2 border-t border-outline-mid bg-surface-light/50 text-xs text-text-secondary">
+      <div className="px-4 py-2 border-t border-outline-mid bg-surface-elevated/50 text-xs text-text-secondary">
         {code.page.length > 0 && (
           <span>{code.page.length.toLocaleString()} characters generated</span>
         )}

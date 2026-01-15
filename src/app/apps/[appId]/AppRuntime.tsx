@@ -75,7 +75,7 @@ export function AppRuntime({ appId, name, description, spec, initialData }: AppR
     return (
       <div className="h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-white mb-4">V2 App Detected</h2>
+          <h2 className="text-2xl font-bold text-text-primary mb-4">V2 App Detected</h2>
           <p className="text-gray-400 mb-8">This app was created with the new V2 system but is being rendered with the old runtime.</p>
           <p className="text-sm text-gray-500">This should be handled by V2Runtime component.</p>
         </div>
@@ -119,7 +119,7 @@ export function AppRuntime({ appId, name, description, spec, initialData }: AppR
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="border-b border-outline-mid bg-surface-dark px-6 py-4">
+        <header className="border-b border-outline-mid bg-surface-base px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link
@@ -129,18 +129,18 @@ export function AppRuntime({ appId, name, description, spec, initialData }: AppR
                 <ArrowLeft className="w-5 h-5" />
               </Link>
               <div>
-                <h1 className="text-xl font-bold text-white">{name}</h1>
+                <h1 className="text-xl font-bold text-text-primary">{name}</h1>
                 <p className="text-sm text-text-secondary">{description}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               {/* View mode toggle */}
-              <div className="flex items-center bg-surface-light rounded-lg p-1">
+              <div className="flex items-center bg-surface-elevated rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('table')}
                   className={cn(
                     "p-2 rounded-md transition-colors",
-                    viewMode === 'table' ? "bg-accent-red text-white" : "text-text-secondary hover:text-white"
+                    viewMode === 'table' ? "bg-accent-yellow text-text-primary" : "text-text-secondary hover:text-text-primary"
                   )}
                   title="Table View"
                 >
@@ -150,7 +150,7 @@ export function AppRuntime({ appId, name, description, spec, initialData }: AppR
                   onClick={() => setViewMode('chart')}
                   className={cn(
                     "p-2 rounded-md transition-colors",
-                    viewMode === 'chart' ? "bg-accent-red text-white" : "text-text-secondary hover:text-white"
+                    viewMode === 'chart' ? "bg-accent-yellow text-text-primary" : "text-text-secondary hover:text-text-primary"
                   )}
                   title="Chart View"
                 >
@@ -160,7 +160,7 @@ export function AppRuntime({ appId, name, description, spec, initialData }: AppR
                   onClick={() => setViewMode('both')}
                   className={cn(
                     "p-2 rounded-md transition-colors",
-                    viewMode === 'both' ? "bg-accent-red text-white" : "text-text-secondary hover:text-white"
+                    viewMode === 'both' ? "bg-accent-yellow text-text-primary" : "text-text-secondary hover:text-text-primary"
                   )}
                   title="Both Views"
                 >
@@ -221,7 +221,7 @@ export function AppRuntime({ appId, name, description, spec, initialData }: AppR
                 <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-surface-light flex items-center justify-center">
                   <LayoutGrid className="w-8 h-8 text-text-tertiary" />
                 </div>
-                <h3 className="text-lg font-medium text-white mb-2">No entries yet</h3>
+                <h3 className="text-lg font-medium text-text-primary mb-2">No entries yet</h3>
                 <p className="text-text-secondary">Add your first entry using the form above.</p>
               </Card>
             )}

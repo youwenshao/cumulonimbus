@@ -31,14 +31,14 @@ export function CodeBlock({
 
   return (
     <div className={cn('message-architect rounded-xl overflow-hidden', className)}>
-      <div className="flex items-center justify-between px-4 py-2 bg-surface-mid border-b border-outline-light/30">
+      <div className="flex items-center justify-between px-4 py-2 bg-surface-layer border-b border-outline-light/30">
         <span className="text-xs text-text-tertiary font-mono uppercase tracking-wide">
           {language}
         </span>
         {showCopy && (
           <button
             onClick={handleCopy}
-            className="p-1 hover:bg-surface-light rounded transition-colors focus-ring-red"
+            className="p-1 hover:bg-surface-elevated rounded transition-colors focus-ring-red"
             aria-label="Copy code"
           >
             {copied ? (

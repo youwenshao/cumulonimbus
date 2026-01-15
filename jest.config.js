@@ -1,7 +1,7 @@
 /** @type {import('jest').Config} */
 const config = {
   preset: 'ts-jest',
-  testEnvironment: 'node',
+  testEnvironment: 'jsdom',
   roots: ['<rootDir>/src'],
   testMatch: [
     '**/__tests__/**/*.test.ts',
@@ -18,6 +18,7 @@ const config = {
         esModuleInterop: true,
         strict: true,
         skipLibCheck: true,
+        jsx: 'react-jsx',
         paths: {
           '@/*': ['./src/*'],
         },

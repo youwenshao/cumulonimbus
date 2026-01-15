@@ -78,7 +78,7 @@ export function V2Runtime({
   const editableFields = schema.fields.filter(f => !f.generated);
 
   return (
-    <div className="h-screen bg-black flex">
+    <div className="h-screen bg-surface-dark flex">
       {/* Navigation Rail - Hidden on mobile, shown on desktop */}
       <div className="hidden md:block">
         <NavigationRail />
@@ -97,9 +97,9 @@ export function V2Runtime({
                 <ArrowLeft className="w-5 h-5" />
               </Link>
               <div>
-                <h1 className="text-xl font-bold text-white">{name}</h1>
+                <h1 className="text-xl font-bold text-text-primary">{name}</h1>
                 <p className="text-sm text-text-secondary">{description}</p>
-                <span className="text-xs bg-purple-600 px-2 py-1 rounded text-white">
+                <span className="text-xs bg-pastel-purple px-2 py-1 rounded text-text-primary">
                   V2 App
                 </span>
               </div>
@@ -115,11 +115,11 @@ export function V2Runtime({
           <div className="max-w-7xl mx-auto p-6 space-y-6">
             {/* Schema Info */}
             <Card variant="outlined" padding="lg">
-              <h2 className="text-lg font-semibold text-white mb-4">Schema: {schema.label}</h2>
+              <h2 className="text-lg font-semibold text-text-primary mb-4">Schema: {schema.label}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {schema.fields.map(field => (
                   <div key={field.name} className="p-3 bg-gray-800 rounded">
-                    <div className="font-medium text-white">{field.label}</div>
+                    <div className="font-medium text-text-primary">{field.label}</div>
                     <div className="text-sm text-gray-400">{field.type}</div>
                     {field.required && <div className="text-xs text-red-400">Required</div>}
                   </div>
@@ -129,7 +129,7 @@ export function V2Runtime({
 
             {/* Add Entry Form */}
             <Card variant="outlined" padding="lg">
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
                 <Plus className="w-5 h-5" />
                 Add Entry
               </h2>
@@ -145,7 +145,7 @@ export function V2Runtime({
                         <select
                           value={formData[field.name] || ''}
                           onChange={(e) => setFormData(prev => ({ ...prev, [field.name]: e.target.value }))}
-                          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+                          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-text-primary"
                           required={field.required}
                         >
                           <option value="">Select...</option>
@@ -157,7 +157,7 @@ export function V2Runtime({
                         <textarea
                           value={formData[field.name] || ''}
                           onChange={(e) => setFormData(prev => ({ ...prev, [field.name]: e.target.value }))}
-                          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+                          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-text-primary"
                           placeholder={field.placeholder}
                           required={field.required}
                           rows={3}
@@ -170,7 +170,7 @@ export function V2Runtime({
                             ...prev,
                             [field.name]: field.type === 'number' ? Number(e.target.value) : e.target.value
                           }))}
-                          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+                          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-text-primary"
                           placeholder={field.placeholder}
                           required={field.required}
                         />
@@ -186,7 +186,7 @@ export function V2Runtime({
 
             {/* Data Table */}
             <Card variant="outlined" padding="lg">
-              <h2 className="text-lg font-semibold text-white mb-4">Entries ({data.length})</h2>
+              <h2 className="text-lg font-semibold text-text-primary mb-4">Entries ({data.length})</h2>
               {data.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   No entries yet. Add your first entry above.
@@ -208,7 +208,7 @@ export function V2Runtime({
                       {data.map((record) => (
                         <tr key={record.id} className="border-b border-gray-800 hover:bg-gray-800/50">
                           {schema.fields.map(field => (
-                            <td key={field.name} className="py-2 px-4 text-white">
+                            <td key={field.name} className="py-2 px-4 text-text-primary">
                               {field.type === 'boolean'
                                 ? (record[field.name] ? '✓' : '✗')
                                 : String(record[field.name] ?? '')}
@@ -235,7 +235,7 @@ export function V2Runtime({
             {/* Layout Info (if available) */}
             {layout && (
               <Card variant="outlined" padding="lg">
-                <h2 className="text-lg font-semibold text-white mb-4">Layout Information</h2>
+                <h2 className="text-lg font-semibold text-text-primary mb-4">Layout Information</h2>
                 <pre className="text-xs text-gray-400 bg-gray-900 p-4 rounded overflow-auto">
                   {JSON.stringify(layout, null, 2)}
                 </pre>
@@ -245,7 +245,7 @@ export function V2Runtime({
             {/* Component Files Info (if available) */}
             {componentFiles && Object.keys(componentFiles).length > 0 && (
               <Card variant="outlined" padding="lg">
-                <h2 className="text-lg font-semibold text-white mb-4">Generated Components</h2>
+                <h2 className="text-lg font-semibold text-text-primary mb-4">Generated Components</h2>
                 <div className="space-y-2">
                   {Object.keys(componentFiles).map(filename => (
                     <div key={filename} className="text-sm text-gray-400">

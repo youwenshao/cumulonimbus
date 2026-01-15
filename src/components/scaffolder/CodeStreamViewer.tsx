@@ -239,8 +239,8 @@ export function CodeStreamViewer({
               className={cn(
                 'flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors',
                 activeFile === filename
-                  ? 'bg-gray-800 text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                  ? 'bg-gray-800 text-text-primary'
+                  : 'text-gray-400 hover:text-text-primary hover:bg-gray-800/50'
               )}
             >
               <FileCode2 className="w-4 h-4" />

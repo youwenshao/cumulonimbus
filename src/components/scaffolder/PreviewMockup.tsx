@@ -33,7 +33,7 @@ export function PreviewMockup({
     <div className={cn('flex flex-col items-center gap-4', className)}>
       {/* Device Selector */}
       {onViewModeChange && (
-        <div className="flex items-center gap-2 bg-surface-dark rounded-lg p-1">
+        <div className="flex items-center gap-2 bg-surface-base rounded-lg p-1">
           {(['mobile', 'tablet', 'desktop'] as const).map((mode) => (
             <button
               key={mode}
@@ -41,8 +41,8 @@ export function PreviewMockup({
               className={cn(
                 'px-3 py-1.5 rounded-md text-sm font-medium transition-all',
                 viewMode === mode
-                  ? 'bg-accent-red text-white'
-                  : 'text-text-secondary hover:text-white hover:bg-surface-light'
+                  ? 'bg-accent-yellow text-text-primary'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-surface-elevated'
               )}
             >
               {DEVICE_SIZES[mode].label}
@@ -95,7 +95,7 @@ export function PreviewMockup({
           {/* Screen */}
           <div
             className={cn(
-              'bg-surface-dark overflow-hidden',
+              'bg-surface-base overflow-hidden',
               viewMode === 'mobile' && 'rounded-2xl',
               viewMode === 'tablet' && 'rounded-xl',
               viewMode === 'desktop' && 'rounded-b-lg'
@@ -120,8 +120,8 @@ export function PreviewMockup({
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className={cn(
-            'absolute -top-3 -right-3 w-8 h-8 bg-surface-light border border-outline-light rounded-full',
-            'flex items-center justify-center text-text-secondary hover:text-white hover:bg-surface-dark',
+            'absolute -top-3 -right-3 w-8 h-8 bg-surface-elevated border border-outline-light rounded-full',
+            'flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-surface-base',
             'transition-all z-20'
           )}
         >

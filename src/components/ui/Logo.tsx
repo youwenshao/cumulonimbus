@@ -16,27 +16,27 @@ export function Logo({ size = 'md', variant = 'default', className }: LogoProps)
 
   // The "i" with a red pulsing dot as its tittle (the dot above the i)
   const styledI = variant === 'default' ? (
-    <span className="relative inline-block text-white">
+    <span className="relative inline-block text-text-primary">
       {/* Red pulsing dot positioned above the dotless i */}
       <span 
         className="absolute left-1/2 -translate-x-1/2"
         style={{ top: '0.2em', width: '0.25em', height: '0.25em' }}
       >
-        <span className="absolute inset-0 bg-accent-red rounded-full animate-pulse-red"></span>
-        <span className="absolute inset-0 bg-accent-red rounded-full opacity-75"></span>
+        <span className="absolute inset-0 bg-accent-yellow rounded-full animate-pulse-yellow"></span>
+        <span className="absolute inset-0 bg-accent-yellow rounded-full opacity-75"></span>
       </span>
       {/* Dotless i (ı) so we use our custom red dot as the tittle */}
       ı
     </span>
   ) : (
-    <span className="text-white">i</span>
+    <span className="text-text-primary">i</span>
   );
 
   return (
     <div className={cn('flex items-center font-bold font-sans', sizeClasses[size], className)}>
-      <span className="text-white">Cumulon</span>
+      <span className="text-text-primary">Cumulon</span>
       {styledI}
-      <span className="text-white">mbus</span>
+      <span className="text-text-primary">mbus</span>
     </div>
   );
 }

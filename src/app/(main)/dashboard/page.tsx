@@ -25,7 +25,7 @@ export default async function DashboardPage() {
   });
 
   return (
-    <div className="h-screen bg-black flex">
+    <div className="h-screen bg-surface-base flex">
       {/* Navigation Rail - Hidden on mobile, shown on desktop */}
       <div className="hidden md:block">
         <NavigationRail />

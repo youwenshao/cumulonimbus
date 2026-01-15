@@ -45,16 +45,16 @@ export function StatusPanel({
   if (messages.length === 0) return null;
 
   return (
-    <div className="bg-surface-light border border-outline-light rounded-xl overflow-hidden">
+    <div className="bg-surface-elevated border border-outline-light rounded-xl overflow-hidden">
       {/* Header */}
       <div 
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-dark/50 transition-colors"
+        className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-base/50 transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center gap-3">
           <div className="animate-spin text-xl">⚙️</div>
           <div>
-            <div className="font-semibold text-white">
+            <div className="font-semibold text-text-primary">
               {currentPhase ? PHASE_INFO[currentPhase].label : 'Processing'}
             </div>
             <div className="text-sm text-text-secondary">
@@ -67,7 +67,7 @@ export function StatusPanel({
             <div className="text-sm text-text-secondary">{Math.round(progress)}%</div>
           )}
           <button 
-            className="text-text-secondary hover:text-white transition-colors"
+            className="text-text-secondary hover:text-text-primary transition-colors"
             aria-label={expanded ? 'Collapse' : 'Expand'}
           >
             {expanded ? '▼' : '▶'}
@@ -77,9 +77,9 @@ export function StatusPanel({
 
       {/* Progress Bar */}
       {progress > 0 && (
-        <div className="h-1 bg-surface-dark">
+        <div className="h-1 bg-surface-layer">
           <div 
-            className="h-full bg-accent-red transition-all duration-300"
+            className="h-full bg-accent-yellow transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -107,7 +107,7 @@ export function StatusPanel({
                   <div
                     className={cn(
                       'w-10 h-10 rounded-full flex items-center justify-center text-xl transition-all',
-                      isActive && 'ring-2 ring-accent-red ring-offset-2 ring-offset-black',
+                      isActive && 'ring-2 ring-accent-yellow ring-offset-2 ring-offset-black',
                       isComplete && 'bg-green-500/20',
                       hasError && 'bg-red-500/20',
                       !isActive && !isComplete && !hasError && 'bg-surface-dark opacity-50'
@@ -144,7 +144,7 @@ export function StatusPanel({
             <div className="border-t border-outline-light p-3">
               <button
                 onClick={() => onToggleTechnical(!showTechnicalDetails)}
-                className="text-sm text-text-secondary hover:text-white transition-colors flex items-center gap-2"
+                className="text-sm text-text-secondary hover:text-text-primary transition-colors flex items-center gap-2"
               >
                 <span className="text-xs">🔧</span>
                 {showTechnicalDetails ? 'Hide' : 'Show'} Technical Details
@@ -208,7 +208,7 @@ export function StatusIndicator({
   const info = PHASE_INFO[phase];
   
   return (
-    <div className="flex items-center gap-2 px-3 py-2 bg-surface-light border border-outline-light rounded-lg">
+    <div className="flex items-center gap-2 px-3 py-2 bg-surface-elevated border border-outline-light rounded-lg">
       <div className="animate-pulse text-lg">{info.icon}</div>
       <div className="text-sm">
         <span className={cn('font-medium', info.color)}>{info.label}:</span>{' '}

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { NavigationRail, ContextPanel, ChatInput, ChatMessage, Button, StatusPanel } from '@/components/ui';
+import { NavigationRail, ContextPanel, ChatInput, ChatMessage, Button, StatusPanel, ThemeToggle, Logo, ParticleBackground, Card } from '@/components/ui';
 import type { StatusMessage, StatusPhase } from '@/components/ui';
 import { ImplementationPlan, CodeViewer, LivePreview, FreeformCreator } from '@/components/scaffolder';
 import type { ProjectSpec, ImplementationPlan as ImplementationPlanType } from '@/lib/scaffolder/types';
@@ -10,6 +10,7 @@ import type { GeneratedCode } from '@/lib/scaffolder/code-generator';
 import { cn } from '@/lib/utils';
 // V2 Components
 import { ConversationalScaffolderV2 } from '@/components/scaffolder-v2';
+import { Sparkles, Target, Rocket, Zap, Monitor, Cpu, GitBranch, Terminal, Layers } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -62,24 +63,27 @@ export default function CreatePage() {
   // Render freeform creator
   if (mode === 'freeform') {
     return (
-      <div className="h-screen bg-black flex">
+      <div className="h-screen bg-surface-base flex">
         <div className="hidden md:block">
           <NavigationRail />
         </div>
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="border-b border-outline-mid bg-surface-dark px-8 py-6">
+          <header className="border-b border-outline-mid bg-surface-base px-8 py-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-serif font-medium text-white">Create</h1>
-                <p className="text-sm text-gray-400 mt-1">Freeform AI Generation</p>
+                <h1 className="text-3xl font-serif font-medium text-text-primary">Create</h1>
+                <p className="text-sm text-text-secondary mt-1">Freeform AI Generation</p>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setMode(null)}
-              >
-                Change Mode
-              </Button>
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setMode(null)}
+                >
+                  Change Mode
+                </Button>
+              </div>
             </div>
           </header>
           <div className="flex-1 overflow-y-auto p-8">
@@ -90,9 +94,129 @@ export default function CreatePage() {
     );
   }
   
-  // Render v2 scaffolder if enabled
+  // Render advanced IDE landing page for v2 mode
   if (mode === 'v2') {
-    return <ConversationalScaffolderV2 className="h-screen" />;
+    return (
+      <div className="h-screen bg-surface-base flex overflow-hidden">
+        <div className="hidden md:block">
+          <NavigationRail />
+        </div>
+        <div className="flex-1 flex flex-col min-w-0 relative">
+          {/* Particle Background */}
+          <div className="absolute inset-0 z-0">
+            <ParticleBackground />
+          </div>
+
+          <header className="relative z-10 border-b border-outline-mid/50 bg-surface-base/80 backdrop-blur-md px-8 py-6">
+            <div className="flex items-center justify-between max-w-7xl mx-auto">
+              <div className="flex items-center gap-3">
+                <Logo size="sm" />
+                <div>
+                  <h1 className="text-xl font-serif font-medium text-text-primary">
+                    Cumulonimbus <span className="text-accent-yellow">IDE</span>
+                  </h1>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <ThemeToggle />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setMode(null)}
+                >
+                  Back to Create
+                </Button>
+              </div>
+            </div>
+          </header>
+
+          <main className="relative z-10 flex-1 overflow-y-auto">
+            <div className="max-w-7xl mx-auto px-6 py-20">
+              {/* Hero Section */}
+              <div className="text-center mb-24 animate-fade-in">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-yellow/10 border border-accent-yellow/20 text-accent-yellow text-sm font-medium mb-6 animate-slide-down">
+                  <Sparkles className="w-4 h-4" />
+                  <span>Now in Private Beta</span>
+                </div>
+                <h1 className="text-5xl md:text-7xl font-serif font-medium text-text-primary mb-8 tracking-tight animate-slide-up">
+                  Cumulonimbus <span className="text-accent-yellow">IDE</span>
+                </h1>
+                <p className="text-xl text-text-secondary max-w-2xl mx-auto leading-relaxed mb-10 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+                  The first integrated development environment built from the ground up for 
+                  <span className="text-text-primary font-medium"> Agentic Workflows</span>.
+                  Control the storm.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+                  <Button size="lg" className="h-14 px-8 text-lg gap-2 shadow-lg shadow-accent-yellow/20 w-full sm:w-auto">
+                    <Monitor className="w-5 h-5" />
+                    Download for macOS
+                  </Button>
+                  <Button variant="secondary" size="lg" className="h-14 px-8 text-lg w-full sm:w-auto">
+                    Join Waitlist
+                  </Button>
+                </div>
+                <p className="mt-6 text-sm text-text-tertiary animate-fade-in" style={{ animationDelay: '0.4s' }}>
+                  v0.1.0 • Apple Silicon & Intel • Linux coming soon
+                </p>
+              </div>
+
+              {/* Features Grid */}
+              <div className="grid md:grid-cols-3 gap-6 mb-24 animate-slide-up" style={{ animationDelay: '0.3s' }}>
+                <Card variant="outlined" className="p-8 bg-surface-elevated/50 backdrop-blur-sm border-outline-light/50 hover:border-accent-yellow/50 transition-colors group">
+                  <div className="w-12 h-12 rounded-lg bg-surface-layer flex items-center justify-center mb-6 text-accent-yellow group-hover:scale-110 transition-transform">
+                    <Layers className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-serif font-medium text-text-primary mb-3">Agent Orchestration</h3>
+                  <p className="text-text-secondary leading-relaxed">
+                    Visualize and control multi-agent swarms directly in your editor. Intervene at any step of the generation process.
+                  </p>
+                </Card>
+                <Card variant="outlined" className="p-8 bg-surface-elevated/50 backdrop-blur-sm border-outline-light/50 hover:border-accent-yellow/50 transition-colors group">
+                  <div className="w-12 h-12 rounded-lg bg-surface-layer flex items-center justify-center mb-6 text-accent-yellow group-hover:scale-110 transition-transform">
+                    <Cpu className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-serif font-medium text-text-primary mb-3">Local-First Intelligence</h3>
+                  <p className="text-text-secondary leading-relaxed">
+                    Run small models locally for zero-latency autocomplete, while seamlessly offloading complex reasoning to the cloud.
+                  </p>
+                </Card>
+                <Card variant="outlined" className="p-8 bg-surface-elevated/50 backdrop-blur-sm border-outline-light/50 hover:border-accent-yellow/50 transition-colors group">
+                  <div className="w-12 h-12 rounded-lg bg-surface-layer flex items-center justify-center mb-6 text-accent-yellow group-hover:scale-110 transition-transform">
+                    <GitBranch className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-serif font-medium text-text-primary mb-3">Semantic Version Control</h3>
+                  <p className="text-text-secondary leading-relaxed">
+                    AI that understands your git history. Generate commit messages, PRs, and resolve merge conflicts with context.
+                  </p>
+                </Card>
+              </div>
+
+              {/* Preview/Mockup Section */}
+              <div className="rounded-2xl border border-outline-mid bg-surface-elevated/30 backdrop-blur-sm overflow-hidden shadow-2xl mb-24 animate-slide-up" style={{ animationDelay: '0.4s' }}>
+                <div className="border-b border-outline-light/30 bg-surface-elevated/50 px-4 py-3 flex items-center gap-2">
+                   <div className="flex gap-1.5">
+                     <div className="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/50"></div>
+                     <div className="w-3 h-3 rounded-full bg-yellow-500/20 border border-yellow-500/50"></div>
+                     <div className="w-3 h-3 rounded-full bg-green-500/20 border border-green-500/50"></div>
+                   </div>
+                   <div className="ml-4 px-3 py-1 rounded bg-surface-layer/50 text-xs text-text-tertiary border border-outline-light/20 flex-1 max-w-md font-mono text-center">
+                     cumulonimbus-ide — ~/projects/storm-tracker
+                   </div>
+                </div>
+                <div className="aspect-[16/9] bg-surface-base/50 flex items-center justify-center relative group cursor-default">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-accent-yellow/5 via-transparent to-purple-500/5 opacity-50" />
+                  <div className="text-center p-8 z-10">
+                      <Terminal className="w-16 h-16 mx-auto mb-6 text-text-tertiary opacity-50" />
+                      <h4 className="text-lg font-medium text-text-secondary mb-2">Interactive Preview</h4>
+                      <p className="text-text-tertiary text-sm">Experience the future of coding in your browser soon.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
   }
   
   // V1 scaffolder (existing implementation)
@@ -101,61 +225,71 @@ export default function CreatePage() {
 
 function ModeSelector({ onSelect }: { onSelect: (mode: CreateMode) => void }) {
   return (
-    <div className="h-screen bg-black flex">
+    <div className="h-screen bg-surface-base flex">
       <div className="hidden md:block">
         <NavigationRail />
       </div>
       <div className="flex-1 flex flex-col items-center justify-center p-8">
-        <h1 className="text-4xl font-serif font-medium text-white mb-4">
+        <div className="absolute top-4 right-4">
+          <ThemeToggle />
+        </div>
+
+        <h1 className="text-4xl font-serif font-medium text-text-primary mb-4">
           Create Your App
         </h1>
-        <p className="text-gray-400 text-center max-w-lg mb-12">
+        <p className="text-text-secondary text-center max-w-lg mb-12">
           Choose how you&apos;d like to build your app
         </p>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl w-full">
           {/* Freeform Mode */}
           <button
             onClick={() => onSelect('freeform')}
-            className="p-6 bg-gradient-to-br from-purple-900/50 to-pink-900/50 border border-purple-500/30 rounded-xl text-left hover:border-purple-500/60 transition-all group"
+            className="p-6 bg-gradient-to-br from-accent-yellow/10 to-orange-900/20 border border-accent-yellow/30 rounded-xl text-left hover:border-accent-yellow/60 hover:bg-accent-yellow/20 transition-all group"
           >
-            <div className="text-3xl mb-4">✨</div>
-            <h3 className="text-lg font-semibold text-white mb-2">Freeform</h3>
-            <p className="text-sm text-gray-400">
+            <div className="mb-4">
+              <Sparkles className="w-8 h-8 text-accent-yellow" />
+            </div>
+            <h3 className="text-2xl font-medium font-serif text-text-primary mb-2">Freeform</h3>
+            <p className="text-sm text-text-secondary">
               Describe your app and let AI generate everything. Complete creative freedom with instant preview.
             </p>
-            <div className="mt-4 text-xs text-purple-400 group-hover:text-purple-300">
+            <div className="mt-4 text-xs text-accent-yellow group-hover:text-accent-yellow/80">
               Best for: Quick prototypes, creative ideas
             </div>
           </button>
-          
+
           {/* Guided Mode */}
           <button
             onClick={() => onSelect('guided')}
-            className="p-6 bg-gray-800/50 border border-gray-700 rounded-xl text-left hover:border-gray-600 transition-all group"
+            className="p-6 bg-surface-elevated/50 border border-outline-light rounded-xl text-left hover:border-outline-mid hover:bg-surface-elevated transition-all group"
           >
-            <div className="text-3xl mb-4">🎯</div>
-            <h3 className="text-lg font-semibold text-white mb-2">Guided</h3>
-            <p className="text-sm text-gray-400">
+            <div className="mb-4">
+              <Target className="w-8 h-8 text-accent-yellow" />
+            </div>
+            <h3 className="text-2xl font-medium font-serif text-text-primary mb-2">Guided</h3>
+            <p className="text-sm text-text-secondary">
               Step-by-step conversation to refine your requirements. More control over the final result.
             </p>
-            <div className="mt-4 text-xs text-gray-500 group-hover:text-gray-400">
+            <div className="mt-4 text-xs text-text-tertiary group-hover:text-text-secondary">
               Best for: Specific requirements, data-heavy apps
             </div>
           </button>
-          
+
           {/* V2 Conversational Mode */}
           <button
             onClick={() => onSelect('v2')}
-            className="p-6 bg-gradient-to-br from-red-900/50 to-orange-900/50 border border-red-500/30 rounded-xl text-left hover:border-red-500/60 transition-all group"
+            className="p-6 bg-surface-elevated/50 border border-outline-light rounded-xl text-left hover:border-outline-mid hover:bg-surface-elevated transition-all group"
           >
-            <div className="text-3xl mb-4">🚀</div>
-            <h3 className="text-lg font-semibold text-white mb-2">Advanced</h3>
-            <p className="text-sm text-gray-400">
-              Multi-agent system with schema design, layout proposals, and iterative refinement.
+            <div className="mb-4">
+              <Rocket className="w-8 h-8 text-accent-yellow" />
+            </div>
+            <h3 className="text-2xl font-medium font-serif text-text-primary mb-2">Advanced</h3>
+            <p className="text-sm text-text-secondary">
+              Download the native desktop IDE for advanced multi-agent workflows and local development.
             </p>
-            <div className="mt-4 text-xs text-red-400 group-hover:text-red-300">
-              Best for: Complex apps, custom layouts
+            <div className="mt-4 text-xs text-text-tertiary group-hover:text-text-secondary">
+              Best for: Professional developers, complex projects
             </div>
           </button>
         </div>
@@ -615,7 +749,7 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
   const currentPlan = state?.plan || messages.find(m => m.metadata?.plan)?.metadata?.plan;
 
   return (
-    <div className="h-screen bg-black flex">
+    <div className="h-screen bg-surface-base flex">
       {/* Navigation Rail - Hidden on mobile, shown on desktop */}
       <div className="hidden md:block">
         <NavigationRail />
@@ -630,13 +764,14 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="border-b border-outline-mid bg-surface-dark px-8 py-6">
+        <header className="border-b border-outline-mid bg-surface-base px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-serif font-medium text-white">Create</h1>
-              <p className="text-sm text-gray-400 mt-1">Guided Mode</p>
+              <h1 className="text-3xl font-serif font-medium text-text-primary">Create</h1>
+              <p className="text-sm text-text-secondary mt-1">Guided Mode</p>
             </div>
             <div className="flex gap-2">
+              <ThemeToggle />
               {onModeChange && (
                 <Button
                   variant="ghost"
@@ -686,7 +821,7 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
                         key={option.id}
                         onClick={() => handleOptionSelect(option)}
                         className={cn(
-                          "w-full p-4 rounded-xl border-2 text-left transition-all bg-surface-light border-outline-light hover:border-accent-red text-white",
+                          "w-full p-4 rounded-xl border-2 text-left transition-all bg-surface-elevated border-outline-light hover:border-accent-yellow text-text-primary",
                           selectedOptions.includes(option.id) && "border-pastel-yellow bg-pastel-yellow/10 text-black"
                         )}
                       >
@@ -726,9 +861,10 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
                     <Button
                       onClick={handleFinalize}
                       size="lg"
-                      className="w-full"
+                      className="w-full gap-2"
                     >
-                      ⚡ Build My App
+                      <Zap className="w-4 h-4" />
+                      Build My App
                     </Button>
                   </div>
                 )}
@@ -785,8 +921,8 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
                 {/* Issue Reporting Dialog */}
                 {showIssueDialog && (
                   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-                    <div className="bg-surface-dark border border-outline-mid rounded-xl max-w-lg w-full p-6">
-                      <h3 className="text-lg font-semibold text-white mb-4">
+                    <div className="bg-surface-base border border-outline-mid rounded-xl max-w-lg w-full p-6">
+                      <h3 className="text-lg font-semibold text-text-primary mb-4">
                         Report Issues
                       </h3>
                       <p className="text-text-secondary text-sm mb-4">
@@ -796,7 +932,7 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
                         value={issueDescription}
                         onChange={(e) => setIssueDescription(e.target.value)}
                         placeholder="e.g., The date picker isn't working correctly, the table columns are in the wrong order..."
-                        className="w-full px-4 py-3 bg-surface-light border border-outline-light rounded-lg text-white placeholder:text-text-secondary focus:outline-none focus:border-accent-red resize-none h-32"
+                        className="w-full px-4 py-3 bg-surface-elevated border border-outline-light rounded-lg text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent-yellow resize-none h-32"
                       />
                       <div className="flex justify-end gap-3 mt-4">
                         <Button
@@ -840,8 +976,8 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
 function WelcomeScreen() {
   return (
     <div className="text-center py-16 animate-fade-in">
-      <h2 className="text-3xl font-serif font-medium text-white mb-4">
-        What would you like to <span className="bg-accent-red px-2 py-1">create</span>?
+      <h2 className="text-3xl font-serif font-medium text-text-primary mb-4">
+        What would you like to <span className="bg-accent-yellow px-2 py-1 text-black">create</span>?
       </h2>
         <p className="text-text-secondary max-w-md mx-auto mb-8 leading-relaxed">
         Describe your idea in natural language. I&apos;ll guide you through the process of building a personalized web application.
@@ -857,8 +993,8 @@ function WelcomeScreen() {
 
 function ExamplePrompt({ text }: { text: string }) {
   return (
-    <div className="p-4 rounded-xl bg-surface-light border border-outline-light text-left hover:border-accent-red/50 transition-colors cursor-pointer group">
-      <p className="text-text-secondary group-hover:text-white">{text}</p>
+    <div className="p-4 rounded-xl bg-surface-elevated border border-outline-light text-left hover:border-accent-yellow/50 transition-colors cursor-pointer group">
+      <p className="text-text-secondary group-hover:text-text-primary">{text}</p>
     </div>
   );
 }

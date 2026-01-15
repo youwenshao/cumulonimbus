@@ -40,11 +40,11 @@ export function ImplementationPlan({ plan, className, defaultExpanded = true }: 
         className="w-full flex items-center justify-between p-4 hover:bg-surface-light transition-colors"
       >
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-accent-red/20 flex items-center justify-center">
-            <Layers className="w-5 h-5 text-accent-red" />
+          <div className="w-10 h-10 rounded-lg bg-accent-yellow/20 flex items-center justify-center">
+            <Layers className="w-5 h-5 text-accent-yellow" />
           </div>
           <div className="text-left">
-            <h3 className="text-lg font-semibold text-white">Implementation Plan</h3>
+            <h3 className="text-lg font-semibold text-text-primary">Implementation Plan</h3>
             <p className="text-sm text-text-secondary">
               {plan.steps.length} steps • {plan.estimatedComplexity} complexity
             </p>
@@ -83,7 +83,7 @@ export function ImplementationPlan({ plan, className, defaultExpanded = true }: 
             <div className="space-y-4">
               {/* Primitives */}
               <div>
-                <h5 className="text-sm font-medium text-white mb-2">Components Used</h5>
+                <h5 className="text-sm font-medium text-text-primary mb-2">Components Used</h5>
                 <div className="flex flex-wrap gap-2">
                   {plan.architecture.primitives.map((primitive, i) => (
                     <span
@@ -98,7 +98,7 @@ export function ImplementationPlan({ plan, className, defaultExpanded = true }: 
 
               {/* Data Flow */}
               <div>
-                <h5 className="text-sm font-medium text-white mb-2">Data Flow</h5>
+                <h5 className="text-sm font-medium text-text-primary mb-2">Data Flow</h5>
                 <p className="text-sm text-text-secondary leading-relaxed">
                   {plan.architecture.dataFlow}
                 </p>
@@ -175,7 +175,7 @@ function CollapsibleSection({ title, icon, isExpanded, onToggle, children, noBor
         onClick={onToggle}
         className="w-full flex items-center justify-between p-4 hover:bg-surface-light/50 transition-colors"
       >
-        <div className="flex items-center gap-2 text-white">
+        <div className="flex items-center gap-2 text-text-primary">
           {icon}
           <span className="font-medium">{title}</span>
         </div>
@@ -206,14 +206,14 @@ function ComponentCard({ name, type, description, isForm }: ComponentCardProps) 
     <div className={cn(
       'p-3 rounded-lg border',
       isForm 
-        ? 'bg-accent-red/5 border-accent-red/20' 
+        ? 'bg-accent-yellow/5 border-accent-yellow/20' 
         : 'bg-surface-light border-outline-light'
     )}>
       <div className="flex items-center justify-between mb-1">
-        <span className="font-medium text-white text-sm">{name}</span>
+        <span className="font-medium text-text-primary text-sm">{name}</span>
         <span className={cn(
           'text-xs px-2 py-0.5 rounded',
-          isForm ? 'bg-accent-red/20 text-accent-red' : 'bg-surface-dark text-text-secondary'
+          isForm ? 'bg-accent-yellow/20 text-accent-yellow' : 'bg-surface-dark text-text-secondary'
         )}>
           {type}
         </span>

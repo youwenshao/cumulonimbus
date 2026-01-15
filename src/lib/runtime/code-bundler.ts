@@ -143,7 +143,7 @@ function generateDefaultApp(schema: BundleOptions['schema']): string {
     return `
 function App() {
   return (
-    <div className="min-h-screen bg-black text-white p-8">
+    <div className="min-h-screen bg-black text-text-primary p-8">
       <h1 className="text-2xl font-bold">App Ready</h1>
       <p className="text-gray-400">No content defined</p>
     </div>
@@ -177,7 +177,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-black text-text-primary">
       <div className="max-w-6xl mx-auto p-6">
         <header className="mb-8">
           <h1 className="text-3xl font-bold">${schema.label}</h1>
@@ -195,7 +195,7 @@ function App() {
                 </label>
                 ${f.type === 'enum' && f.options ? `
                 <select
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-text-primary"
                   value={formData.${f.name} || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, ${f.name}: e.target.value }))}
                   ${f.required ? 'required' : ''}
@@ -205,7 +205,7 @@ function App() {
                 </select>
                 ` : f.type === 'text' ? `
                 <textarea
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-text-primary"
                   value={formData.${f.name} || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, ${f.name}: e.target.value }))}
                   placeholder="${f.placeholder || ''}"
@@ -215,7 +215,7 @@ function App() {
                 ` : `
                 <input
                   type="${f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'}"
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-text-primary"
                   value={formData.${f.name} || ''}
                   onChange={(e) => setFormData(prev => ({ 
                     ...prev, 
@@ -229,7 +229,7 @@ function App() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded disabled:opacity-50"
+                className="w-full py-2 px-4 bg-accent-yellow hover:bg-accent-yellow/90 text-text-primary rounded disabled:opacity-50"
               >
                 {isLoading ? 'Adding...' : 'Add Entry'}
               </button>
@@ -240,7 +240,7 @@ function App() {
           <div className="lg:col-span-2 bg-gray-900 rounded-lg p-6">
             <h2 className="text-lg font-semibold mb-4">Entries ({data.length})</h2>
             {error && (
-              <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded text-red-300">
+              <div className="mb-4 p-3 bg-accent-yellow/10 border border-accent-yellow/30 rounded text-accent-yellow">
                 {error}
               </div>
             )}
@@ -264,7 +264,7 @@ function App() {
                         <td className="py-2 px-3 text-right">
                           <button
                             onClick={() => handleDelete(row.id)}
-                            className="text-red-400 hover:text-red-300 text-sm"
+                            className="text-accent-yellow hover:text-accent-yellow/80 text-sm"
                           >
                             Delete
                           </button>

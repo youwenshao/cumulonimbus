@@ -30,7 +30,7 @@ CRITICAL REQUIREMENTS:
 6. Follow React best practices (hooks, proper state management)
 
 STYLING:
-- Dark theme: bg-black, bg-gray-900, text-white
+- Dark theme: bg-black, bg-gray-900, text-text-primary
 - Accent: red-500/red-600 for primary actions
 - Cards: bg-gray-800/gray-700
 - Proper spacing and responsive design`;
@@ -466,9 +466,9 @@ export default function ${name}Page() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="min-h-screen bg-black text-text-primary flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-400 mb-4">{error}</p>
+          <p className="text-accent-yellow mb-4">{error}</p>
           <button onClick={refresh} className="px-4 py-2 bg-red-600 rounded hover:bg-red-700">
             Retry
           </button>
@@ -478,7 +478,7 @@ export default function ${name}Page() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-black text-text-primary">
       <div className="max-w-7xl mx-auto p-6">
         <header className="mb-8">
           <h1 className="text-3xl font-bold">${schema.label}</h1>
@@ -797,7 +797,7 @@ export function ${name}({ onSubmit, initialData = {} }: ${name}Props) {
 ${fields.map(f => `        <div>
           <label className="block text-sm text-gray-400 mb-1">${f.label}${f.required ? ' *' : ''}</label>
           ${f.type === 'enum' ? `<select
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-text-primary"
             value={String(formData.${f.name} || '')}
             onChange={(e) => setFormData(prev => ({ ...prev, ${f.name}: e.target.value }))}
             ${f.required ? 'required' : ''}
@@ -806,7 +806,7 @@ ${fields.map(f => `        <div>
 ${(f.options || []).map(o => `            <option value="${o}">${o}</option>`).join('\n')}
           </select>` : `<input
             type="${f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'}"
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-text-primary"
             value={String(formData.${f.name} || '')}
             onChange={(e) => setFormData(prev => ({ ...prev, ${f.name}: ${f.type === 'number' ? 'Number(e.target.value)' : 'e.target.value'} }))}
             ${f.required ? 'required' : ''}
@@ -816,7 +816,7 @@ ${(f.options || []).map(o => `            <option value="${o}">${o}</option>`).j
       <button
         type="submit"
         disabled={isSubmitting}
-        className="mt-4 w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+        className="mt-4 w-full px-4 py-2 bg-accent-yellow text-text-primary rounded hover:bg-accent-yellow/90 disabled:opacity-50"
       >
         {isSubmitting ? 'Adding...' : 'Add Entry'}
       </button>
@@ -864,7 +864,7 @@ ${fields.map(f => `              <td className="px-4 py-3">${f.type === 'boolean
               <td className="px-4 py-3 text-right">
                 <button
                   onClick={() => onDelete(item.id)}
-                  className="text-red-400 hover:text-red-300 text-sm"
+                  className="text-accent-yellow hover:text-accent-yellow/80 text-sm"
                 >
                   Delete
                 </button>
