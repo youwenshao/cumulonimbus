@@ -42,6 +42,35 @@ CRITICAL REQUIREMENTS:
 6. Use 'use client' directive for client components
 7. Follow React best practices (hooks, memoization where needed)
 
+AVAILABLE IMPORTS - You have access to these pre-bundled dependencies:
+
+CORE:
+- React hooks: useState, useEffect, useCallback, useMemo, useRef
+
+ICONS:
+- lucide-react: Any icon (Heart, CheckCircle, Menu, Plus, Trash, Edit, Loader2, AlertCircle, etc.)
+
+DATES:
+- date-fns: format, parseISO, differenceInDays, addDays, subDays
+
+FORMS & VALIDATION:
+- react-hook-form: useForm, Controller
+- zod: z.object, z.string, z.number, etc.
+
+CHARTS:
+- recharts: LineChart, BarChart, PieChart, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer
+
+UTILITIES:
+- clsx: Conditional className utility
+- tailwind-merge: Merge Tailwind classes
+- nanoid: Tiny unique ID generator
+
+EXPLICITLY AVOID:
+- axios (use native fetch)
+- moment (use date-fns)
+- redux/mobx (use useState or zustand)
+- Any server-side packages
+
 STYLING GUIDELINES:
 - Use a dark theme: bg-black, bg-gray-900, text-text-primary
 - Use accent colors: red-500/red-600 for primary actions

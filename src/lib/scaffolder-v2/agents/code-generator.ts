@@ -41,6 +41,64 @@ const CODE_GEN_SYSTEM_PROMPT = `You are an expert React/TypeScript developer gen
 - Use functional components with proper typing
 - Handle async operations with try/catch and proper typing
 
+### AVAILABLE IMPORTS - You have access to these pre-bundled dependencies:
+
+CORE & BUILT-INS:
+- React hooks: useState, useEffect, useCallback, useMemo, useRef, useReducer, useContext
+- useAppData() hook: Built-in hook for CRUD operations (prefer over react-query)
+- SandboxAPI.fetch(): Built-in fetch wrapper (prefer over axios)
+
+ICONS:
+- lucide-react: Any icon component (Heart, CheckCircle, Menu, Plus, Trash, Edit, etc.)
+
+DATES:
+- date-fns: format, parseISO, differenceInDays, addDays, subDays, startOfDay, endOfDay
+- dayjs: Lightweight date manipulation
+
+FORMS & VALIDATION:
+- react-hook-form: useForm, useFormContext, FormProvider, Controller, useWatch, useFieldArray
+- zod: z.object, z.string, z.number, z.enum, z.boolean, etc.
+
+CHARTS & VISUALIZATION:
+- recharts: LineChart, Line, BarChart, Bar, PieChart, Pie, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
+
+UI COMPONENTS:
+- framer-motion: motion, AnimatePresence, useAnimation, useMotionValue
+
+UTILITIES:
+- clsx: Conditional className utility
+- tailwind-merge: Merge Tailwind classes (use cn() = clsx + twMerge)
+- lodash-es: debounce, throttle, groupBy, sortBy, orderBy, uniqBy, keyBy, flatten, chunk, pick, omit
+- nanoid: Tiny unique ID generator
+
+STATE MANAGEMENT (if needed beyond useState):
+- zustand: create, useStore
+- jotai: atom, useAtom, useAtomValue, useSetAtom
+
+TABLES:
+- @tanstack/react-table: useReactTable, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, flexRender, createColumnHelper
+
+DRAG & DROP:
+- @dnd-kit/core: DndContext, useDraggable, useDroppable, DragOverlay
+- @dnd-kit/sortable: SortableContext, useSortable, arrayMove
+
+OTHER:
+- react-hot-toast: toast, Toaster
+- sonner: toast (alternative toasts)
+- react-markdown: ReactMarkdown
+- react-confetti: Confetti
+
+EXPLICITLY AVOID (will cause build errors):
+- axios (use SandboxAPI.fetch or native fetch)
+- @tanstack/react-query for CRUD (use useAppData hook)
+- moment (use date-fns or dayjs)
+- redux/mobx (use zustand or jotai if needed)
+- Any server frameworks (express, fastify)
+- Any database drivers (pg, mysql, mongodb)
+- File system libraries (fs, fs-extra)
+- react-router (use state for view switching)
+- Any package not listed above
+
 ### STYLING
 - Use Tailwind CSS classes
 - Dark theme: bg-black, bg-gray-900, text-text-primary

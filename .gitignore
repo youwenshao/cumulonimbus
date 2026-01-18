@@ -43,3 +43,7 @@ prisma/*.db-journal
 .vscode/
 *.swp
 *.swo
+
+# Runtime dependency bundles (auto-generated)
+/public/runtime-deps/*.js
+/public/runtime-deps/manifest.json

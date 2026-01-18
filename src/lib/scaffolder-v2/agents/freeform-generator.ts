@@ -19,17 +19,79 @@ CRITICAL REQUIREMENTS:
 6. Include proper TypeScript-style type safety where possible
 
 AVAILABLE GLOBALS (do not import these):
-- React (with all hooks: useState, useEffect, useCallback, useMemo, useRef)
+- React (with all hooks: useState, useEffect, useCallback, useMemo, useRef, useReducer, useContext)
 - useAppData() hook - returns { data, isLoading, error, addRecord, deleteRecord, updateRecord, refresh }
 
+AVAILABLE IMPORTS - You have access to these pre-bundled dependencies:
+
+CORE & BUILT-INS (prefer these):
+- React hooks: useState, useEffect, useCallback, useMemo, useRef, useReducer, useContext
+- useAppData() hook: Built-in hook for CRUD operations (prefer over react-query)
+- SandboxAPI.fetch(): Built-in fetch wrapper (prefer over axios)
+
+ICONS:
+- lucide-react: <Heart />, <CheckCircle />, <Menu />, <Plus />, <Trash />, <Edit />, etc.
+
+DATES:
+- date-fns: format, parseISO, differenceInDays, addDays, subDays, etc.
+- dayjs: Lightweight date manipulation
+
+FORMS & VALIDATION:
+- react-hook-form: useForm, Controller, etc.
+- zod: z.object, z.string, z.number, etc.
+
+CHARTS & VISUALIZATION:
+- recharts: LineChart, BarChart, PieChart, AreaChart, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer
+
+UI COMPONENTS:
+- framer-motion: motion components, AnimatePresence for animations
+
+UTILITIES:
+- clsx: Conditional className utility
+- tailwind-merge: Merge Tailwind classes (use cn() helper)
+- lodash-es: debounce, throttle, groupBy, sortBy (import from lodash-es)
+- nanoid: Tiny unique ID generator
+
+STATE MANAGEMENT (if needed beyond useState):
+- zustand: create, useStore
+- jotai: atom, useAtom
+
+TABLES:
+- @tanstack/react-table: useReactTable, flexRender, etc.
+
+DRAG & DROP:
+- @dnd-kit/core: DndContext, useDraggable, useDroppable
+- @dnd-kit/sortable: SortableContext, useSortable
+
+OTHER:
+- react-hot-toast or sonner: Toast notifications (toast(), Toaster)
+- react-confetti: Confetti animations
+
+EXPLICITLY AVOID (will cause errors):
+- axios (use SandboxAPI.fetch or native fetch)
+- @tanstack/react-query for CRUD (use useAppData hook)
+- moment (use date-fns or dayjs)
+- redux/mobx (use zustand or jotai if needed)
+- Any server frameworks (express, fastify)
+- Any database drivers (pg, mysql, mongodb)
+- File system libraries (fs, fs-extra)
+- Any package not listed above
+
 CRITICAL SYNTAX RULES:
-- Do NOT use import statements - all dependencies are provided globally
 - Do NOT use 'use client' directive
 - Define a single 'App' function component as the entry point
 - Use window.SandboxAPI.fetch() for API calls if needed beyond useAppData
 - AVOID backticks (\`) in Tailwind classes - they create syntax errors in template literals
 - Use standard Tailwind classes only, avoid arbitrary values with backticks like content-['text']
-- For custom content in CSS, use standard approaches without backticks
+
+IMPORT SYNTAX (when using imports):
+import { useState, useEffect } from 'react';
+import { Heart, Menu, Plus, Trash } from 'lucide-react';
+import { format, differenceInDays } from 'date-fns';
+import { z } from 'zod';
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
+import { motion, AnimatePresence } from 'framer-motion';
+import { toast, Toaster } from 'react-hot-toast';
 
 EXAMPLE STRUCTURE:
 \`\`\`

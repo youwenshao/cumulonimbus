@@ -356,4 +356,187 @@ export class RuntimeManager {
       NanoCpus: resources.cpu ? resources.cpu * 1e9 : undefined,
     });
   }
+
+  /**
+   * Deploy and serve an app in one operation
+   * Combines environment creation, code deployment, and app startup
+   */
+  async deployAndServe(
+    appId: string,
+    files: Record<string, string>,
+    options?: {
+      resources?: { memory?: number; cpu?: number };
+      timeout?: number;
+    }
+  ): Promise<{
+    success: boolean;
+    environment?: RuntimeEnvironment;
+    error?: string;
+    logs: string[];
+  }> {
+    const logs: string[] = [];
+    
+    try {
+      // 1. Check if already running
+      const existing = await this.getEnvironmentByAppId(appId);
+      if (existing && existing.status === 'running') {
+        logs.push('Container already running, redeploying...');
+        
+        // Redeploy code to existing container
+        const deployResult = await this.deployCode(existing.id, files);
+        if (!deployResult.success) {
+          return {
+            success: false,
+            error: deployResult.error,
+            logs: [...logs, ...deployResult.logs],
+          };
+        }
+        
+        // Restart the app
+        await this.restartApp(existing.id);
+        logs.push('App restarted successfully');
+        
+        return {
+          success: true,
+          environment: existing,
+          logs,
+        };
+      }
+      
+      // 2. Create new environment
+      logs.push('Creating new container...');
+      const config: RuntimeEnvironmentConfig = {
+        appId,
+        resources: options?.resources || { memory: 512, cpu: 1 },
+      };
+      
+      const env = await this.createEnvironment(config);
+      logs.push(`Container created: ${env.id.substring(0, 12)}`);
+      
+      // 3. Deploy code
+      logs.push('Deploying code...');
+      const deployResult = await this.deployCode(env.id, files);
+      
+      if (!deployResult.success) {
+        logs.push('Deployment failed, cleaning up...');
+        await this.destroyEnvironment(env.id);
+        return {
+          success: false,
+          error: deployResult.error,
+          logs: [...logs, ...deployResult.logs],
+        };
+      }
+      logs.push(...deployResult.logs);
+      
+      // 4. Start the app
+      logs.push('Starting application...');
+      await this.startApp(env.id, 'npm start');
+      
+      // 5. Wait for app to be ready
+      const timeout = options?.timeout || 30000;
+      const ready = await this.waitForReady(env.id, timeout);
+      
+      if (!ready) {
+        logs.push('App failed to start within timeout');
+        const appLogs = await this.getAppLogs(env.id, 50);
+        if (appLogs) {
+          logs.push('App logs:', appLogs);
+        }
+        return {
+          success: false,
+          environment: env,
+          error: 'App failed to start within timeout',
+          logs,
+        };
+      }
+      
+      logs.push('Application started successfully');
+      logs.push(`URL: ${env.url}`);
+      
+      return {
+        success: true,
+        environment: env,
+        logs,
+      };
+      
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logs.push(`Error: ${message}`);
+      return {
+        success: false,
+        error: message,
+        logs,
+      };
+    }
+  }
+
+  /**
+   * Restart the app in a container
+   */
+  async restartApp(containerId: string): Promise<void> {
+    const container = this.docker.getContainer(containerId);
+    
+    // Kill existing npm process
+    try {
+      const killExec = await container.exec({
+        Cmd: ['pkill', '-f', 'npm'],
+      });
+      await killExec.start({ Detach: true });
+    } catch {
+      // Process might not exist
+    }
+    
+    // Wait a moment
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Start again
+    await this.startApp(containerId);
+  }
+
+  /**
+   * Wait for the app to be ready (respond to health check)
+   */
+  async waitForReady(containerId: string, timeout: number = 30000): Promise<boolean> {
+    const startTime = Date.now();
+    const container = this.docker.getContainer(containerId);
+    
+    while (Date.now() - startTime < timeout) {
+      try {
+        // Check if we can curl localhost:3000
+        const exec = await container.exec({
+          Cmd: ['wget', '-q', '--spider', 'http://localhost:3000'],
+          AttachStdout: true,
+          AttachStderr: true,
+        });
+        
+        const stream = await exec.start({ Detach: false, Tty: false });
+        await this.streamToString(stream);
+        
+        const inspect = await exec.inspect();
+        if (inspect.ExitCode === 0) {
+          return true;
+        }
+      } catch {
+        // Not ready yet
+      }
+      
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    
+    return false;
+  }
+
+  /**
+   * Check if a container is healthy
+   */
+  async isHealthy(containerId: string): Promise<boolean> {
+    try {
+      const container = this.docker.getContainer(containerId);
+      const info = await container.inspect();
+      return info.State.Running;
+    } catch {
+      return false;
+    }
+  }
 }

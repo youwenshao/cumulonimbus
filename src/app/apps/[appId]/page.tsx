@@ -5,6 +5,7 @@ import { AppRuntime } from './AppRuntime';
 import { GeneratedRuntime } from './GeneratedRuntime';
 import { V2Runtime } from './V2Runtime';
 import { V2SandboxRuntime } from './V2SandboxRuntime';
+import { bundleAppCode, analyzeImports } from '@/lib/runtime';
 import type { ProjectSpec } from '@/lib/scaffolder/types';
 import type { DataRecord } from '@/lib/primitives/types';
 import type { GeneratedCode } from '@/lib/scaffolder/code-generator';
@@ -44,10 +45,33 @@ export default async function AppPage({ params }: PageProps) {
 
   // Check if this is a sandbox app (freeform AI-generated)
   if (executionMode === 'sandbox' || (app.version === 'v2' && componentFiles?.['App.tsx'])) {
-    // Get bundled code from component files
-    const bundledCode = componentFiles?.['App.tsx'] || componentFiles?.['bundled'] || '';
+    // Get raw code from component files
+    const rawCode = componentFiles?.['App.tsx'] || componentFiles?.['bundled'] || '';
     
-    if (bundledCode) {
+    if (rawCode) {
+      // Analyze imports to determine required bundles
+      const requiredBundles = analyzeImports(rawCode);
+      
+      // Bundle the code server-side (transpile TSX -> JS)
+      let bundledCode = rawCode;
+      try {
+        const bundleResult = await bundleAppCode({
+          code: rawCode,
+          appId: app.id,
+          minify: false, // Keep readable for debugging
+        });
+        
+        if (bundleResult.success) {
+          bundledCode = bundleResult.code;
+        } else {
+          console.error('Server bundling failed:', bundleResult.errors);
+          // Fall back to raw code - let client-side handle it
+        }
+      } catch (error) {
+        console.error('Server bundling error:', error);
+        // Fall back to raw code
+      }
+      
       return (
         <V2SandboxRuntime
           appId={app.id}
@@ -57,6 +81,7 @@ export default async function AppPage({ params }: PageProps) {
           schema={spec as unknown as Schema}
           componentFiles={componentFiles || {}}
           initialData={data}
+          requiredBundles={requiredBundles}
         />
       );
     }
