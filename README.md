@@ -34,11 +34,14 @@ Cumulonimbus is an intent-to-application platform that allows non-technical user
 
 ### Advanced Features
 
-- **Scaffolder V2** (In Development): Agent-based architecture with orchestrator pattern
-  - Schema design proposals
-  - Layout design proposals
-  - Refinement history tracking
-  - Feature flags for gradual rollout
+- **Scaffolder V2**: Agent-based architecture with orchestrator pattern (Available)
+  - **Multi-Agent System**: Specialized agents for schema design, UI layout, and code generation
+  - **Dynamic Schema Generation**: AI generates custom data schemas from natural language
+  - **Flexible Layout System**: Layout DSL with responsive templates (dashboard, sidebar, kanban)
+  - **Live Preview**: Real-time preview updates during app generation with SSE streaming
+  - **Iterative Refinement**: Conversational refinement with history tracking
+  - **Modular Code Generation**: Separate component files with TypeScript types and validators
+  - **Feature Flags**: Gradual rollout with beta user access and percentage-based enabling
 - **Multiple View Modes**: Toggle between table, chart, or both views
 - **Data Visualization**: Advanced charting with grouping, aggregation, and multiple chart types
 - **Responsive Design**: Works seamlessly on desktop and mobile devices
@@ -135,6 +138,31 @@ Cumulonimbus is an intent-to-application platform that allows non-technical user
    ```
 
 7. Open [http://localhost:3000](http://localhost:3000)
+
+### Enabling V2 Features (Optional)
+
+Cumulonimbus includes advanced V2 features for enhanced app generation:
+
+1. **Enable V2 for all users** (in `.env`):
+   ```env
+   SCAFFOLDER_VERSION=v2
+   ```
+
+2. **Enable V2 for beta testing** (in `.env`):
+   ```env
+   SCAFFOLDER_VERSION=v1  # Keep v1 as default
+   V2_BETA_EMAILS=your@email.com,beta@example.com
+   V2_ROLLOUT_PERCENTAGE=10  # Enable for 10% of users
+   ```
+
+3. **Enable advanced features** (in `.env`):
+   ```env
+   LIVE_PREVIEW_ENABLED=true
+   MULTI_ENTITY_ENABLED=true
+   ADVANCED_LAYOUTS_ENABLED=true
+   ```
+
+4. **Test V2 features** by adding `?v2=true` to the create page URL
 
 ### Quick Setup Script
 
@@ -298,6 +326,14 @@ OPENROUTER_API_URL=     # https://openrouter.ai/api/v1
 OPENROUTER_MODEL=       # qwen/qwen-2.5-coder-32b-instruct
 LLM_PROVIDER=           # auto/ollama/lmstudio/openrouter
 LLM_FALLBACK_ENABLED=   # true/false
+
+# Scaffolder V2 Configuration (Advanced Features)
+SCAFFOLDER_VERSION=     # v1/v2 - Enable V2 agent-based scaffolding
+V2_BETA_EMAILS=         # Comma-separated emails for beta access (optional)
+V2_ROLLOUT_PERCENTAGE=  # 0-100 - Percentage rollout for V2 features
+LIVE_PREVIEW_ENABLED=   # true/false - Enable real-time preview
+MULTI_ENTITY_ENABLED=   # true/false - Enable multi-entity schemas
+ADVANCED_LAYOUTS_ENABLED= # true/false - Enable advanced layout templates
 ```
 
 ### Getting an OpenRouter API Key

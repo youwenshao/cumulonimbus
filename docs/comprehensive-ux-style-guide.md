@@ -326,4 +326,4 @@ Cumulonimbus is an atmospheric design system inspired by cloud formations and la
 
 ---
 
-*This style guide reflects the Cumulonimbus design system as of January 15, 2026. For implementation questions or design system updates, refer to the development team.*
+*This style guide reflects the Cumulonimbus design system as of January 18, 2026. For implementation questions or design system updates, refer to the development team.*
