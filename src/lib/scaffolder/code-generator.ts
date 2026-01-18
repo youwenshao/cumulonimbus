@@ -126,7 +126,7 @@ REQUIREMENTS:
 10. Include a header with the app name
 
 STRUCTURE:
-- Export default function ${spec.name.replace(/\s+/g, '')}Page()
+- Export default function ${spec.name.replace(/[^a-zA-Z0-9]/g, '')}Page()
 - Include all TypeScript interfaces at the top
 - Include form component inline
 - Include table component inline
@@ -416,7 +416,8 @@ Generate the FIXED page.tsx code now, addressing all the reported issues:`;
  * Generate a simple fallback component when LLM fails
  */
 export function generateFallbackCode(spec: ProjectSpec, appId: string): string {
-  const componentName = spec.name.replace(/\s+/g, '');
+  // Fix: Strip all non-alphanumeric characters, not just whitespace
+  const componentName = spec.name.replace(/[^a-zA-Z0-9]/g, '');
   const fields = spec.dataStore.fields;
 
   return `'use client';

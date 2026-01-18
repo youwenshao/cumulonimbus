@@ -412,7 +412,8 @@ export function validateCode(code: string): { valid: boolean; errors: string[] }
     { pattern: /sessionStorage/g, message: 'sessionStorage is not allowed (use SandboxAPI)' },
     { pattern: /window\.open/g, message: 'window.open is not allowed' },
     { pattern: /window\.location\s*=/g, message: 'Navigation is not allowed' },
-    { pattern: /fetch\s*\(\s*['"][^'"]*['"]\s*\)/g, message: 'Direct fetch is not allowed (use SandboxAPI.fetch)' },
+    // Allow SandboxAPI.fetch, but block direct fetch calls
+    { pattern: /(?<!SandboxAPI\.)fetch\s*\(\s*['"][^'"]*['"]\s*\)/g, message: 'Direct fetch is not allowed (use SandboxAPI.fetch)' },
   ];
 
   for (const { pattern, message } of dangerousPatterns) {

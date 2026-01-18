@@ -134,13 +134,14 @@ function getFallbackIntent(userPrompt: string): ParsedIntent {
   // Keyword matching for category with priority order
   const categoryPatterns: { category: TrackerCategory; keywords: string[]; name: string }[] = [
     { category: 'expense', keywords: ['expense', 'spending', 'money', 'budget', 'cost', 'purchase', 'payment'], name: 'Expense Tracker' },
-    { category: 'habit', keywords: ['habit', 'routine', 'daily', 'workout', 'exercise', 'gym', 'meditation', 'morning'], name: 'Habit Tracker' },
+    { category: 'habit', keywords: ['habit', 'routine', 'workout', 'exercise', 'gym', 'meditation'], name: 'Habit Tracker' },
     { category: 'project', keywords: ['project', 'task', 'todo', 'work', 'assignment', 'deadline'], name: 'Project Tracker' },
-    { category: 'health', keywords: ['health', 'fitness', 'weight', 'diet', 'calories', 'sleep', 'water', 'steps'], name: 'Health Tracker' },
+    // Fix: Add both singular and plural forms for better matching
+    { category: 'health', keywords: ['health', 'fitness', 'weight', 'diet', 'calorie', 'calories', 'sleep', 'water', 'steps'], name: 'Health Tracker' },
     { category: 'learning', keywords: ['learning', 'study', 'course', 'book', 'reading', 'skill'], name: 'Learning Tracker' },
     { category: 'inventory', keywords: ['inventory', 'stock', 'items', 'collection', 'supplies'], name: 'Inventory Tracker' },
     { category: 'time', keywords: ['time', 'hours', 'clock', 'schedule', 'log'], name: 'Time Tracker' },
-    { category: 'custom', keywords: ['calendar', 'event', 'schedule', 'appointment'], name: 'Event Tracker' },
+    { category: 'custom', keywords: ['calendar', 'event', 'appointment'], name: 'Event Tracker' },
   ];
   
   let matchedCategory = categoryPatterns[categoryPatterns.length - 1]; // Default to custom

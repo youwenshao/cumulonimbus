@@ -9,6 +9,7 @@ import prisma from '@/lib/db';
 import { generateId } from '@/lib/utils';
 import { freeformGenerator } from '@/lib/scaffolder-v2/agents';
 import { bundleCode } from '@/lib/runtime';
+import { bundleAppCode } from '@/lib/runtime/server-bundler';
 import type { FreeformDesign } from '@/lib/scaffolder-v2/agents';
 
 export const runtime = 'nodejs';
@@ -169,8 +170,10 @@ export async function POST(request: NextRequest) {
           fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:135',message:'Starting code bundling',data:{fullCodeLength:fullCode.length,hasSchema:!!design.schema},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H4'})}).catch(()=>{});
           // #endregion
 
+          const appIdToUse = existingAppId || generateId();
+          
           const bundle = bundleCode({
-            appId: existingAppId || generateId(),
+            appId: appIdToUse,
             appCode: fullCode,
             schema: design.schema,
           });
@@ -178,6 +181,30 @@ export async function POST(request: NextRequest) {
           // #region agent log
           fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:142',message:'Code bundling completed',data:{bundleSize:bundle.bundleSize,filesCount:Object.keys(bundle.files).length},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H4'})}).catch(()=>{});
           // #endregion
+
+          // Step 3.5: Server-side bundling (transpile TSX -> JS)
+          let serverBundledCode: string | null = null;
+          let requiredBundles: string[] = ['utils']; // Default bundles
+          
+          try {
+            const serverBundle = await bundleAppCode({
+              code: fullCode,
+              appId: appIdToUse,
+              minify: false, // Keep readable for debugging
+            });
+            
+            if (serverBundle.success) {
+              serverBundledCode = serverBundle.code;
+              requiredBundles = serverBundle.requiredBundles;
+              console.log('[generate-stream] Server bundling successful, size:', serverBundledCode.length);
+            } else {
+              console.warn('[generate-stream] Server bundling failed:', serverBundle.errors);
+              // Fall back to raw code - the runtime will handle it
+            }
+          } catch (bundleError) {
+            console.error('[generate-stream] Server bundling error:', bundleError);
+            // Continue without server-bundled code
+          }
 
           // Step 4: Save to database
           sendEvent({
@@ -198,7 +225,9 @@ export async function POST(request: NextRequest) {
               data: {
                 componentFiles: bundle.files as unknown as object,
                 spec: design.schema as unknown as object,
-                config: { design } as unknown as object,
+                config: { design, requiredBundles } as unknown as object,
+                bundledCode: serverBundledCode,
+                executionMode: 'sandbox',
                 buildStatus: 'COMPLETED',
                 status: 'ACTIVE',
                 updatedAt: new Date(),
@@ -209,14 +238,16 @@ export async function POST(request: NextRequest) {
             // Create new app
             const app = await prisma.app.create({
               data: {
-                id: generateId(),
+                id: appIdToUse,
                 userId: session.user.id,
                 name: appName || design.appName,
                 description: design.description,
                 version: 'v2',
                 spec: design.schema as unknown as object,
-                config: { design } as unknown as object,
+                config: { design, requiredBundles } as unknown as object,
                 componentFiles: bundle.files as unknown as object,
+                bundledCode: serverBundledCode,
+                executionMode: 'sandbox',
                 data: [],
                 status: 'ACTIVE',
                 buildStatus: 'COMPLETED',

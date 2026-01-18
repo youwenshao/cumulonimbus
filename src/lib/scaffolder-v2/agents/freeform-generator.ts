@@ -67,7 +67,15 @@ OTHER:
 - react-hot-toast or sonner: Toast notifications (toast(), Toaster)
 - react-confetti: Confetti animations
 
+PERSISTENCE - CRITICAL:
+- NEVER use localStorage or sessionStorage - they are BLOCKED for security
+- ALL data persistence MUST go through the useAppData() hook
+- The useAppData() hook provides: { data, isLoading, error, addRecord, deleteRecord, updateRecord, refresh }
+- Use React.useState() only for UI state (form values, toggles, modals), NOT for persisted data
+- Example: const { data: habits, addRecord, deleteRecord } = useAppData();
+
 EXPLICITLY AVOID (will cause errors):
+- localStorage or sessionStorage (BLOCKED - use useAppData instead)
 - axios (use SandboxAPI.fetch or native fetch)
 - @tanstack/react-query for CRUD (use useAppData hook)
 - moment (use date-fns or dayjs)
@@ -271,7 +279,8 @@ Data schema (use with useAppData hook):
 ${JSON.stringify(design.schema, null, 2)}
 
 Generate the complete App component. Remember:
-- Use useAppData() for data operations
+- Use useAppData() for ALL data persistence (NEVER use localStorage/sessionStorage)
+- Use React.useState only for UI state (form inputs, toggles, modals)
 - Use React.useState, React.useEffect, etc. (React is global)
 - Style with Tailwind dark theme classes
 - Handle loading and error states
@@ -320,7 +329,8 @@ Data schema (use with useAppData hook):
 ${JSON.stringify(design.schema, null, 2)}
 
 Generate the complete App component. Remember:
-- Use useAppData() for data operations
+- Use useAppData() for ALL data persistence (NEVER use localStorage/sessionStorage)
+- Use React.useState only for UI state (form inputs, toggles, modals)
 - Use React.useState, React.useEffect, etc. (React is global)
 - Style with Tailwind dark theme classes
 - Handle loading and error states
@@ -381,7 +391,7 @@ User feedback: ${feedback}
 
 Please modify the code to address the feedback while maintaining:
 - The same overall structure and design
-- Proper use of useAppData() hook
+- Proper use of useAppData() hook for ALL data persistence (NEVER use localStorage/sessionStorage)
 - Tailwind dark theme styling
 - React best practices
 

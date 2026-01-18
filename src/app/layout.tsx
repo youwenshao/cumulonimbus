@@ -1,23 +1,18 @@
 import type { Metadata } from 'next';
-import { Inter, JetBrains_Mono } from 'next/font/google';
 import { SessionProvider } from '@/components/providers/SessionProvider';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import './globals.css';
 
-// Font loaders must be called at module scope with const
-const inter = Inter({
-  subsets: ['latin'],
+// Using system fonts to avoid Google Fonts network dependency during build
+const inter = {
   variable: '--font-sans',
-  display: 'swap',
-  fallback: ['system-ui', 'sans-serif'],
-});
+  className: '',
+};
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
+const jetbrainsMono = {
   variable: '--font-mono',
-  display: 'swap',
-  fallback: ['monospace'],
-});
+  className: '',
+};
 
 // Using Georgia as fallback for serif (defined as object since we don't need Google Fonts for serif)
 const sourceSerifPro = {

@@ -20,6 +20,40 @@ interface RouteParams {
 }
 
 /**
+ * Check if an error is a Docker unavailability error
+ */
+function isDockerUnavailableError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    // Check for Docker socket connection errors
+    if (message.includes('enoent') && message.includes('docker')) return true;
+    if (message.includes('/var/run/docker.sock')) return true;
+    if (message.includes('docker daemon') && message.includes('not running')) return true;
+    if (message.includes('cannot connect to the docker')) return true;
+    
+    // Check error code
+    const errorWithCode = error as Error & { code?: string; syscall?: string; address?: string };
+    if (errorWithCode.code === 'ENOENT' && errorWithCode.address?.includes('docker')) return true;
+    if (errorWithCode.syscall === 'connect' && errorWithCode.address?.includes('docker')) return true;
+  }
+  return false;
+}
+
+/**
+ * Return a Docker unavailable response
+ */
+function dockerUnavailableResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      error: 'Docker is not running. Please start Docker Desktop to use production mode.',
+      hint: 'Preview mode works without Docker.',
+      dockerRequired: true,
+    },
+    { status: 503 }
+  );
+}
+
+/**
  * GET /api/runtime/[appId]
  * Get the runtime status for an app
  */
@@ -42,8 +76,25 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'App not found' }, { status: 404 });
     }
 
-    const manager = getRuntimeManager();
-    const env = await manager.getEnvironmentByAppId(appId);
+    let manager;
+    try {
+      manager = getRuntimeManager();
+    } catch (error) {
+      if (isDockerUnavailableError(error)) {
+        return dockerUnavailableResponse();
+      }
+      throw error;
+    }
+
+    let env;
+    try {
+      env = await manager.getEnvironmentByAppId(appId);
+    } catch (error) {
+      if (isDockerUnavailableError(error)) {
+        return dockerUnavailableResponse();
+      }
+      throw error;
+    }
 
     if (!env) {
       return NextResponse.json({
@@ -75,6 +126,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     console.error('[Runtime API] GET error:', error);
+    
+    // Check for Docker unavailability
+    if (isDockerUnavailableError(error)) {
+      return dockerUnavailableResponse();
+    }
+    
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to get status' },
       { status: 500 }
@@ -154,11 +211,28 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const files = generateProjectFiles(app.name, bundleResult.code, app.spec);
 
     // Get pool manager and create/acquire environment
-    const pool = getPoolManager();
-    const manager = getRuntimeManager();
+    let pool, manager;
+    try {
+      pool = getPoolManager();
+      manager = getRuntimeManager();
+    } catch (error) {
+      if (isDockerUnavailableError(error)) {
+        return dockerUnavailableResponse();
+      }
+      throw error;
+    }
 
     // Check if already running
-    const existingEnv = await manager.getEnvironmentByAppId(appId);
+    let existingEnv;
+    try {
+      existingEnv = await manager.getEnvironmentByAppId(appId);
+    } catch (error) {
+      if (isDockerUnavailableError(error)) {
+        return dockerUnavailableResponse();
+      }
+      throw error;
+    }
+    
     if (existingEnv && existingEnv.status === 'running') {
       return NextResponse.json({
         success: true,
@@ -173,7 +247,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Acquire environment from pool
     console.log(`[Runtime API] Acquiring environment for ${appId}...`);
-    const env = await pool.acquire(appId);
+    let env;
+    try {
+      env = await pool.acquire(appId);
+    } catch (error) {
+      if (isDockerUnavailableError(error)) {
+        return dockerUnavailableResponse();
+      }
+      throw error;
+    }
     console.log(`[Runtime API] Acquired environment ${env.id}`);
 
     // Deploy code to container
@@ -215,6 +297,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     console.error('[Runtime API] POST error:', error);
+    
+    // Check for Docker unavailability
+    if (isDockerUnavailableError(error)) {
+      return dockerUnavailableResponse();
+    }
+    
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to start container' },
       { status: 500 }
@@ -245,8 +333,32 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'App not found' }, { status: 404 });
     }
 
-    const manager = getRuntimeManager();
-    const env = await manager.getEnvironmentByAppId(appId);
+    let manager;
+    try {
+      manager = getRuntimeManager();
+    } catch (error) {
+      if (isDockerUnavailableError(error)) {
+        // If Docker isn't available, there's no container to stop
+        return NextResponse.json({
+          success: true,
+          message: 'No container running (Docker not available)',
+        });
+      }
+      throw error;
+    }
+
+    let env;
+    try {
+      env = await manager.getEnvironmentByAppId(appId);
+    } catch (error) {
+      if (isDockerUnavailableError(error)) {
+        return NextResponse.json({
+          success: true,
+          message: 'No container running (Docker not available)',
+        });
+      }
+      throw error;
+    }
 
     if (!env) {
       return NextResponse.json({
@@ -271,6 +383,15 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     console.error('[Runtime API] DELETE error:', error);
+    
+    // Check for Docker unavailability
+    if (isDockerUnavailableError(error)) {
+      return NextResponse.json({
+        success: true,
+        message: 'No container to stop (Docker not available)',
+      });
+    }
+    
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to stop container' },
       { status: 500 }

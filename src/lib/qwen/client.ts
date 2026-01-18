@@ -32,7 +32,13 @@ export interface ChatCompletionOptions {
 }
 
 // Get model name for backward compatibility
-export const qwenModel = getLLMConfig().openrouterModel;
+let qwenModelValue: string;
+try {
+  qwenModelValue = getLLMConfig().openrouterModel;
+} catch (error) {
+  qwenModelValue = 'gpt-3.5-turbo'; // fallback
+}
+export const qwenModel = qwenModelValue;
 
 // Create a dummy client for backward compatibility (not actually used)
 export const qwenClient = {

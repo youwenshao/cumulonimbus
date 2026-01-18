@@ -107,6 +107,11 @@ export function validateSpec(spec: ProjectSpec): {
     return { valid: false, errors: ['No specification provided'], warnings: [] };
   }
 
+  // Fix: Check for empty views before using the comprehensive validation system
+  if (!spec.views || spec.views.length === 0) {
+    return { valid: false, errors: ['At least one view is required'], warnings: [] };
+  }
+
   // Use the comprehensive validation system
   const result = isSpecValid(spec);
   

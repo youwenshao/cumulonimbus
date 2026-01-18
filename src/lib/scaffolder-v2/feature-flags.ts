@@ -122,7 +122,9 @@ export async function isFeatureEnabled(
  */
 export function getV2RolloutPercentage(): number {
   const percentage = parseInt(process.env.V2_ROLLOUT_PERCENTAGE || '0', 10);
-  return Math.min(100, Math.max(0, percentage));
+  // Fix: Check for NaN and default to 0
+  const validPercentage = isNaN(percentage) ? 0 : percentage;
+  return Math.min(100, Math.max(0, validPercentage));
 }
 
 /**

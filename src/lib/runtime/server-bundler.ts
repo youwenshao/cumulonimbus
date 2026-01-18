@@ -1,11 +1,19 @@
 /**
  * Server-Side Bundler
- * 
+ *
  * Uses esbuild to transpile and bundle user-generated TypeScript/JSX code
  * on the server before sending to the browser sandbox.
  */
 
-import * as esbuild from 'esbuild';
+// Dynamic import for esbuild to avoid Next.js bundling issues
+let esbuild: typeof import('esbuild');
+
+async function getEsbuild() {
+  if (!esbuild) {
+    esbuild = await import('esbuild');
+  }
+  return esbuild;
+}
 import { 
   isPackageAllowed, 
   isPackageBlocked, 
@@ -172,10 +180,11 @@ function getSuggestion(packageName: string): string | undefined {
 /**
  * Transform imports to use global dependencies
  */
-function transformImportsPlugin(): esbuild.Plugin {
+async function transformImportsPlugin() {
+  const esb = await getEsbuild();
   return {
     name: 'transform-imports',
-    setup(build) {
+    setup(build: esb.PluginBuild) {
       // Handle node_modules imports by marking them as external
       // They will be provided via window.AppDependencies
       build.onResolve({ filter: /^[^./]/ }, (args) => {
@@ -183,7 +192,7 @@ function transformImportsPlugin(): esbuild.Plugin {
         if (args.path === 'react' || args.path === 'react-dom') {
           return { path: args.path, external: true };
         }
-        
+
         // Mark all other packages as external - they'll be provided globally
         return { path: args.path, external: true };
       });
@@ -318,7 +327,8 @@ export async function bundleAppCode(options: ServerBundleOptions): Promise<Serve
   
   try {
     // 6. Transform with esbuild
-    const result = await esbuild.transform(cleanedCode, {
+    const esb = await getEsbuild();
+    const result = await esb.transform(cleanedCode, {
       loader: 'tsx',
       target: 'es2020',
       format: 'iife',
@@ -381,18 +391,26 @@ ${result.code}
   } catch (err) {
     // Parse esbuild errors
     if (err instanceof Error) {
-      const esbuildError = err as esbuild.TransformFailure;
-      
-      if (esbuildError.errors) {
-        for (const e of esbuildError.errors) {
+      try {
+        const esb = await getEsbuild();
+        const esbuildError = err as esb.TransformFailure;
+
+        if (esbuildError.errors) {
+          for (const e of esbuildError.errors) {
+            errors.push({
+              message: e.text,
+              line: e.location?.line,
+              column: e.location?.column,
+              source: e.location?.lineText,
+            });
+          }
+        } else {
           errors.push({
-            message: e.text,
-            line: e.location?.line,
-            column: e.location?.column,
-            source: e.location?.lineText,
+            message: err.message,
           });
         }
-      } else {
+      } catch {
+        // If we can't get esbuild types, just use basic error
         errors.push({
           message: err.message,
         });
@@ -441,7 +459,8 @@ export async function validateTypeScript(code: string): Promise<{
   
   // Try to parse with esbuild
   try {
-    await esbuild.transform(code, {
+    const esb = await getEsbuild();
+    await esb.transform(code, {
       loader: 'tsx',
       target: 'es2020',
       format: 'esm',
@@ -453,18 +472,24 @@ export async function validateTypeScript(code: string): Promise<{
     return { valid: true, errors: [], warnings };
   } catch (err) {
     if (err instanceof Error) {
-      const esbuildError = err as esbuild.TransformFailure;
-      
-      if (esbuildError.errors) {
-        for (const e of esbuildError.errors) {
-          errors.push({
-            message: e.text,
-            line: e.location?.line,
-            column: e.location?.column,
-            source: e.location?.lineText,
-          });
+      try {
+        const esb = await getEsbuild();
+        const esbuildError = err as esb.TransformFailure;
+
+        if (esbuildError.errors) {
+          for (const e of esbuildError.errors) {
+            errors.push({
+              message: e.text,
+              line: e.location?.line,
+              column: e.location?.column,
+              source: e.location?.lineText,
+            });
+          }
+        } else {
+          errors.push({ message: err.message });
         }
-      } else {
+      } catch {
+        // If we can't get esbuild types, just use basic error
         errors.push({ message: err.message });
       }
     }
@@ -478,7 +503,8 @@ export async function validateTypeScript(code: string): Promise<{
  */
 export async function quickSyntaxCheck(code: string): Promise<boolean> {
   try {
-    await esbuild.transform(code, {
+    const esb = await getEsbuild();
+    await esb.transform(code, {
       loader: 'tsx',
       target: 'es2020',
       format: 'esm',

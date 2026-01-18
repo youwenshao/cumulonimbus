@@ -52,18 +52,22 @@ export function V2SandboxRuntime({
   const [error, setError] = useState<string | null>(null);
   const [containerStatus, setContainerStatus] = useState<ContainerStatus>({ status: 'not_running' });
   const [isPublishing, setIsPublishing] = useState(false);
+  const [hasCheckedDocker, setHasCheckedDocker] = useState(false);
+  const [dockerAvailable, setDockerAvailable] = useState<boolean | null>(null);
 
-  // Check container status on mount
-  useEffect(() => {
-    checkContainerStatus();
-  }, [appId]);
-
-  // Check container status
-  const checkContainerStatus = useCallback(async () => {
+  // Check container status - only called when user interacts with production features
+  const checkContainerStatus = useCallback(async (): Promise<boolean> => {
+    if (hasCheckedDocker && containerStatus.status !== 'not_running') {
+      return true; // Already checked and have a result
+    }
+    
     try {
       const response = await fetch(`/api/runtime/${appId}`);
+      setHasCheckedDocker(true);
+      
       if (response.ok) {
         const result = await response.json();
+        setDockerAvailable(true);
         setContainerStatus({
           status: result.status === 'running' ? 'running' : 'not_running',
           url: result.environment?.url,
@@ -71,11 +75,30 @@ export function V2SandboxRuntime({
         if (result.status === 'running') {
           setRuntimeMode('production');
         }
+        return true;
+      } else if (response.status === 503) {
+        // Docker not available
+        const result = await response.json();
+        setDockerAvailable(false);
+        setContainerStatus({
+          status: 'error',
+          message: result.error || 'Docker is not running',
+        });
+        return false;
       }
+      return false;
     } catch (err) {
-      console.error('Failed to check container status:', err);
+      // Docker connection failed - this is expected if Docker isn't installed/running
+      console.log('Docker not available (this is OK for preview mode)');
+      setHasCheckedDocker(true);
+      setDockerAvailable(false);
+      setContainerStatus({
+        status: 'not_running',
+        message: 'Docker not available',
+      });
+      return false;
     }
-  }, [appId]);
+  }, [appId, hasCheckedDocker, containerStatus.status]);
 
   // Refresh data from API
   const refreshData = useCallback(async () => {
@@ -116,6 +139,21 @@ export function V2SandboxRuntime({
   // Publish to Docker container
   const handlePublish = useCallback(async () => {
     setIsPublishing(true);
+    
+    // First check if Docker is available
+    if (!hasCheckedDocker) {
+      const dockerOk = await checkContainerStatus();
+      if (!dockerOk && dockerAvailable === false) {
+        setIsPublishing(false);
+        setError('Docker is not running. Please start Docker Desktop to use production mode. Preview mode works without Docker.');
+        return;
+      }
+    } else if (dockerAvailable === false) {
+      setIsPublishing(false);
+      setError('Docker is not running. Please start Docker Desktop to use production mode. Preview mode works without Docker.');
+      return;
+    }
+    
     setContainerStatus({ status: 'starting' });
     try {
       const response = await fetch(`/api/runtime/${appId}`, {
@@ -129,11 +167,17 @@ export function V2SandboxRuntime({
           url: result.environment?.url,
         });
         setRuntimeMode('production');
+        setDockerAvailable(true);
       } else {
-        const error = await response.json();
+        const errorData = await response.json();
+        // Check if this is a Docker unavailable error
+        if (response.status === 503 || errorData.error?.includes('Docker')) {
+          setDockerAvailable(false);
+          setError('Docker is not running. Please start Docker Desktop to use production mode.');
+        }
         setContainerStatus({
           status: 'error',
-          message: error.error || 'Failed to start container',
+          message: errorData.error || 'Failed to start container',
         });
       }
     } catch (err) {
@@ -144,7 +188,7 @@ export function V2SandboxRuntime({
     } finally {
       setIsPublishing(false);
     }
-  }, [appId]);
+  }, [appId, hasCheckedDocker, dockerAvailable, checkContainerStatus]);
 
   // Stop Docker container
   const handleUnpublish = useCallback(async () => {
@@ -216,7 +260,15 @@ export function V2SandboxRuntime({
                   Preview
                 </button>
                 <button
-                  onClick={() => runtimeMode === 'production' || containerStatus.status === 'running' ? setRuntimeMode('production') : handlePublish()}
+                  onClick={async () => {
+                    // If already in production mode or container running, just switch view
+                    if (runtimeMode === 'production' || containerStatus.status === 'running') {
+                      setRuntimeMode('production');
+                      return;
+                    }
+                    // Otherwise, try to publish (which will check Docker availability)
+                    handlePublish();
+                  }}
                   disabled={isPublishing}
                   className={`px-3 py-1.5 rounded text-sm transition-colors ${
                     runtimeMode === 'production'
