@@ -1,3 +1,7 @@
+/**
+ * @jest-environment jsdom
+ */
+
 import React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { ThemeProvider, useTheme } from '@/components/providers/ThemeProvider';
