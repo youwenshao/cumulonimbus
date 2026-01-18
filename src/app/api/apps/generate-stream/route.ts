@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
             }
           } catch (enqueueError) {
             // #region agent log
-            fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:89',message:'Failed to enqueue SSE event',data:{eventType:event.type,error:enqueueError.message,controllerClosed},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H1'})}).catch(()=>{});
+            fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:89',message:'Failed to enqueue SSE event',data:{eventType:event.type,error:(enqueueError as Error).message,controllerClosed},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H1'})}).catch(()=>{});
             // #endregion
             console.error('Failed to enqueue SSE event:', enqueueError);
           }

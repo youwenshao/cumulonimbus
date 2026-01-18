@@ -93,7 +93,12 @@ export function generatePreviewHTML(
   schema: Schema
 ): string {
   const componentScripts = Array.from(components.values())
-    .map(c => c.code)
+    .map(c => c.code
+      // Simple transform for browser preview
+      .replace(/import .*?;/g, '')
+      .replace(/export default function/g, 'function')
+      .replace(/export function/g, 'function')
+    )
     .join('\n\n');
 
   const layoutJSON = JSON.stringify(layout);
@@ -109,6 +114,30 @@ export function generatePreviewHTML(
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script>
+    window.onerror = function(message, source, lineno, colno, error) {
+      window.parent.postMessage({
+        type: 'preview_error',
+        error: {
+          message: message,
+          source: source,
+          lineno: lineno,
+          colno: colno,
+          stack: error ? error.stack : null
+        }
+      }, '*');
+    };
+    
+    window.addEventListener('unhandledrejection', function(event) {
+      window.parent.postMessage({
+        type: 'preview_error',
+        error: {
+          message: event.reason ? event.reason.message : 'Unhandled Rejection',
+          stack: event.reason ? event.reason.stack : null
+        }
+      }, '*');
+    });
+  </script>
   <style>
     * {
       box-sizing: border-box;
@@ -511,6 +540,9 @@ export function generatePreviewHTML(
       
       return null;
     }
+    
+    // Generated Components
+    ${componentScripts}
     
     // Main App
     function App() {

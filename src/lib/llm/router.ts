@@ -17,6 +17,7 @@ import type {
 import { getOllamaClient, checkOllamaHealth, getOllamaConfig } from './ollama-client';
 import { getOpenRouterClient, checkOpenRouterHealth, getOpenRouterConfig } from './openrouter-client';
 import { getLMStudioClient, checkLMStudioHealth, getLMStudioConfig } from './lmstudio-client';
+import { getDeepseekClient, checkDeepseekHealth, getDeepseekConfig } from './deepseek-client';
 
 // Health check interval: 30 seconds
 const HEALTH_CHECK_INTERVAL_MS = 30000;
@@ -27,6 +28,7 @@ let routerState: LLMRouterState = {
   ollamaAvailable: false,
   openrouterAvailable: false,
   lmstudioAvailable: false,
+  deepseekAvailable: false,
   lastHealthCheck: null,
 };
 
@@ -37,13 +39,17 @@ export function getLLMConfig(userSettings?: UserLLMSettings): LLMConfig {
   const ollamaConfig = getOllamaConfig();
   const openrouterConfig = getOpenRouterConfig();
   const lmstudioConfig = getLMStudioConfig();
+  const deepseekConfig = getDeepseekConfig();
 
   return {
-    provider: (userSettings?.provider || process.env.LLM_PROVIDER || 'auto') as LLMProvider,
+    provider: (userSettings?.provider || process.env.LLM_PROVIDER || 'deepseek') as LLMProvider,
     ollamaEnabled: process.env.OLLAMA_ENABLED !== 'false',
     ollamaApiUrl: userSettings?.ollamaEndpoint || ollamaConfig.apiUrl,
     ollamaModel: userSettings?.ollamaModel || ollamaConfig.model,
     ollamaSmallModel: userSettings?.ollamaSmallModel || ollamaConfig.smallModel,
+    deepseekApiKey: deepseekConfig.apiKey,
+    deepseekApiUrl: deepseekConfig.apiUrl,
+    deepseekModel: deepseekConfig.model,
     openrouterApiKey: openrouterConfig.apiKey,
     openrouterApiUrl: openrouterConfig.apiUrl,
     openrouterModel: openrouterConfig.model,
@@ -75,7 +81,10 @@ export async function checkAllHealth(): Promise<HealthCheckResult[]> {
     routerState.ollamaAvailable = ollamaHealth.available;
   }
 
-  // Check OpenRouter
+  const deepseekHealth = await checkDeepseekHealth();
+  results.push(deepseekHealth);
+  routerState.deepseekAvailable = deepseekHealth.available;
+
   const openrouterHealth = await checkOpenRouterHealth();
   results.push(openrouterHealth);
   routerState.openrouterAvailable = openrouterHealth.available;
@@ -93,6 +102,7 @@ export async function checkAllHealth(): Promise<HealthCheckResult[]> {
     ollama: routerState.ollamaAvailable,
     openrouter: routerState.openrouterAvailable,
     lmstudio: routerState.lmstudioAvailable,
+    deepseek: routerState.deepseekAvailable,
   });
 
   return results;
@@ -133,11 +143,12 @@ export async function selectProvider(
   let targetProvider = requestedProvider || config.provider;
 
   if (targetProvider === 'auto') {
-    // Auto mode: prefer local providers (Ollama, then LM Studio), then OpenRouter
     if (config.ollamaEnabled && routerState.ollamaAvailable) {
       targetProvider = 'ollama';
     } else if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
       targetProvider = 'lmstudio';
+    } else if (routerState.deepseekAvailable) {
+      targetProvider = 'deepseek';
     } else if (routerState.openrouterAvailable) {
       targetProvider = 'openrouter';
     } else {
@@ -188,11 +199,31 @@ export async function selectProvider(
     }
   }
 
-  const client = targetProvider === 'ollama'
-    ? getOllamaClient()
-    : targetProvider === 'lmstudio'
-      ? getLMStudioClient()
-      : getOpenRouterClient();
+  if (targetProvider === 'deepseek') {
+    if (!routerState.deepseekAvailable && config.fallbackEnabled) {
+      if (routerState.openrouterAvailable) {
+        console.log('⚠️ DeepSeek unavailable, falling back to OpenRouter');
+        targetProvider = 'openrouter';
+      } else if (config.ollamaEnabled && routerState.ollamaAvailable) {
+        console.log('⚠️ DeepSeek unavailable, falling back to Ollama');
+        targetProvider = 'ollama';
+      } else if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
+        console.log('⚠️ DeepSeek unavailable, falling back to LM Studio');
+        targetProvider = 'lmstudio';
+      }
+    } else if (!routerState.deepseekAvailable) {
+      throw new Error('DeepSeek is not available');
+    }
+  }
+
+  const client: LLMClient =
+    targetProvider === 'ollama'
+      ? getOllamaClient()
+      : targetProvider === 'lmstudio'
+        ? getLMStudioClient()
+        : targetProvider === 'deepseek'
+          ? getDeepseekClient()
+          : getOpenRouterClient();
 
   return { provider: targetProvider, client };
 }
@@ -215,6 +246,10 @@ export function selectModel(
     return config.lmstudioModel;
   }
 
+  if (provider === 'deepseek') {
+    return config.deepseekModel;
+  }
+
   return config.openrouterModel;
 }
 
@@ -227,7 +262,12 @@ export function createRoutedClient(): LLMClient {
 
     async isAvailable(): Promise<boolean> {
       await ensureFreshHealthCheck();
-      return routerState.ollamaAvailable || routerState.openrouterAvailable || routerState.lmstudioAvailable;
+      return (
+        routerState.ollamaAvailable ||
+        routerState.openrouterAvailable ||
+        routerState.lmstudioAvailable ||
+        routerState.deepseekAvailable
+      );
     },
 
     async complete(options: CompletionOptions): Promise<string> {
@@ -248,6 +288,9 @@ export function createRoutedClient(): LLMClient {
             if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
               fallbackProvider = 'lmstudio';
               fallbackAvailable = true;
+            } else if (routerState.deepseekAvailable) {
+              fallbackProvider = 'deepseek';
+              fallbackAvailable = true;
             } else if (routerState.openrouterAvailable) {
               fallbackProvider = 'openrouter';
               fallbackAvailable = true;
@@ -256,12 +299,24 @@ export function createRoutedClient(): LLMClient {
             if (config.ollamaEnabled && routerState.ollamaAvailable) {
               fallbackProvider = 'ollama';
               fallbackAvailable = true;
+            } else if (routerState.deepseekAvailable) {
+              fallbackProvider = 'deepseek';
+              fallbackAvailable = true;
             } else if (routerState.openrouterAvailable) {
               fallbackProvider = 'openrouter';
               fallbackAvailable = true;
             }
-          } else { // openrouter
-            if (config.ollamaEnabled && routerState.ollamaAvailable) {
+          } else if (provider === 'deepseek') {
+            if (routerState.openrouterAvailable) {
+              fallbackProvider = 'openrouter';
+              fallbackAvailable = true;
+            }
+            // Do not fallback to local providers from a cloud provider
+          } else {
+            if (routerState.deepseekAvailable) {
+              fallbackProvider = 'deepseek';
+              fallbackAvailable = true;
+            } else if (config.ollamaEnabled && routerState.ollamaAvailable) {
               fallbackProvider = 'ollama';
               fallbackAvailable = true;
             } else if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
@@ -272,11 +327,16 @@ export function createRoutedClient(): LLMClient {
 
           if (fallbackAvailable && fallbackProvider) {
             console.log(`⚠️ ${provider} failed, trying ${fallbackProvider}`);
-            const fallbackClient = fallbackProvider === 'ollama'
-              ? getOllamaClient()
-              : fallbackProvider === 'lmstudio'
-                ? getLMStudioClient()
-                : getOpenRouterClient();
+            let fallbackClient: LLMClient;
+            if (fallbackProvider === 'ollama') {
+              fallbackClient = getOllamaClient();
+            } else if (fallbackProvider === 'lmstudio') {
+              fallbackClient = getLMStudioClient();
+            } else if (fallbackProvider === 'deepseek') {
+              fallbackClient = getDeepseekClient();
+            } else {
+              fallbackClient = getOpenRouterClient();
+            }
             return await fallbackClient.complete(options);
           }
         }
@@ -292,6 +352,7 @@ export function createRoutedClient(): LLMClient {
       try {
         yield* client.streamComplete(options);
       } catch (error) {
+        console.error(`❌ ${provider} stream failed:`, error);
         // Try fallback
         const config = getLLMConfig();
         if (config.fallbackEnabled) {
@@ -302,6 +363,9 @@ export function createRoutedClient(): LLMClient {
             if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
               fallbackProvider = 'lmstudio';
               fallbackAvailable = true;
+            } else if (routerState.deepseekAvailable) {
+              fallbackProvider = 'deepseek';
+              fallbackAvailable = true;
             } else if (routerState.openrouterAvailable) {
               fallbackProvider = 'openrouter';
               fallbackAvailable = true;
@@ -310,12 +374,24 @@ export function createRoutedClient(): LLMClient {
             if (config.ollamaEnabled && routerState.ollamaAvailable) {
               fallbackProvider = 'ollama';
               fallbackAvailable = true;
+            } else if (routerState.deepseekAvailable) {
+              fallbackProvider = 'deepseek';
+              fallbackAvailable = true;
             } else if (routerState.openrouterAvailable) {
               fallbackProvider = 'openrouter';
               fallbackAvailable = true;
             }
-          } else { // openrouter
-            if (config.ollamaEnabled && routerState.ollamaAvailable) {
+          } else if (provider === 'deepseek') {
+            if (routerState.openrouterAvailable) {
+              fallbackProvider = 'openrouter';
+              fallbackAvailable = true;
+            }
+            // Do not fallback to local providers from a cloud provider
+          } else {
+            if (routerState.deepseekAvailable) {
+              fallbackProvider = 'deepseek';
+              fallbackAvailable = true;
+            } else if (config.ollamaEnabled && routerState.ollamaAvailable) {
               fallbackProvider = 'ollama';
               fallbackAvailable = true;
             } else if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
@@ -326,11 +402,16 @@ export function createRoutedClient(): LLMClient {
 
           if (fallbackAvailable && fallbackProvider) {
             console.log(`⚠️ ${provider} failed, trying ${fallbackProvider}`);
-            const fallbackClient = fallbackProvider === 'ollama'
-              ? getOllamaClient()
-              : fallbackProvider === 'lmstudio'
-                ? getLMStudioClient()
-                : getOpenRouterClient();
+            let fallbackClient: LLMClient;
+            if (fallbackProvider === 'ollama') {
+              fallbackClient = getOllamaClient();
+            } else if (fallbackProvider === 'lmstudio') {
+              fallbackClient = getLMStudioClient();
+            } else if (fallbackProvider === 'deepseek') {
+              fallbackClient = getDeepseekClient();
+            } else {
+              fallbackClient = getOpenRouterClient();
+            }
             yield* fallbackClient.streamComplete(options);
             return;
           }
@@ -357,6 +438,9 @@ export function createRoutedClient(): LLMClient {
             if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
               fallbackProvider = 'lmstudio';
               fallbackAvailable = true;
+            } else if (routerState.deepseekAvailable) {
+              fallbackProvider = 'deepseek';
+              fallbackAvailable = true;
             } else if (routerState.openrouterAvailable) {
               fallbackProvider = 'openrouter';
               fallbackAvailable = true;
@@ -365,12 +449,29 @@ export function createRoutedClient(): LLMClient {
             if (config.ollamaEnabled && routerState.ollamaAvailable) {
               fallbackProvider = 'ollama';
               fallbackAvailable = true;
+            } else if (routerState.deepseekAvailable) {
+              fallbackProvider = 'deepseek';
+              fallbackAvailable = true;
             } else if (routerState.openrouterAvailable) {
               fallbackProvider = 'openrouter';
               fallbackAvailable = true;
             }
-          } else { // openrouter
-            if (config.ollamaEnabled && routerState.ollamaAvailable) {
+          } else if (provider === 'deepseek') {
+            if (routerState.openrouterAvailable) {
+              fallbackProvider = 'openrouter';
+              fallbackAvailable = true;
+            } else if (config.ollamaEnabled && routerState.ollamaAvailable) {
+              fallbackProvider = 'ollama';
+              fallbackAvailable = true;
+            } else if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
+              fallbackProvider = 'lmstudio';
+              fallbackAvailable = true;
+            }
+          } else {
+            if (routerState.deepseekAvailable) {
+              fallbackProvider = 'deepseek';
+              fallbackAvailable = true;
+            } else if (config.ollamaEnabled && routerState.ollamaAvailable) {
               fallbackProvider = 'ollama';
               fallbackAvailable = true;
             } else if (config.lmstudioEnabled && routerState.lmstudioAvailable) {
@@ -381,11 +482,16 @@ export function createRoutedClient(): LLMClient {
 
           if (fallbackAvailable && fallbackProvider) {
             console.log(`⚠️ ${provider} failed, trying ${fallbackProvider}`);
-            const fallbackClient = fallbackProvider === 'ollama'
-              ? getOllamaClient()
-              : fallbackProvider === 'lmstudio'
-                ? getLMStudioClient()
-                : getOpenRouterClient();
+            let fallbackClient: LLMClient;
+            if (fallbackProvider === 'ollama') {
+              fallbackClient = getOllamaClient();
+            } else if (fallbackProvider === 'lmstudio') {
+              fallbackClient = getLMStudioClient();
+            } else if (fallbackProvider === 'deepseek') {
+              fallbackClient = getDeepseekClient();
+            } else {
+              fallbackClient = getOpenRouterClient();
+            }
             return await fallbackClient.completeJSON<T>(options);
           }
         }

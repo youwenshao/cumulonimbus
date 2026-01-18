@@ -3,7 +3,7 @@
  * Shared type definitions for LLM providers
  */
 
-export type LLMProvider = 'ollama' | 'openrouter' | 'lmstudio' | 'auto';
+export type LLMProvider = 'ollama' | 'openrouter' | 'lmstudio' | 'deepseek' | 'auto';
 
 export interface LLMConfig {
   provider: LLMProvider;
@@ -12,6 +12,9 @@ export interface LLMConfig {
   ollamaApiUrl: string;
   ollamaModel: string;
   ollamaSmallModel: string;
+  deepseekApiKey: string;
+  deepseekApiUrl: string;
+  deepseekModel: string;
   // OpenRouter settings
   openrouterApiKey: string;
   openrouterApiUrl: string;
@@ -84,6 +87,7 @@ export interface LLMRouterState {
   ollamaAvailable: boolean;
   openrouterAvailable: boolean;
   lmstudioAvailable: boolean;
+  deepseekAvailable: boolean;
   lastHealthCheck: Date | null;
 }
 

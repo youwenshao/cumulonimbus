@@ -286,7 +286,7 @@ NEXTAUTH_SECRET="your-secret-key"  # Generate with: openssl rand -base64 32
 NEXTAUTH_URL="http://localhost:3000"  # Your app URL
 
 # AI/LLM Configuration - Choose your provider(s)
-LLM_PROVIDER="auto"  # "auto", "ollama", "openrouter", or "lmstudio"
+LLM_PROVIDER="deepseek"  # "auto", "ollama", "openrouter", "lmstudio", or "deepseek"
 LLM_FALLBACK_ENABLED="true"  # Enable automatic fallback between providers
 
 # Ollama Configuration (Local AI)
@@ -304,6 +304,11 @@ LMSTUDIO_MODEL="local-model"  # Model name (will be auto-discovered)
 OPENROUTER_API_KEY="your-openrouter-api-key"  # Get from https://openrouter.ai
 OPENROUTER_API_URL="https://openrouter.ai/api/v1"  # OpenRouter API endpoint
 OPENROUTER_MODEL="qwen/qwen-2.5-coder-32b-instruct"  # Cloud model
+
+# DeepSeek Configuration (Cloud AI)
+DEEPSEEK_API_KEY="your-deepseek-api-key"
+DEEPSEEK_API_URL="https://api.deepseek.com"
+DEEPSEEK_MODEL="deepseek-chat"
 ```
 
 ### Production Environment Variables
@@ -324,7 +329,10 @@ LMSTUDIO_MODEL=         # local-model
 OPENROUTER_API_KEY=     # Your OpenRouter API key
 OPENROUTER_API_URL=     # https://openrouter.ai/api/v1
 OPENROUTER_MODEL=       # qwen/qwen-2.5-coder-32b-instruct
-LLM_PROVIDER=           # auto/ollama/lmstudio/openrouter
+DEEPSEEK_API_KEY=       # Your DeepSeek API key
+DEEPSEEK_API_URL=       # https://api.deepseek.com
+DEEPSEEK_MODEL=         # deepseek-chat
+LLM_PROVIDER=           # auto/ollama/lmstudio/openrouter/deepseek
 LLM_FALLBACK_ENABLED=   # true/false
 
 # Scaffolder V2 Configuration (Advanced Features)
@@ -429,15 +437,16 @@ Cumulonimbus automatically selects the best available AI provider based on your 
 
 #### Configuration Options
 
-- **`LLM_PROVIDER="auto"`** (Recommended): Automatically prefers local providers (Ollama → LM Studio), falls back to OpenRouter
+- **`LLM_PROVIDER="auto"`** (Local-first): Automatically prefers local providers (Ollama → LM Studio), then hosted providers
+- **`LLM_PROVIDER="deepseek"`** (Default): Forces use of cloud DeepSeek models only
 - **`LLM_PROVIDER="ollama"`**: Forces use of local Ollama models only
 - **`LLM_PROVIDER="lmstudio"`**: Forces use of local LM Studio models only
 - **`LLM_PROVIDER="openrouter"`**: Forces use of cloud OpenRouter models only
 
 #### Provider Priority Logic
 
-1. **Health Check**: System checks if Ollama, LM Studio, and OpenRouter are available
-2. **Auto Mode**: If `LLM_PROVIDER="auto"` → prefers Ollama, then LM Studio, then OpenRouter
+1. **Health Check**: System checks if Ollama, LM Studio, OpenRouter, and DeepSeek are available
+2. **Auto Mode**: If `LLM_PROVIDER="auto"` → prefers Ollama, then LM Studio, then hosted providers
 3. **Fallback**: If primary provider fails and `LLM_FALLBACK_ENABLED="true"` → try other providers in priority order
 4. **Error**: If no providers available → show error message
 
@@ -450,7 +459,8 @@ Cumulonimbus automatically selects the best available AI provider based on your 
 
 - **Local AI (Ollama)**: Maximum privacy, no API costs, works offline, Qwen models optimized
 - **Local AI (LM Studio)**: Maximum privacy, no API costs, works offline, supports any model
-- **Cloud AI (OpenRouter)**: Always available, handles large workloads, API costs apply
+- **Cloud AI (OpenRouter)**: Hosted models via OpenRouter, API costs apply
+- **Cloud AI (DeepSeek)**: High-quality hosted models via DeepSeek API, API costs apply
 - **Hybrid**: Best of both worlds with automatic failover between all providers
 
 ## Available Scripts

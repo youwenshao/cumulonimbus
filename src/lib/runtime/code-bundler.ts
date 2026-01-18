@@ -370,20 +370,10 @@ export function bundleCode(options: BundleOptions): BundleResult {
       totalBundleSize: bundledCode.length
     });
 
-    // Check if the bundled code is valid JavaScript
-    try {
-      new Function(bundledCode);
-      console.log('[DEBUG] Bundled code syntax validation: PASSED');
-    } catch (syntaxError) {
-      console.error('[DEBUG] Bundled code syntax validation: FAILED', syntaxError instanceof Error ? syntaxError.message : String(syntaxError));
-      console.error('[DEBUG] Syntax error details:', {
-        error: syntaxError instanceof Error ? syntaxError.message : String(syntaxError),
-        position: syntaxError instanceof Error ? syntaxError.toString() : String(syntaxError),
-        bundledCodePreview: bundledCode.slice(Math.max(0, bundledCode.length - 1000))
-      });
-      // Throw the syntax error to prevent bundling of invalid code
-      throw new Error(`Generated code contains syntax errors: ${syntaxError instanceof Error ? syntaxError.message : String(syntaxError)}`);
-    }
+    // Note: We used to validate syntax here with new Function(bundledCode),
+    // but that fails for JSX code which requires transpilation.
+    // We now rely on the sandbox environment to handle transpilation/execution.
+    console.log('[DEBUG] Bundled code generation complete');
 
 
   } else {

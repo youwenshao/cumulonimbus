@@ -15,13 +15,14 @@ import type {
   ProactiveSuggestion,
   Schema,
   FieldDefinition,
+  ComponentType,
 } from '../types';
 
 // Reference app patterns - known apps and their features
 const REFERENCE_APPS: Record<string, {
   category: AppCategory;
   layout: 'dashboard' | 'sidebar' | 'kanban' | 'simple' | 'split';
-  components: string[];
+  components: ComponentType[];
   entities: { name: string; fields: string[] }[];
   workflows: string[];
 }> = {
@@ -409,7 +410,7 @@ Respond with JSON matching the schema.`;
       const existing = merged.find(r => r.name.toLowerCase() === detected.name.toLowerCase());
       if (existing) {
         existing.confidence = Math.max(existing.confidence, detected.confidence);
-        existing.aspects = [...new Set([...existing.aspects, ...detected.aspects])];
+        existing.aspects = Array.from(new Set([...existing.aspects, ...detected.aspects]));
       } else {
         merged.push(detected);
       }
@@ -439,9 +440,10 @@ Respond with JSON matching the schema.`;
       }
       
       // Merge components
-      enhanced.layoutHints.components = [
-        ...new Set([...enhanced.layoutHints.components, ...pattern.components]),
-      ];
+      enhanced.layoutHints.components = Array.from(new Set([
+        ...enhanced.layoutHints.components,
+        ...pattern.components
+      ]));
       
       // Add entity patterns if entities are sparse
       if (enhanced.entities.length < pattern.entities.length) {

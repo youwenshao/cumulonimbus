@@ -17,7 +17,7 @@ export interface DetailedValidationResult extends ValidationResult {
 export interface FieldDefinition {
   name: string;
   label: string;
-  type: 'text' | 'number' | 'date' | 'select' | 'textarea' | 'checkbox' | 'email' | 'url' | 'time';
+  type: 'text' | 'number' | 'date' | 'select' | 'textarea' | 'boolean';
   required?: boolean;
   placeholder?: string;
   defaultValue?: string | number | boolean;
@@ -49,7 +49,7 @@ export interface TableConfig {
 
 export interface ChartConfig {
   chartType: 'bar' | 'line' | 'pie' | 'area';
-  xAxis?: string;
+  xAxis: string;
   yAxis: string;
   groupBy?: string;
   aggregation?: 'sum' | 'average' | 'count';
@@ -58,6 +58,7 @@ export interface ChartConfig {
 export interface CardsConfig {
   titleField: string;
   subtitleField?: string;
+  bodyFields: string[];
   layout?: 'grid' | 'list';
 }
 

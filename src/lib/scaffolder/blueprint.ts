@@ -509,16 +509,9 @@ function createViewConfig(viewType: string, fields: FieldDefinition[]): ViewConf
         type: 'table',
         title: 'All Entries',
         config: {
-          columns: fields.map(f => ({
-            field: f.name,
-            label: f.label,
-            sortable: true,
-            filterable: f.type === 'select',
-          })),
-          defaultSort: {
-            field: 'date',
-            direction: 'desc',
-          },
+          columns: fields.map(f => f.name),
+          sortBy: 'date',
+          sortOrder: 'desc',
         },
       };
 

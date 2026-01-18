@@ -307,7 +307,9 @@ export interface ComponentGenerationEvent {
 export interface V2ChatRequest {
   conversationId?: string;
   message: string;
-  action?: 'chat' | 'finalize' | 'undo' | 'select_proposal';
+  action?: 'chat' | 'finalize' | 'undo' | 'select_proposal' | 'fix_component' | 'resolve_feedback';
+  componentCode?: string;
+  errorLog?: string;
 }
 
 export interface V2ChatResponse {
@@ -555,6 +557,24 @@ export interface ProactiveSuggestion {
   category: 'data' | 'visualization' | 'workflow' | 'ux';
 }
 
+import { AnalyzedError } from './error-analyzer';
+
+export interface FeedbackIteration {
+  iteration: number;
+  code: string;
+  errorLog: string;
+  analysis: AnalyzedError;
+  timestamp: Date;
+}
+
+export interface FeedbackSession {
+  id: string;
+  originalPrompt: string;
+  iterations: FeedbackIteration[];
+  maxIterations: number;
+  status: 'active' | 'resolved' | 'failed';
+}
+
 /**
  * Enhanced conversation state with dynamic pipeline
  */
@@ -577,6 +597,9 @@ export interface DynamicConversationState extends ConversationState {
   
   // Smart checkpoints for undo
   checkpoints: StateCheckpoint[];
+
+  // Feedback loop session
+  feedbackSession?: FeedbackSession;
 }
 
 /**

@@ -250,7 +250,7 @@ export class FieldValidator {
         }
         break;
 
-      case 'checkbox':
+      case 'boolean':
         if (typeof value !== 'boolean') {
           warnings.push(`${fieldRef}: Default value for checkbox should be boolean`);
         }
@@ -265,22 +265,6 @@ export class FieldValidator {
       case 'date':
         if (typeof value === 'string' && value !== '' && isNaN(Date.parse(value))) {
           errors.push(`${fieldRef}: Default value is not a valid date`);
-        }
-        break;
-
-      case 'email':
-        if (typeof value === 'string' && value !== '' && !value.includes('@')) {
-          warnings.push(`${fieldRef}: Default value doesn't look like an email address`);
-        }
-        break;
-
-      case 'url':
-        if (typeof value === 'string' && value !== '') {
-          try {
-            new URL(value);
-          } catch {
-            warnings.push(`${fieldRef}: Default value doesn't look like a valid URL`);
-          }
         }
         break;
     }
@@ -310,14 +294,14 @@ export class FieldValidator {
     const names = fields.map(f => f.name?.toLowerCase()).filter(Boolean);
     const duplicates = names.filter((n, i) => names.indexOf(n) !== i);
     if (duplicates.length > 0) {
-      errors.push(`Duplicate field names: ${[...new Set(duplicates)].join(', ')}`);
+      errors.push(`Duplicate field names: ${Array.from(new Set(duplicates)).join(', ')}`);
     }
 
     // Check for duplicate labels
     const labels = fields.map(f => f.label?.toLowerCase()).filter(Boolean);
     const dupLabels = labels.filter((l, i) => labels.indexOf(l) !== i);
     if (dupLabels.length > 0) {
-      warnings.push(`Duplicate field labels: ${[...new Set(dupLabels)].join(', ')}`);
+      warnings.push(`Duplicate field labels: ${Array.from(new Set(dupLabels)).join(', ')}`);
     }
 
     // Check for at least one required field

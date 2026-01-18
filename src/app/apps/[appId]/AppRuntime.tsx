@@ -91,15 +91,41 @@ export function AppRuntime({ appId, name, description, spec, initialData }: AppR
   const tableView = spec.views?.find(v => v.type === 'table');
   const chartView = spec.views?.find(v => v.type === 'chart');
 
-  const tableConfig: TablePrimitiveConfig = tableView?.config as TablePrimitiveConfig || {
-    columns: spec.dataStore.fields.map(f => ({
-      field: f.name,
-      label: f.label,
-      sortable: true,
-      filterable: f.type === 'select',
-    })),
-    defaultSort: { field: 'createdAt', direction: 'desc' },
-  };
+  // Convert simple TableConfig (string[] columns) to TablePrimitiveConfig (object[] columns)
+  let tableConfig: TablePrimitiveConfig;
+  
+  if (tableView?.config && 'columns' in tableView.config && Array.isArray(tableView.config.columns)) {
+    // It's likely the simple config with string[] columns
+    const simpleConfig = tableView.config as any; // Cast to access simple props
+    const columns = (simpleConfig.columns as string[]).map(colName => {
+      const fieldDef = spec.dataStore.fields.find(f => f.name === colName);
+      return {
+        field: colName,
+        label: fieldDef?.label || colName,
+        sortable: true,
+        filterable: fieldDef?.type === 'select'
+      };
+    });
+
+    tableConfig = {
+      columns,
+      defaultSort: simpleConfig.sortBy ? {
+        field: simpleConfig.sortBy,
+        direction: simpleConfig.sortOrder || 'desc'
+      } : { field: 'createdAt', direction: 'desc' }
+    };
+  } else {
+    // Fallback or if config is missing
+    tableConfig = {
+      columns: spec.dataStore.fields.map(f => ({
+        field: f.name,
+        label: f.label,
+        sortable: true,
+        filterable: f.type === 'select',
+      })),
+      defaultSort: { field: 'createdAt', direction: 'desc' },
+    };
+  }
 
   const chartConfig: ChartPrimitiveConfig = chartView?.config as ChartPrimitiveConfig || {
     chartType: 'bar',

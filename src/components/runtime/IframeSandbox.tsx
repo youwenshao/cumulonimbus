@@ -43,37 +43,6 @@ export function IframeSandbox({
     return generateSandboxHTML(appId, bundledCode, initialData);
   }, [appId, bundledCode, initialData]);
 
-  // Handle messages from the sandbox
-  const handleSandboxMessage = useCallback((message: SandboxMessage) => {
-    switch (message.type) {
-      case 'ready':
-        setIsLoading(false);
-        console.log(`🏖️ Sandbox ${appId}: Ready`);
-        break;
-      
-      case 'error':
-        const errorMsg = message.payload?.message || 'Unknown error';
-        setError(errorMsg);
-        onError?.(errorMsg);
-        console.error(`🏖️ Sandbox ${appId}: Error -`, errorMsg);
-        break;
-      
-      case 'data-update':
-        if (message.payload?.data) {
-          onDataChange?.(message.payload.data as Record<string, unknown>[]);
-        }
-        break;
-      
-      case 'api-request':
-        // Handle API requests from sandbox
-        handleApiRequest(message.payload);
-        break;
-      
-      default:
-        console.log(`🏖️ Sandbox ${appId}: Unknown message type -`, message.type);
-    }
-  }, [appId, onDataChange, onError]);
-
   // Handle API requests from the sandbox
   const handleApiRequest = useCallback(async (payload: SandboxMessage['payload']) => {
     if (!payload || !bridgeRef.current) return;
@@ -109,6 +78,37 @@ export function IframeSandbox({
       });
     }
   }, [appId]);
+
+  // Handle messages from the sandbox
+  const handleSandboxMessage = useCallback((message: SandboxMessage) => {
+    switch (message.type) {
+      case 'ready':
+        setIsLoading(false);
+        console.log(`🏖️ Sandbox ${appId}: Ready`);
+        break;
+      
+      case 'error':
+        const errorMsg = message.payload?.message || 'Unknown error';
+        setError(errorMsg);
+        onError?.(errorMsg);
+        console.error(`🏖️ Sandbox ${appId}: Error -`, errorMsg);
+        break;
+      
+      case 'data-update':
+        if (message.payload?.data) {
+          onDataChange?.(message.payload.data as Record<string, unknown>[]);
+        }
+        break;
+      
+      case 'api-request':
+        // Handle API requests from sandbox
+        handleApiRequest(message.payload);
+        break;
+      
+      default:
+        console.log(`🏖️ Sandbox ${appId}: Unknown message type -`, message.type);
+    }
+  }, [appId, onDataChange, onError, handleApiRequest]);
 
   // Initialize bridge when iframe loads
   useEffect(() => {
@@ -321,6 +321,10 @@ function generateSandboxHTML(
     }
   </script>
 
+  <script type="text/plain" id="app-source">
+    ${bundledCode.replace(/<\/script>/g, '<\\/script>')}
+  </script>
+
   <!-- Initialize app once dependencies are loaded -->
   <script>
     console.log('[DEBUG] Setting up dependency check...');
@@ -429,9 +433,20 @@ function generateSandboxHTML(
         console.log('[DEBUG] SandboxAPI initialized successfully');
 
         // Now execute the app code
-        console.log('[DEBUG] About to execute bundled code, length:', ${bundledCode.length});
+        console.log('[DEBUG] About to execute bundled code');
         try {
-          ${bundledCode}
+          const appCode = document.getElementById('app-source').textContent;
+          if (!window.Babel) throw new Error('Babel not loaded');
+          
+          console.log('[DEBUG] Transpiling code with Babel...');
+          const compiled = window.Babel.transform(appCode, { 
+            presets: ['react', ['env', { modules: false }]],
+            filename: 'App.tsx'
+          }).code;
+          
+          console.log('[DEBUG] Executing compiled code...');
+          (0, eval)(compiled);
+          
           console.log('[DEBUG] Bundled code executed successfully');
         } catch (e) {
           console.error('[DEBUG] Failed to execute bundled code:', e);

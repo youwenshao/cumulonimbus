@@ -86,8 +86,7 @@ export async function POST(request: NextRequest) {
     const body: LLMSettingsData = await request.json();
     const { provider, ollamaEndpoint, ollamaModel, ollamaSmallModel } = body; // lmstudioEndpoint, lmstudioModel TODO: Enable after DB migration
 
-    // Validate provider
-    if (!['auto', 'ollama', 'openrouter', 'lmstudio'].includes(provider)) {
+    if (!['auto', 'ollama', 'openrouter', 'lmstudio', 'deepseek'].includes(provider)) {
       return NextResponse.json(
         { error: 'Invalid provider' },
         { status: 400 }

@@ -18,22 +18,35 @@ import type {
   ComponentType,
 } from '../types';
 import { getComponents } from '../layout/dsl';
+import { FeedbackLoop } from '../feedback-loop';
 
 const CODE_GEN_SYSTEM_PROMPT = `You are an expert React/TypeScript developer generating production-ready code.
 
-CRITICAL REQUIREMENTS:
-1. Generate ONLY the code - no explanations, no markdown code blocks
-2. Use TypeScript with proper types
-3. Use Tailwind CSS for styling with a modern dark theme
-4. Include proper error handling
-5. Use 'use client' directive for client components
-6. Follow React best practices (hooks, proper state management)
+### TYPE SAFETY REQUIREMENTS
+- Strict TypeScript with no implicit any
+- Define interfaces for all data structures
+- Use type annotations for all function parameters and returns
+- Implement proper error boundaries and null checks
+- All useState hooks must have explicit type parameters
+- All event handlers must have proper React event types (e.g., React.ChangeEvent, React.FormEvent)
 
-STYLING:
+### COMPONENT SPECIFICATIONS
+- Generate ONLY the code - no explanations, no markdown code blocks
+- Use 'use client' directive for client components
+- Follow React best practices (hooks, proper state management)
+
+### COMPILATION REQUIREMENTS
+- Must compile with TypeScript strict mode
+- Include proper imports (React, hooks, etc.)
+- Use functional components with proper typing
+- Handle async operations with try/catch and proper typing
+
+### STYLING
+- Use Tailwind CSS classes
 - Dark theme: bg-black, bg-gray-900, text-text-primary
 - Accent: red-500/red-600 for primary actions
 - Cards: bg-gray-800/gray-700
-- Proper spacing and responsive design`;
+- Responsive design patterns`;
 
 export class CodeGeneratorAgent extends BaseAgent {
   constructor() {
@@ -192,6 +205,34 @@ export class CodeGeneratorAgent extends BaseAgent {
     }
 
     return this.cleanGeneratedCode(code);
+  }
+
+  /**
+   * Regenerate a component based on feedback
+   */
+  async regenerateComponentWithFeedback(
+    code: string,
+    errorLog: string,
+    originalPrompt: string = 'Generate component'
+  ): Promise<string> {
+    const feedbackLoop = new FeedbackLoop(generateId(), originalPrompt);
+    feedbackLoop.addFeedback(code, errorLog);
+    
+    const correctionPrompt = feedbackLoop.generateCorrectionPrompt();
+    
+    let correctedCode = '';
+    for await (const chunk of streamComplete({
+      messages: [
+        { role: 'system', content: CODE_GEN_SYSTEM_PROMPT },
+        { role: 'user', content: correctionPrompt },
+      ],
+      temperature: 0.1, // Lower temperature for fixes
+      maxTokens: 2048,
+    })) {
+      correctedCode += chunk;
+    }
+
+    return this.cleanGeneratedCode(correctedCode);
   }
 
   /**
@@ -657,9 +698,29 @@ export async function DELETE(req: NextRequest) {
     template: string
   ): string {
     const fields = schema.fields.filter(f => !f.generated);
+    const existingTypes = this.generateTypes(schema);
 
-    return `Generate a React component for ${spec.type}.
+    return `Generate a production-ready TypeScript React component for ${spec.type}.
 
+## TYPE REQUIREMENTS
+- Return type: React.FC or JSX.Element
+- Props: Define interface ${spec.name}Props (if needed)
+- State: Each useState must have explicit type parameter
+- Events: All event handlers must have typed parameters
+
+## REFERENCE TYPES
+Use these exact type definitions. Do not redefine them if you can import them, but for this generation, include the interfaces if they are not assumed to be imported.
+\`\`\`typescript
+${existingTypes}
+\`\`\`
+
+## COMPONENT STRUCTURE
+1. Interface definitions (match the Reference Types above)
+2. Type imports
+3. Main component with proper typing
+4. Helper functions with typed params/returns
+
+## CONTEXT
 Schema: ${schema.name}
 Fields:
 ${fields.map(f => `- ${f.name}: ${f.type}${f.required ? ' (required)' : ''}${f.options ? ` [${f.options.join(', ')}]` : ''}`).join('\n')}
@@ -668,10 +729,34 @@ Component name: ${spec.name}
 ${spec.variant ? `Variant: ${spec.variant}` : ''}
 ${Object.keys(spec.props).length > 0 ? `Props: ${JSON.stringify(spec.props)}` : ''}
 
-Requirements:
+## SPECIFIC REQUIREMENTS
 ${template}
 
-Generate the complete component code:`;
+## EXAMPLE PATTERN
+\`\`\`typescript
+import React, { useState } from 'react';
+
+interface DataType {
+  id: string;
+  name: string;
+}
+
+const ExampleComponent: React.FC = () => {
+  const [data, setData] = useState<DataType[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
+    e.preventDefault();
+    // Implementation
+  };
+  
+  return (
+    // JSX
+  );
+};
+\`\`\`
+
+Generate the complete component code following this exact typing pattern.`;
   }
 
   /**
@@ -680,15 +765,15 @@ Generate the complete component code:`;
   private getComponentTemplate(type: ComponentType): string {
     const templates: Record<ComponentType, string> = {
       form: `
-- Accept onSubmit callback prop
+- Accept typed onSubmit callback prop (async (data: InputType) => void)
 - Include all schema fields with appropriate inputs
 - Use Tailwind dark theme styling
-- Handle form state with useState
-- Include submit button
+- Handle form state with typed useState<InputType>
+- Include submit button with loading state
 - Clear form after successful submit`,
 
       table: `
-- Accept data array and onDelete callback props
+- Accept typed data array (DataType[]) and onDelete callback props
 - Display all schema fields as columns
 - Include delete button per row
 - Use Tailwind dark theme table styling
@@ -700,7 +785,7 @@ Generate the complete component code:`;
 - Use Tailwind dark theme styling`,
 
       cards: `
-- Accept data array prop
+- Accept typed data array prop (DataType[])
 - Display items as cards in a grid
 - Show key fields (first 3)
 - Include delete action
@@ -712,12 +797,12 @@ Generate the complete component code:`;
 - Use Tailwind dark theme styling`,
 
       filters: `
-- Accept filters and onChange props
+- Accept typed filters state and onChange callback
 - Include filter inputs for filterable fields
 - Use Tailwind dark theme styling`,
 
       kanban: `
-- Accept data array and status field
+- Accept typed data array and status field
 - Display columns by status
 - Use Tailwind dark theme styling`,
 
@@ -728,7 +813,7 @@ Generate the complete component code:`;
 
       custom: `
 - Create a flexible custom component
-- Accept data prop
+- Accept typed data prop
 - Use Tailwind dark theme styling`,
     };
 

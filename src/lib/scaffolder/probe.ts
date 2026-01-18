@@ -164,7 +164,7 @@ Generate 3-5 clarifying questions as JSON with this format:
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       if (conversationId) {
-        const { emitStatus } = await import('@/app/api/scaffolder/status/[conversationId]/route');
+        const { emitStatus } = await import('@/lib/scaffolder/status/emitter');
         emitStatus(conversationId, 'probe', 'Using standard questions...', {
           severity: 'info',
           technicalDetails: 'AI response did not contain valid JSON',
@@ -186,7 +186,7 @@ Generate 3-5 clarifying questions as JSON with this format:
   } catch (error: any) {
     // Emit error status if conversationId provided
     if (conversationId) {
-      const { emitStatus } = await import('@/app/api/scaffolder/status/[conversationId]/route');
+      const { emitStatus } = await import('@/lib/scaffolder/status/emitter');
       
       if (error.status === 429) {
         emitStatus(conversationId, 'probe', 'AI service rate limited, using standard questions...', {

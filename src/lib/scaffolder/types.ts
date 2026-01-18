@@ -123,16 +123,10 @@ export interface ViewConfig {
 }
 
 export interface TableConfig {
-  columns: {
-    field: string;
-    label: string;
-    sortable?: boolean;
-    filterable?: boolean;
-  }[];
-  defaultSort?: {
-    field: string;
-    direction: 'asc' | 'desc';
-  };
+  columns?: string[];
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  pageSize?: number;
 }
 
 export interface ChartConfig {
@@ -147,6 +141,7 @@ export interface CardsConfig {
   titleField: string;
   subtitleField?: string;
   bodyFields: string[];
+  layout?: 'grid' | 'list';
 }
 
 export interface ProjectSpec {

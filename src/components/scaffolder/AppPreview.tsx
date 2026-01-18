@@ -201,7 +201,7 @@ function FormFieldPreview({ field }: FormFieldPreviewProps) {
         </select>
       );
 
-    case 'checkbox':
+    case 'boolean':
       return (
         <div className="flex items-center gap-2">
           <input
@@ -222,40 +222,11 @@ function FormFieldPreview({ field }: FormFieldPreviewProps) {
         />
       );
 
-    case 'time':
-      return (
-        <input
-          type="time"
-          className={baseClass}
-          disabled
-        />
-      );
-
     case 'number':
       return (
         <input
           type="number"
           placeholder={field.placeholder || '0'}
-          className={baseClass}
-          disabled
-        />
-      );
-
-    case 'email':
-      return (
-        <input
-          type="email"
-          placeholder={field.placeholder || 'email@example.com'}
-          className={baseClass}
-          disabled
-        />
-      );
-
-    case 'url':
-      return (
-        <input
-          type="url"
-          placeholder={field.placeholder || 'https://...'}
           className={baseClass}
           disabled
         />

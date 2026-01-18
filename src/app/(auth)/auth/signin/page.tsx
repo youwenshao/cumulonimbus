@@ -46,9 +46,12 @@ function SignInForm() {
   return (
     <>
       {errorMessage && (
-        <div className="flex items-center gap-2 p-4 mb-6 rounded-xl bg-pastel-yellow text-text-primary border border-outline-light">
+        <div className="flex items-center gap-3 p-4 mb-6 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <p className="text-sm">{errorMessage}</p>
+          <div className="flex-1">
+            <p className="text-sm font-medium">Sign in failed</p>
+            <p className="text-sm opacity-90">{errorMessage}</p>
+          </div>
         </div>
       )}
 

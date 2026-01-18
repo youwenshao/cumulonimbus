@@ -14,19 +14,37 @@ interface LivePreviewProps {
   schema?: Schema;
   layout?: LayoutNode;
   className?: string;
+  onError?: (error: string, components: Map<string, GeneratedComponent>) => void;
 }
 
 export function LivePreview({ 
   conversationId, 
   schema, 
   layout,
-  className = '' 
+  className = '',
+  onError
 }: LivePreviewProps) {
   const [components, setComponents] = useState<Map<string, GeneratedComponent>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Listen for iframe messages (errors)
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'preview_error') {
+        const errorMsg = `${event.data.error.message}\n${event.data.error.stack || ''}`;
+        setError(errorMsg);
+        if (onError) {
+          onError(errorMsg, components);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [components, onError]);
 
   // Connect to preview SSE stream
   useEffect(() => {

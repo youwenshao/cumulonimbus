@@ -4,7 +4,7 @@
  */
 
 import { complete } from '@/lib/qwen';
-import { emitStatus } from '@/app/api/scaffolder/status/[conversationId]/route';
+import { emitStatus } from '@/lib/scaffolder/status/emitter';
 import type { ProjectSpec, ImplementationPlan, ComponentPlan } from './types';
 
 // Re-export types for convenience

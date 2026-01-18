@@ -26,6 +26,12 @@ export {
   getOllamaConfig,
 } from './ollama-client';
 
+export {
+  getDeepseekClient,
+  checkDeepseekHealth,
+  getDeepseekConfig,
+} from './deepseek-client';
+
 // OpenRouter client
 export {
   getOpenRouterClient,

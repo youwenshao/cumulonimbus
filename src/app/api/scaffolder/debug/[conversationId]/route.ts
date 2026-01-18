@@ -75,7 +75,7 @@ export async function GET(
         total: state.questions?.length || 0,
         answered: state.questions?.filter(q => q.answered).length || 0,
         questionIds,
-        categories: [...new Set(state.questions?.map(q => q.category) || [])],
+        categories: Array.from(new Set(state.questions?.map(q => q.category) || [])),
       },
       
       // Answers analysis
