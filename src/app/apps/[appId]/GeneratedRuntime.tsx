@@ -43,12 +43,7 @@ export function GeneratedRuntime({
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  // Fetch data on mount
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const res = await fetch(`/api/apps/${appId}/data`);
       if (res.ok) {
@@ -58,7 +53,12 @@ export function GeneratedRuntime({
     } catch (err) {
       console.error('Failed to fetch data:', err);
     }
-  };
+  }, [appId]);
+
+  // Fetch data on mount
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();

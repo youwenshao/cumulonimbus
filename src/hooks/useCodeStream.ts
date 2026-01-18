@@ -61,6 +61,88 @@ export function useCodeStream(options: UseCodeStreamOptions = {}) {
   }, [options]);
 
   /**
+   * Handle SSE events
+   */
+  const handleEvent = useCallback((event: CodeStreamEvent) => {
+    const { type, data } = event;
+
+    switch (type) {
+      case 'progress':
+        setState(prev => ({
+          ...prev,
+          progress: data.progress || prev.progress,
+          message: data.message || prev.message,
+        }));
+        optionsRef.current.onProgress?.(
+          data.progress || 0, 
+          data.message || ''
+        );
+        break;
+
+      case 'design':
+        if (data.design) {
+          setState(prev => ({
+            ...prev,
+            design: data.design!,
+            progress: data.progress || prev.progress,
+            message: data.message || prev.message,
+          }));
+          optionsRef.current.onDesign?.(data.design);
+        }
+        break;
+
+      case 'chunk':
+        if (data.content) {
+          setState(prev => ({
+            ...prev,
+            code: prev.code + data.content,
+            progress: data.progress || prev.progress,
+          }));
+          optionsRef.current.onChunk?.(data.content);
+        }
+        break;
+
+      case 'file':
+        if (data.filename && data.content) {
+          setState(prev => ({
+            ...prev,
+            files: {
+              ...prev.files,
+              [data.filename!]: data.content!,
+            },
+            progress: data.progress || prev.progress,
+            message: data.message || prev.message,
+          }));
+          optionsRef.current.onFile?.(data.filename, data.content);
+        }
+        break;
+
+      case 'complete':
+        setState(prev => ({
+          ...prev,
+          isStreaming: false,
+          progress: 100,
+          message: 'Generation complete',
+          appId: data.appId || prev.appId,
+        }));
+        if (data.appId) {
+          optionsRef.current.onComplete?.(data.appId);
+        }
+        break;
+
+      case 'error':
+        const errorMessage = data.error || 'Unknown error';
+        setState(prev => ({
+          ...prev,
+          isStreaming: false,
+          error: errorMessage,
+        }));
+        optionsRef.current.onError?.(errorMessage);
+        break;
+    }
+  }, []);
+
+  /**
    * Start streaming code generation
    */
   const startGeneration = useCallback(async (
@@ -157,88 +239,7 @@ export function useCodeStream(options: UseCodeStreamOptions = {}) {
       }));
       optionsRef.current.onError?.(errorMessage);
     }
-  }, []);
-
-  /**
-   * Handle SSE events
-   */
-  const handleEvent = useCallback((event: CodeStreamEvent) => {
-    const { type, data } = event;
-
-    switch (type) {
-      case 'progress':
-        setState(prev => ({
-          ...prev,
-          progress: data.progress || prev.progress,
-          message: data.message || prev.message,
-        }));
-        optionsRef.current.onProgress?.(
-          data.progress || 0, 
-          data.message || ''
-        );
-        break;
-
-      case 'design':
-        if (data.design) {
-          setState(prev => ({
-            ...prev,
-            design: data.design!,
-            progress: data.progress || prev.progress,
-            message: data.message || prev.message,
-          }));
-          optionsRef.current.onDesign?.(data.design);
-        }
-        break;
-
-      case 'chunk':
-        if (data.content) {
-          setState(prev => ({
-            ...prev,
-            code: prev.code + data.content,
-            progress: data.progress || prev.progress,
-          }));
-          optionsRef.current.onChunk?.(data.content);
-        }
-        break;
-
-      case 'file':
-        if (data.filename && data.content) {
-          setState(prev => ({
-            ...prev,
-            files: {
-              ...prev.files,
-              [data.filename!]: data.content!,
-            },
-          }));
-          optionsRef.current.onFile?.(data.filename, data.content);
-        }
-        break;
-
-      case 'complete':
-        setState(prev => ({
-          ...prev,
-          isStreaming: false,
-          progress: 100,
-          message: data.message || 'Complete!',
-          appId: data.appId || null,
-        }));
-        if (data.appId) {
-          optionsRef.current.onComplete?.(data.appId);
-        }
-        break;
-
-      case 'error':
-        setState(prev => ({
-          ...prev,
-          isStreaming: false,
-          error: data.error || 'Unknown error',
-        }));
-        if (data.error) {
-          optionsRef.current.onError?.(data.error);
-        }
-        break;
-    }
-  }, []);
+  }, [handleEvent]);
 
   /**
    * Cancel ongoing generation

@@ -214,7 +214,7 @@ function WelcomeScreen({ onSelect }: { onSelect: (text: string) => void }) {
       </h2>
 
       <p className="text-text-secondary max-w-md mx-auto mb-12 leading-relaxed text-lg">
-        Describe your idea in natural language. I'll generate a complete, working application for you instantly.
+        Describe your idea in natural language. I&apos;ll generate a complete, working application for you instantly.
       </p>
       
       <div className="space-y-3 max-w-lg mx-auto">

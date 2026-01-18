@@ -15,6 +15,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { LivePreview } from './LivePreview';
 import { ProposalSelector } from './ProposalSelector';
+import { DebugPanel } from './DebugPanel';
 import type { 
   Message, 
   ConversationState,
@@ -23,6 +24,7 @@ import type {
   ReadinessScores,
   ProposalSet,
   ProactiveSuggestion,
+  GeneratedComponent,
 } from '@/lib/scaffolder-v2/types';
 
 interface ConversationalScaffolderV2Props {
@@ -45,6 +47,12 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
   const [readiness, setReadiness] = useState<ReadinessScores>({ schema: 0, ui: 0, workflow: 0, overall: 0 });
   const [proposals, setProposals] = useState<ProposalSet | undefined>();
   const [suggestions, setSuggestions] = useState<ProactiveSuggestion[]>([]);
+  
+  // Debug state
+  const [debugMode, setDebugMode] = useState(false);
+  const [errorLog, setErrorLog] = useState<string>('');
+  const [debugComponentCode, setDebugComponentCode] = useState<string>('');
+  const [isFixing, setIsFixing] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -240,6 +248,83 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
    */
   const handleSuggestionClick = (suggestion: ProactiveSuggestion) => {
     sendMessage(suggestion.feature);
+  };
+
+  /**
+   * Handle preview error
+   */
+  const handlePreviewError = (error: string, components: Map<string, GeneratedComponent>) => {
+    setErrorLog(error);
+    // Find the component that likely caused the error or default to the first one
+    // In a real implementation, we would try to parse the stack trace to find the filename
+    const firstComponent = components.values().next().value;
+    if (firstComponent) {
+      setDebugComponentCode(firstComponent.code);
+    }
+    setDebugMode(true);
+  };
+
+  /**
+   * Handle debug fix
+   */
+  const handleDebugFix = async (instruction?: string) => {
+    if (!conversationId) return;
+    
+    setIsFixing(true);
+    try {
+      const response = await fetch('/api/scaffolder-v2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId,
+          action: 'fix_component',
+          componentCode: debugComponentCode,
+          errorLog,
+          message: instruction || '',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fix component');
+      }
+
+      const data = await response.json();
+      
+      setMessages(data.messages);
+      setDebugMode(false);
+      setErrorLog('');
+      
+      // Note: The updated code should come via SSE or be handled here if returned
+    } catch (error) {
+      console.error('Error fixing component:', error);
+    } finally {
+      setIsFixing(false);
+    }
+  };
+
+  /**
+   * Handle debug approve
+   */
+  const handleDebugApprove = async () => {
+    if (conversationId && debugComponentCode) {
+      // Notify backend of resolution for tracking
+      try {
+        await fetch('/api/scaffolder-v2', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversationId,
+            action: 'resolve_feedback',
+            message: 'Feedback resolved',
+            componentCode: debugComponentCode
+          }),
+        });
+      } catch (e) {
+        console.error('Error reporting resolution:', e);
+      }
+    }
+    setDebugMode(false);
+    setErrorLog('');
   };
 
   /**
@@ -443,12 +528,27 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
             <h2>Preview</h2>
             {appName && <span className="app-name">{appName}</span>}
           </div>
-          <LivePreview
-            conversationId={conversationId || ''}
-            schema={schema}
-            layout={layout}
-            className="preview-container"
-          />
+          <div className="preview-content-wrapper">
+            <LivePreview
+              conversationId={conversationId || ''}
+              schema={schema}
+              layout={layout}
+              className="preview-container"
+              onError={handlePreviewError}
+            />
+            
+            {debugMode && (
+              <div className="debug-overlay">
+                <DebugPanel
+                  code={debugComponentCode}
+                  errorLog={errorLog}
+                  onFix={handleDebugFix}
+                  onApprove={handleDebugApprove}
+                  isFixing={isFixing}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -459,6 +559,23 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
           height: 100%;
           background: var(--background);
           color: var(--foreground);
+        }
+
+        .preview-content-wrapper {
+          position: relative;
+          flex: 1;
+          display: flex;
+          overflow: hidden;
+        }
+        
+        .debug-overlay {
+          position: absolute;
+          top: 0;
+          right: 0;
+          bottom: 0;
+          width: 400px;
+          z-index: 10;
+          box-shadow: -4px 0 16px rgba(0, 0, 0, 0.5);
         }
 
         .scaffolder-header {

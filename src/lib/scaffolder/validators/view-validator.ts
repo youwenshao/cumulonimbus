@@ -275,7 +275,7 @@ export class ViewValidator {
     const titles = views.map(v => v.title?.toLowerCase()).filter(Boolean);
     const dupTitles = titles.filter((t, i) => titles.indexOf(t) !== i);
     if (dupTitles.length > 0) {
-      warnings.push(`Duplicate view titles: ${[...new Set(dupTitles)].join(', ')}`);
+      warnings.push(`Duplicate view titles: ${Array.from(new Set(dupTitles)).join(', ')}`);
     }
 
     // Recommend at least one table view

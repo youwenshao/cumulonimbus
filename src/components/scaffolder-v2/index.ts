@@ -5,3 +5,4 @@
 export { ConversationalScaffolderV2 } from './ConversationalScaffolder';
 export { LivePreview } from './LivePreview';
 export { ProposalSelector } from './ProposalSelector';
+export { DebugPanel } from './DebugPanel';

@@ -9,7 +9,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { Button, Card } from '@/components/ui';
-import { AutoIcon, OllamaIcon, LMStudioIcon, OpenRouterIcon } from '@/components/icons/ProviderIcons';
+import { AutoIcon, OllamaIcon, LMStudioIcon, OpenRouterIcon, DeepseekIcon } from '@/components/icons/ProviderIcons';
 import type { LLMProvider, HealthCheckResult } from '@/lib/llm/types';
 
 export interface LLMSettings {
@@ -33,6 +33,7 @@ interface HealthStatus {
   ollama: HealthCheckResult | null;
   openrouter: HealthCheckResult | null;
   lmstudio: HealthCheckResult | null;
+  deepseek: HealthCheckResult | null;
   checking: boolean;
 }
 
@@ -46,6 +47,7 @@ export function LLMProviderSettings({
     ollama: null,
     openrouter: null,
     lmstudio: null,
+    deepseek: null,
     checking: false,
   });
 
@@ -65,6 +67,7 @@ export function LLMProviderSettings({
         ollama: data.results?.find((r: HealthCheckResult) => r.provider === 'ollama') || null,
         openrouter: data.results?.find((r: HealthCheckResult) => r.provider === 'openrouter') || null,
         lmstudio: data.results?.find((r: HealthCheckResult) => r.provider === 'lmstudio') || null,
+        deepseek: data.results?.find((r: HealthCheckResult) => r.provider === 'deepseek') || null,
         checking: false,
       });
     } catch {
@@ -106,10 +109,44 @@ export function LLMProviderSettings({
                 settings.provider === 'auto' ? 'text-accent-yellow' : 'text-text-primary group-hover:text-accent-yellow'
               }`}>
                 <AutoIcon className="w-6 h-6" />
-                Auto (Recommended)
+                Auto (Local-first)
               </div>
               <p className="text-sm text-text-secondary mt-1 leading-relaxed">
-                Automatically use Ollama when available, fall back to hosted API otherwise.
+                Prefer local providers when available, fall back to hosted APIs otherwise.
+              </p>
+            </div>
+          </label>
+
+          <label className={`
+            group flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-colors
+            ${settings.provider === 'deepseek' 
+              ? 'border-accent-yellow/60 bg-accent-yellow/10' 
+              : 'border-outline-light hover:border-accent-yellow/40 bg-surface-base/80'}
+          `}>
+            <input
+              type="radio"
+              name="provider"
+              value="deepseek"
+              checked={settings.provider === 'deepseek'}
+              onChange={() => handleProviderChange('deepseek')}
+              className="mt-1 accent-accent-yellow"
+            />
+            <div className="flex-1">
+              <div className={`flex items-center gap-2 font-medium transition-colors ${
+                settings.provider === 'deepseek' ? 'text-accent-yellow' : 'text-text-primary group-hover:text-accent-yellow'
+              }`}>
+                <DeepseekIcon className="w-6 h-6" />
+                DeepSeek (Hosted)
+                {healthStatus.deepseek && (
+                  healthStatus.deepseek.available ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-500 ml-auto" />
+                  ) : (
+                    <XCircle className="w-4 h-4 text-red-500 ml-auto" />
+                  )
+                )}
+              </div>
+              <p className="text-sm text-text-secondary mt-1 leading-relaxed">
+                Use DeepSeek API for generation. Requires DeepSeek API key.
               </p>
             </div>
           </label>

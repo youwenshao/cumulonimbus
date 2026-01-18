@@ -383,6 +383,7 @@ export class QuestionEngine {
       type: q.type,
       category: q.category,
       options: q.options,
+      priority: q.priority,
       answered: !!previousAnswers[q.id],
     }));
   }

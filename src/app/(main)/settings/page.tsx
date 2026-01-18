@@ -10,7 +10,7 @@ import type { LLMProvider } from '@/lib/llm/types';
 type SettingsTab = 'llm' | 'appearance' | 'notifications';
 
 const defaultLLMSettings: LLMSettings = {
-  provider: 'auto',
+  provider: 'deepseek',
   ollamaEndpoint: 'http://localhost:11434',
   ollamaModel: 'qwen3-coder:30b',
   ollamaSmallModel: 'qwen3:4b',

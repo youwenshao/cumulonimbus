@@ -3,7 +3,7 @@ import { getServerSession } from '@/lib/auth';
 import { streamComplete, type ChatMessage } from '@/lib/qwen';
 import { wrapError } from '@/lib/error-handling/scaffolder-errors';
 import prisma from '@/lib/db';
-import type { UserLLMSettings } from '@/lib/llm';
+import type { UserLLMSettings, LLMProvider } from '@/lib/llm';
 
 /**
  * Streaming API endpoint for AI responses
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     });
 
     const userSettings: UserLLMSettings | undefined = user ? {
-      provider: user.preferredLLMProvider || undefined,
+      provider: (user.preferredLLMProvider as LLMProvider) || undefined,
       ollamaEndpoint: user.ollamaEndpoint || undefined,
       ollamaModel: user.ollamaModel || undefined,
       ollamaSmallModel: user.ollamaSmallModel || undefined,

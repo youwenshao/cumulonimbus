@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,70 +8,62 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String    // hashed with bcrypt
-  name          String?
-  apps          App[]
-  conversations Conversation[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // LLM Preferences
-  preferredLLMProvider  String?  @default("auto")  // "ollama" | "openrouter" | "lmstudio" | "auto"
-  ollamaEndpoint        String?  @default("http://localhost:11434")
-  ollamaModel           String?  @default("qwen3-coder:30b")
-  ollamaSmallModel      String?  @default("qwen3:4b")
-  lmstudioEndpoint      String?  @default("http://localhost:1234")
-  lmstudioModel         String?  @default("local-model")
+  id                   String         @id @default(cuid())
+  email                String         @unique
+  password             String
+  name                 String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  lmstudioEndpoint     String?        @default("http://localhost:1234")
+  lmstudioModel        String?        @default("local-model")
+  ollamaEndpoint       String?        @default("http://localhost:11434")
+  ollamaModel          String?        @default("qwen3-coder:30b")
+  ollamaSmallModel     String?        @default("qwen3:4b")
+  preferredLLMProvider String?        @default("auto")
+  apps                 App[]
+  conversations        Conversation[]
 }
 
 model App {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name          String
-  description   String
-  spec          Json     // Project Specification from scaffolder
-  config        Json     // Primitive configuration
-  data          Json     @default("[]") // App-specific data store (array of records)
-  status        AppStatus @default(DRAFT)
-  generatedCode Json?    // Generated component code (pageComponent, types, etc.)
-  generationLog Json?    // Log of generation process for debugging
-  buildStatus   BuildStatus @default(PENDING)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // V2 fields
-  version          String?  @default("v1")  // "v1" or "v2"
-  componentFiles   Json?    // Record<string, string> - separate component files for v2
-  layoutDefinition Json?    // LayoutNode - layout DSL for v2
-
-  // Sandbox execution fields
-  executionMode      String?  @default("schema")  // "schema" | "sandbox"
-  bundledCode        String?  // Complete JS bundle for sandbox apps (stored as text for larger size)
-  sandboxPermissions Json?    // Permissions configuration for sandbox
+  id                 String      @id @default(cuid())
+  userId             String
+  name               String
+  description        String
+  spec               Json
+  config             Json
+  data               Json        @default("[]")
+  status             AppStatus   @default(DRAFT)
+  generatedCode      Json?
+  generationLog      Json?
+  buildStatus        BuildStatus @default(PENDING)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  version            String?     @default("v1")
+  componentFiles     Json?
+  layoutDefinition   Json?
+  bundledCode        String?
+  executionMode      String?     @default("schema")
+  sandboxPermissions Json?
+  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 model Conversation {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  appId     String?
-  messages  Json     @default("[]") // Array of {role, content, metadata}
-  phase     ConversationPhase @default(PARSE)
-  spec      Json?    // Partial spec being built
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // V2 fields (nullable for backward compatibility)
-  version           String?  @default("v1")  // "v1" or "v2"
-  agentState        Json?    // OrchestratorState for v2
-  schemaDesigns     Json?    @default("[]")  // SchemaProposal[] for v2
-  layoutDesigns     Json?    @default("[]")  // LayoutProposal[] for v2
-  refinementHistory Json?    @default("[]")  // RefinementHistory[] for v2
+  id                String            @id @default(cuid())
+  userId            String
+  appId             String?
+  messages          Json              @default("[]")
+  phase             ConversationPhase @default(PARSE)
+  spec              Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  version           String?           @default("v1")
+  agentState        Json?
+  schemaDesigns     Json?             @default("[]")
+  layoutDesigns     Json?             @default("[]")
+  refinementHistory Json?             @default("[]")
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([appId])

@@ -7,6 +7,8 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth';
 import { checkAllHealth } from '@/lib/llm';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/settings/llm/health
  * Check health of all LLM providers

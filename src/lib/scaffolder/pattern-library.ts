@@ -85,7 +85,7 @@ export const PATTERN_LIBRARY: AppTemplate[] = [
       },
       views: [
         { type: 'table', title: 'All Expenses', config: { columns: ['date', 'description', 'category', 'amount'], sortBy: 'date', sortOrder: 'desc' } },
-        { type: 'chart', title: 'Spending by Category', config: { chartType: 'pie', yAxis: 'amount', groupBy: 'category', aggregation: 'sum' } },
+        { type: 'chart', title: 'Spending by Category', config: { chartType: 'pie', yAxis: 'amount', xAxis: 'category', groupBy: 'category', aggregation: 'sum' } },
       ],
       features: { allowEdit: true, allowDelete: true, allowExport: false },
     },
@@ -150,7 +150,7 @@ export const PATTERN_LIBRARY: AppTemplate[] = [
         label: 'Habits',
         fields: [
           { name: 'habitName', label: 'Habit', type: 'text', required: true, placeholder: 'e.g., Morning meditation' },
-          { name: 'completed', label: 'Completed', type: 'checkbox', required: true },
+          { name: 'completed', label: 'Completed', type: 'boolean', required: true },
           { name: 'date', label: 'Date', type: 'date', required: true },
           { name: 'streak', label: 'Current Streak', type: 'number', required: false },
           { name: 'notes', label: 'Notes', type: 'textarea', required: false, placeholder: 'How did it go?' },
@@ -219,7 +219,7 @@ export const PATTERN_LIBRARY: AppTemplate[] = [
       },
       views: [
         { type: 'table', title: 'All Tasks', config: { columns: ['taskName', 'status', 'priority', 'dueDate'], sortBy: 'dueDate', sortOrder: 'asc' } },
-        { type: 'cards', title: 'Task Cards', config: { titleField: 'taskName', subtitleField: 'status', layout: 'grid' } },
+        { type: 'cards', title: 'Task Cards', config: { titleField: 'taskName', subtitleField: 'status', bodyFields: ['priority', 'dueDate'], layout: 'grid' } },
       ],
       features: { allowEdit: true, allowDelete: true, allowExport: false },
     },
@@ -341,7 +341,7 @@ export const PATTERN_LIBRARY: AppTemplate[] = [
       },
       views: [
         { type: 'table', title: 'Time Log', config: { columns: ['date', 'activity', 'category', 'duration'], sortBy: 'date', sortOrder: 'desc' } },
-        { type: 'chart', title: 'Time by Category', config: { chartType: 'pie', yAxis: 'duration', groupBy: 'category', aggregation: 'sum' } },
+        { type: 'chart', title: 'Time by Category', config: { chartType: 'pie', yAxis: 'duration', xAxis: 'category', groupBy: 'category', aggregation: 'sum' } },
       ],
       features: { allowEdit: true, allowDelete: true, allowExport: false },
     },
@@ -401,7 +401,7 @@ export const PATTERN_LIBRARY: AppTemplate[] = [
       },
       views: [
         { type: 'table', title: 'All Items', config: { columns: ['itemName', 'quantity', 'category', 'location'], sortBy: 'itemName', sortOrder: 'asc' } },
-        { type: 'cards', title: 'Item Cards', config: { titleField: 'itemName', subtitleField: 'quantity', layout: 'grid' } },
+        { type: 'cards', title: 'Item Cards', config: { titleField: 'itemName', subtitleField: 'quantity', bodyFields: ['category', 'location'], layout: 'grid' } },
       ],
       features: { allowEdit: true, allowDelete: true, allowExport: false },
     },

@@ -1,32 +1,11 @@
+
 /**
  * V2 Status SSE Endpoint
  * Real-time status updates for v2 scaffolder operations
  */
 
 import { NextRequest } from 'next/server';
-import { EventEmitter } from 'events';
-
-// Global event emitter for v2 status updates
-const v2StatusEmitter = new EventEmitter();
-v2StatusEmitter.setMaxListeners(100);
-
-export interface V2StatusEvent {
-  phase: string;
-  message: string;
-  progress: number;
-  severity: 'info' | 'warning' | 'error' | 'success';
-  data?: Record<string, unknown>;
-}
-
-/**
- * Emit a status event for a conversation
- */
-export function emitV2Status(
-  conversationId: string,
-  event: V2StatusEvent
-): void {
-  v2StatusEmitter.emit(`status:${conversationId}`, event);
-}
+import { v2StatusEmitter, V2StatusEvent } from '@/lib/scaffolder-v2/status/emitter';
 
 /**
  * GET /api/scaffolder-v2/status/[conversationId]

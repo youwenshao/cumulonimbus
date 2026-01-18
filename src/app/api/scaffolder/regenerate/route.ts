@@ -3,8 +3,8 @@ import { getServerSession } from '@/lib/auth';
 import prisma from '@/lib/db';
 import { regenerateAppCode, generateFallbackCode, type GeneratedCode } from '@/lib/scaffolder/code-generator';
 import type { ProjectSpec } from '@/lib/scaffolder/types';
-import { emitStatus } from '../status/[conversationId]/route';
-import { emitCodeChunk, emitCodeComplete, emitCodeError } from '../code-stream/[conversationId]/route';
+import { emitStatus } from '@/lib/scaffolder/status/emitter';
+import { emitCodeChunk, emitCodeComplete, emitCodeError } from '@/lib/scaffolder/code-stream/emitter';
 
 /**
  * POST /api/scaffolder/regenerate
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Emit completion
-    emitCodeComplete(appId, generatedCode.pageComponent);
+    emitCodeComplete(appId);
 
     // Update app with new generated code
     await prisma.app.update({

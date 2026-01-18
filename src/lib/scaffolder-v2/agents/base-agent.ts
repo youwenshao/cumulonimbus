@@ -3,7 +3,8 @@
  * Common functionality for all V2 agents
  */
 
-import { streamComplete, completeJSON, type ChatMessage, type UserLLMSettings } from '@/lib/qwen';
+import { streamComplete, completeJSON, type ChatMessage } from '@/lib/qwen';
+import type { UserLLMSettings } from '@/lib/llm';
 import type { AgentResponse, ConversationState } from '../types';
 
 export interface AgentConfig {

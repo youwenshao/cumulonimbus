@@ -16,8 +16,8 @@ import { generateImplementationPlan, formatPlanMessage } from '@/lib/scaffolder/
 import { generateAppCode, generateFallbackCode, type GeneratedCode } from '@/lib/scaffolder/code-generator';
 import type { BlueprintState, Message, ProjectSpec } from '@/lib/scaffolder/types';
 import { generateId } from '@/lib/utils';
-import { emitStatus, waitForConnection, getConnectionStats } from './status/[conversationId]/route';
-import { emitCodeChunk, emitCodeComplete, emitCodeError } from './code-stream/[conversationId]/route';
+import { emitStatus, waitForConnection, getConnectionStats } from '@/lib/scaffolder/status/emitter';
+import { emitCodeChunk, emitCodeComplete, emitCodeError } from '@/lib/scaffolder/code-stream/emitter';
 import { 
   ScaffolderError, 
   wrapError, 
@@ -116,7 +116,7 @@ async function handleStart(userId: string, userMessage: string, tempConversation
   console.log(`✅ Questions generated (${questions.length}):`);
   questions.forEach((q, i) => {
     console.log(`   [${i}] id="${q.id}", category="${q.category}", type="${q.type}"`);
-    console.log(`       options: ${q.options.map(o => o.id).join(', ')}`);
+    console.log(`       options: ${q.options?.map(o => o.id).join(', ') || 'none'}`);
   });
   
   emitStatus(statusId, 'probe', `Generated ${questions.length} questions for you!`, {
@@ -556,7 +556,7 @@ async function handleFinalize(userId: string, conversationId: string) {
   }
 
   // Emit the complete code
-  emitCodeComplete(conversationId, generatedCode.pageComponent);
+  emitCodeComplete(conversationId);
 
   emitStatus(conversationId, 'build', 'Saving generated code...', {
     severity: 'info',

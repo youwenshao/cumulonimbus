@@ -1,5 +1,6 @@
 import { completeJSON, type ChatMessage } from '@/lib/qwen';
 import type { ParsedIntent, TrackerCategory } from './types';
+import { emitStatus } from '@/lib/scaffolder/status/emitter';
 import { 
   AIServiceError, 
   AIParseError, 
@@ -38,7 +39,6 @@ export async function parseIntent(userPrompt: string, conversationId?: string): 
   // Helper to emit status messages
   const emitParseStatus = async (message: string, severity: 'info' | 'warning' | 'error', details?: string, progress?: number) => {
     if (conversationId) {
-      const { emitStatus } = await import('@/app/api/scaffolder/status/[conversationId]/route');
       emitStatus(conversationId, 'parse', message, { severity, technicalDetails: details, progress });
     }
   };
@@ -198,7 +198,7 @@ function extractEntitiesFromPrompt(prompt: string): string[] {
     }
   }
   
-  return [...new Set(entities)].slice(0, 3); // Dedupe and limit
+  return Array.from(new Set(entities)).slice(0, 3); // Dedupe and limit
 }
 
 function extractActionsFromPrompt(prompt: string): string[] {
@@ -224,7 +224,7 @@ function extractActionsFromPrompt(prompt: string): string[] {
     }
   }
   
-  return [...new Set(actions)];
+  return Array.from(new Set(actions));
 }
 
 function generateSmartName(baseName: string, entities: string[], prompt: string): string {

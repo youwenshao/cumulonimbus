@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { NavigationRail, ContextPanel, ChatInput, ChatMessage, Button, StatusPanel, ThemeToggle, Logo, ParticleBackground, Card } from '@/components/ui';
 import type { StatusMessage, StatusPhase } from '@/components/ui';
@@ -34,7 +34,7 @@ interface ConversationState {
 
 type CreateMode = 'guided' | 'freeform' | 'v2';
 
-export default function CreatePage() {
+function CreateContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<CreateMode | null>(null);
@@ -988,6 +988,14 @@ function WelcomeScreen() {
         <ExamplePrompt text="I need to manage my freelance projects and log hours" />
       </div>
     </div>
+  );
+}
+
+export default function CreatePage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}>
+      <CreateContent />
+    </Suspense>
   );
 }
 

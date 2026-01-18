@@ -209,9 +209,9 @@ export class SpecValidator {
       const config = cardView.config as { titleField?: string };
       if (config.titleField) {
         const titleField = spec.dataStore.fields.find(f => f.name === config.titleField);
-        if (titleField && titleField.type === 'checkbox') {
+        if (titleField && titleField.type === 'boolean') {
           warnings.push(
-            `Cards view "${cardView.title}" uses a checkbox field as title. ` +
+            `Cards view "${cardView.title}" uses a boolean field as title. ` +
             'Consider using a text field for more descriptive titles.'
           );
         }

@@ -39,6 +39,19 @@ export function CodeViewer({ conversationId, onComplete, onError, className }: C
   const codeContainerRef = useRef<HTMLPreElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
+  // Refs to access latest state/props inside useEffect without re-triggering
+  const codeRef = useRef(code);
+  useEffect(() => { codeRef.current = code; }, [code]);
+
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
+
+  const onErrorRef = useRef(onError);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
+
+  const statusRef = useRef(status);
+  useEffect(() => { statusRef.current = status; }, [status]);
+
   useEffect(() => {
     if (!conversationId) return;
 
@@ -61,13 +74,14 @@ export function CodeViewer({ conversationId, onComplete, onError, className }: C
           setStatus('complete');
           setProgress(100);
           
-          // Build final GeneratedCode object
+          // Build final GeneratedCode object using ref
+          const currentCode = codeRef.current;
           const generatedCode: GeneratedCode = {
-            pageComponent: data.code || code.page,
-            types: code.types || undefined,
+            pageComponent: data.code || currentCode.page,
+            types: currentCode.types || undefined,
           };
           
-          onComplete?.(generatedCode);
+          onCompleteRef.current?.(generatedCode);
           eventSource.close();
           return;
         }
@@ -76,7 +90,7 @@ export function CodeViewer({ conversationId, onComplete, onError, className }: C
           console.error('📡 CodeViewer: Error received:', data.error);
           setStatus('error');
           setError(data.error);
-          onError?.(data.error);
+          onErrorRef.current?.(data.error);
           eventSource.close();
           return;
         }
@@ -102,7 +116,7 @@ export function CodeViewer({ conversationId, onComplete, onError, className }: C
     eventSource.onerror = (err) => {
       console.error('📡 CodeViewer: Connection error:', err);
       // Only set error if we haven't completed
-      if (status !== 'complete') {
+      if (statusRef.current !== 'complete') {
         setStatus('error');
         setError('Connection lost. Code generation may still be in progress.');
       }
@@ -112,7 +126,7 @@ export function CodeViewer({ conversationId, onComplete, onError, className }: C
       eventSource.close();
       eventSourceRef.current = null;
     };
-  }, [conversationId, onComplete, onError]);
+  }, [conversationId]);
 
   // Simple syntax highlighting for TypeScript/TSX
   const highlightCode = (codeString: string): string => {
