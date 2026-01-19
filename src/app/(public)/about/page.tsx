@@ -86,7 +86,7 @@ export default function AboutPage() {
               </h2>
               <p className="text-lg text-text-secondary leading-relaxed">
                 To democratize software creation by making it as natural as having a conversation. 
-                We're building tools that let anyone—from students to entrepreneurs to dreamers—turn 
+                We&apos;re building tools that let anyone—from students to entrepreneurs to dreamers—turn 
                 their ideas into reality without writing a single line of code.
               </p>
             </div>
@@ -102,7 +102,7 @@ export default function AboutPage() {
               What we <span className="text-accent-yellow">believe</span>
             </h2>
             <p className="text-lg text-text-secondary max-w-2xl mx-auto leading-relaxed">
-              Our values aren't just words on a wall—they guide every decision we make, 
+              Our values aren&apos;t just words on a wall—they guide every decision we make, 
               from product features to how we treat our community.
             </p>
           </div>
@@ -143,7 +143,7 @@ export default function AboutPage() {
               Meet the <span className="text-accent-yellow">founders</span>
             </h2>
             <p className="text-lg text-text-secondary max-w-2xl mx-auto leading-relaxed">
-              A small team with big dreams. We're building Cumulonimbus from Hong Kong, 
+              A small team with big dreams. We&apos;re building Cumulonimbus from Hong Kong, 
               with a vision that spans the globe.
             </p>
           </div>
@@ -189,7 +189,7 @@ export default function AboutPage() {
               Based in <span className="text-accent-yellow">Hong Kong</span>
             </h2>
             <p className="text-lg text-text-secondary max-w-2xl mx-auto leading-relaxed">
-              We're proud to be building from one of Asia's most vibrant tech hubs, 
+              We&apos;re proud to be building from one of Asia&apos;s most vibrant tech hubs, 
               serving creators around the world.
             </p>
           </div>
@@ -249,8 +249,8 @@ export default function AboutPage() {
             Join us on this <span className="text-accent-yellow">journey</span>
           </h2>
           <p className="text-xl text-text-secondary mb-10 max-w-2xl mx-auto leading-relaxed">
-            We're just getting started, and we'd love for you to be part of the story. 
-            <span className="text-text-primary font-medium"> Let's build something amazing together.</span>
+            We&apos;re just getting started, and we&apos;d love for you to be part of the story. 
+            <span className="text-text-primary font-medium"> Let&apos;s build something amazing together.</span>
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button size="lg" asChild className="px-8">

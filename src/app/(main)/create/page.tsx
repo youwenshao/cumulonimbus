@@ -383,7 +383,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
 
   // Connect to SSE for status updates - returns promise that resolves when connected
   // Includes retry logic with exponential backoff
-  const connectToStatusStream = (convId: string, maxRetries = 3): Promise<void> => {
+  const connectToStatusStream = React.useCallback((convId: string, maxRetries = 3): Promise<void> => {
     return new Promise((resolve) => {
       let retryCount = 0;
       let resolved = false;

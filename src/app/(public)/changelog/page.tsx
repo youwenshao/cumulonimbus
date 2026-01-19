@@ -107,10 +107,10 @@ export default function ChangelogPage() {
             <span>Changelog</span>
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-medium text-text-primary mb-6 tracking-tight animate-slide-up">
-            What's <span className="text-accent-yellow">new</span>
+            What&apos;s <span className="text-accent-yellow">new</span>
           </h1>
           <p className="text-xl text-text-secondary max-w-2xl mx-auto leading-relaxed animate-slide-up" style={{ animationDelay: '0.1s' }}>
-            We ship fast and improve constantly. Here's everything that's changed, 
+            We ship fast and improve constantly. Here&apos;s everything that&apos;s changed, 
             from major features to small fixes.
           </p>
         </div>
@@ -230,7 +230,7 @@ export default function ChangelogPage() {
             Try the <span className="text-accent-yellow">latest</span> features
           </h2>
           <p className="text-xl text-text-secondary mb-10 max-w-2xl mx-auto leading-relaxed">
-            We're constantly improving. Jump in and see what's new.
+            We&apos;re constantly improving. Jump in and see what&apos;s new.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button size="lg" asChild className="px-8">

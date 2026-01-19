@@ -68,7 +68,7 @@ export default function CareersPage() {
             Help us build the <span className="text-accent-yellow">future</span>
           </h1>
           <p className="text-xl text-text-secondary max-w-3xl mx-auto leading-relaxed animate-slide-up" style={{ animationDelay: '0.1s' }}>
-            We're a small team with big ambitions. We believe that the best ideas can come from anywhere, 
+            We&apos;re a small team with big ambitions. We believe that the best ideas can come from anywhere, 
             and that technology should be a force for good. Sound like your kind of place?
           </p>
         </div>
@@ -80,12 +80,12 @@ export default function CareersPage() {
               Why Cumulonimbus?
             </h2>
             <p className="text-lg text-text-secondary leading-relaxed mb-6">
-              We're not just building another tech product. We're on a mission to democratize software creation—to 
+              We&apos;re not just building another tech product. We&apos;re on a mission to democratize software creation—to 
               make it possible for anyone to bring their ideas to life, regardless of their technical background.
             </p>
             <p className="text-lg text-text-secondary leading-relaxed">
-              If you're passionate about making technology accessible, love tackling hard problems, and want to 
-              work with a team that values creativity and autonomy, we'd love to hear from you.
+              If you&apos;re passionate about making technology accessible, love tackling hard problems, and want to 
+              work with a team that values creativity and autonomy, we&apos;d love to hear from you.
             </p>
           </div>
         </div>
@@ -99,8 +99,8 @@ export default function CareersPage() {
               What we <span className="text-accent-yellow">offer</span>
             </h2>
             <p className="text-lg text-text-secondary max-w-2xl mx-auto leading-relaxed">
-              We're building a workplace where talented people can do their best work. 
-              Here's what you can expect.
+              We&apos;re building a workplace where talented people can do their best work. 
+              Here&apos;s what you can expect.
             </p>
           </div>
 
@@ -155,8 +155,8 @@ export default function CareersPage() {
                   No open positions right now
                 </h3>
                 <p className="text-text-secondary leading-relaxed mb-6">
-                  We're a small, focused team at the moment. But we're always interested in meeting 
-                  talented people who share our vision. If you think you'd be a great fit, don't let 
+                  We&apos;re a small, focused team at the moment. But we&apos;re always interested in meeting 
+                  talented people who share our vision. If you think you&apos;d be a great fit, don&apos;t let 
                   the lack of listings stop you—reach out anyway!
                 </p>
                 <p className="text-sm text-text-tertiary mb-8">
@@ -194,18 +194,18 @@ export default function CareersPage() {
               </h2>
               <div className="space-y-6 text-text-secondary leading-relaxed">
                 <p>
-                  We're builders at heart. We believe in shipping fast, learning from feedback, and iterating 
-                  constantly. Perfection is the enemy of progress—we'd rather put something in users' hands 
+                  We&apos;re builders at heart. We believe in shipping fast, learning from feedback, and iterating 
+                  constantly. Perfection is the enemy of progress—we&apos;d rather put something in users&apos; hands 
                   and improve it than spend months polishing in isolation.
                 </p>
                 <p>
-                  We trust each other. That means autonomy and ownership. You won't find micromanagement here. 
+                  We trust each other. That means autonomy and ownership. You won&apos;t find micromanagement here. 
                   We hire smart people, give them context, and let them figure out the best way forward.
                 </p>
                 <p>
-                  We're optimistic about the future. Technology has the power to make the world better, 
-                  and we're excited to be part of that. We celebrate wins, learn from failures, and 
-                  never lose sight of why we're doing this.
+                  We&apos;re optimistic about the future. Technology has the power to make the world better, 
+                  and we&apos;re excited to be part of that. We celebrate wins, learn from failures, and 
+                  never lose sight of why we&apos;re doing this.
                 </p>
               </div>
             </div>
@@ -246,10 +246,10 @@ export default function CareersPage() {
       <section className="py-24 bg-gradient-to-b from-surface-layer to-surface-base">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h2 className="text-4xl md:text-5xl font-serif font-medium text-text-primary mb-6">
-            Let's build <span className="text-accent-yellow">together</span>
+            Let&apos;s build <span className="text-accent-yellow">together</span>
           </h2>
           <p className="text-xl text-text-secondary mb-10 max-w-2xl mx-auto leading-relaxed">
-            Even if there's no open position that fits, we'd love to hear from you. 
+            Even if there&apos;s no open position that fits, we&apos;d love to hear from you. 
             Great people are always welcome.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

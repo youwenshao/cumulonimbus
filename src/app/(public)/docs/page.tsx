@@ -250,11 +250,11 @@ export default function DocsPage() {
                 <Lightbulb className="w-8 h-8 text-accent-yellow" />
               </div>
               <h2 className="text-2xl md:text-3xl font-serif font-medium text-text-primary mb-4">
-                Can't find what you're looking for?
+                Can&apos;t find what you&apos;re looking for?
               </h2>
               <p className="text-lg text-text-secondary mb-8 leading-relaxed">
-                Our documentation is always evolving. If you have a question that isn't answered here, 
-                reach out and we'll help you out—and probably add it to the docs!
+                Our documentation is always evolving. If you have a question that isn&apos;t answered here, 
+                reach out and we&apos;ll help you out—and probably add it to the docs!
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Button asChild>
@@ -287,7 +287,7 @@ export default function DocsPage() {
             Ready to <span className="text-accent-yellow">create</span>?
           </h2>
           <p className="text-xl text-text-secondary mb-10 max-w-2xl mx-auto leading-relaxed">
-            The best way to learn is by doing. Jump in and start building—it's free.
+            The best way to learn is by doing. Jump in and start building—it&apos;s free.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button size="lg" asChild className="px-8">

@@ -32,8 +32,8 @@ export default function TermsPage() {
           <div className="p-6 rounded-xl bg-surface-elevated/50 border border-outline-light mb-8">
             <p className="text-text-secondary leading-relaxed m-0">
               <strong className="text-text-primary">Plain English Summary:</strong> We want you to use Cumulonimbus to build amazing things. 
-              These terms are here to protect both you and us. We've tried to keep them fair and readable. 
-              If something doesn't make sense, just ask us.
+              These terms are here to protect both you and us. We&apos;ve tried to keep them fair and readable. 
+              If something doesn&apos;t make sense, just ask us.
             </p>
           </div>
 
@@ -41,13 +41,13 @@ export default function TermsPage() {
             <section>
               <h2 className="text-2xl font-serif font-medium text-text-primary mb-4">1. Agreement to Terms</h2>
               <p className="leading-relaxed mb-4">
-                By accessing or using Cumulonimbus (the "Service"), operated by Sentimento Technologies Limited 
-                ("Company", "we", "us", or "our"), you agree to be bound by these Terms of Service ("Terms"). 
+                By accessing or using Cumulonimbus (the &quot;Service&quot;), operated by Sentimento Technologies Limited 
+                (&quot;Company&quot;, &quot;we&quot;, &quot;us&quot;, or &quot;our&quot;), you agree to be bound by these Terms of Service (&quot;Terms&quot;). 
                 If you disagree with any part of these terms, you may not access the Service.
               </p>
               <p className="leading-relaxed">
                 Our Service is available to users who are at least 13 years old. If you are under 18, you 
-                represent that you have your parent or guardian's permission to use the Service.
+                represent that you have your parent or guardian&apos;s permission to use the Service.
               </p>
             </section>
 
@@ -90,20 +90,20 @@ export default function TermsPage() {
               <ul className="list-disc pl-6 space-y-2">
                 <li>Create applications that are illegal, harmful, or violate any laws</li>
                 <li>Distribute malware, viruses, or other harmful code</li>
-                <li>Attempt to gain unauthorized access to our systems or other users' accounts</li>
+                <li>Attempt to gain unauthorized access to our systems or other users&apos; accounts</li>
                 <li>Harass, abuse, or harm other users</li>
                 <li>Infringe on intellectual property rights of others</li>
                 <li>Generate spam or engage in deceptive practices</li>
-                <li>Overload or interfere with the Service's infrastructure</li>
+                <li>Overload or interfere with the Service&apos;s infrastructure</li>
               </ul>
             </section>
-
+            
             <section>
               <h2 className="text-2xl font-serif font-medium text-text-primary mb-4">5. Intellectual Property</h2>
               <h3 className="text-lg font-medium text-text-primary mb-2">Your Content</h3>
               <p className="leading-relaxed mb-4">
                 You retain ownership of any content, applications, and data you create using the Service 
-                ("User Content"). By using the Service, you grant us a limited license to host, store, 
+                (&quot;User Content&quot;). By using the Service, you grant us a limited license to host, store, 
                 and display your User Content as necessary to provide the Service.
               </p>
               <h3 className="text-lg font-medium text-text-primary mb-2">Our Content</h3>
@@ -122,15 +122,15 @@ export default function TermsPage() {
               <ul className="list-disc pl-6 space-y-2">
                 <li>You agree to pay the fees associated with your selected plan</li>
                 <li>Subscriptions auto-renew unless cancelled before the renewal date</li>
-                <li>Prices may change with 30 days' notice</li>
-                <li>Refunds are available within 30 days of purchase if you're not satisfied</li>
+                <li>Prices may change with 30 days&apos; notice</li>
+                <li>Refunds are available within 30 days of purchase if you&apos;re not satisfied</li>
               </ul>
             </section>
 
             <section>
               <h2 className="text-2xl font-serif font-medium text-text-primary mb-4">7. Disclaimers</h2>
               <p className="leading-relaxed mb-4">
-                The Service is provided "as is" and "as available" without warranties of any kind, either 
+                The Service is provided &quot;as is&quot; and &quot;as available&quot; without warranties of any kind, either 
                 express or implied. We do not warrant that:
               </p>
               <ul className="list-disc pl-6 space-y-2">
@@ -158,7 +158,7 @@ export default function TermsPage() {
               <h2 className="text-2xl font-serif font-medium text-text-primary mb-4">9. Changes to Terms</h2>
               <p className="leading-relaxed">
                 We reserve the right to modify these Terms at any time. We will provide notice of significant 
-                changes by posting the new Terms on this page and updating the "Last updated" date. Your 
+                changes by posting the new Terms on this page and updating the &quot;Last updated&quot; date. Your 
                 continued use of the Service after changes become effective constitutes acceptance of the 
                 modified Terms.
               </p>
@@ -168,7 +168,7 @@ export default function TermsPage() {
               <h2 className="text-2xl font-serif font-medium text-text-primary mb-4">10. Governing Law</h2>
               <p className="leading-relaxed">
                 These Terms shall be governed by and construed in accordance with the laws of the Hong Kong 
-                Special Administrative Region of the People's Republic of China, without regard to its 
+                Special Administrative Region of the People&apos;s Republic of China, without regard to its 
                 conflict of law provisions.
               </p>
             </section>

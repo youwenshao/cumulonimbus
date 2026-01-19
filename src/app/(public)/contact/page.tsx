@@ -98,10 +98,10 @@ export default function ContactPage() {
             <span>Get in touch</span>
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-medium text-text-primary mb-6 tracking-tight animate-slide-up">
-            We'd love to <span className="text-accent-yellow">hear</span> from you
+            We&apos;d love to <span className="text-accent-yellow">hear</span> from you
           </h1>
           <p className="text-xl text-text-secondary max-w-2xl mx-auto leading-relaxed animate-slide-up" style={{ animationDelay: '0.1s' }}>
-            Whether you have a question, feedback, or just want to say hi—we're always happy to chat. 
+            Whether you have a question, feedback, or just want to say hi—we&apos;re always happy to chat. 
             No question is too small, no idea too big.
           </p>
         </div>
@@ -152,7 +152,7 @@ export default function ContactPage() {
                 Send us a <span className="text-accent-yellow">message</span>
               </h2>
               <p className="text-text-secondary mb-8 leading-relaxed">
-                Fill out the form and we'll get back to you as soon as we can. 
+                Fill out the form and we&apos;ll get back to you as soon as we can. 
                 Usually within a business day or two.
               </p>
 
@@ -165,7 +165,7 @@ export default function ContactPage() {
                     Message sent!
                   </h3>
                   <p className="text-text-secondary">
-                    Thanks for reaching out. We'll be in touch soon.
+                    Thanks for reaching out. We&apos;ll be in touch soon.
                   </p>
                 </div>
               ) : (
@@ -244,7 +244,7 @@ export default function ContactPage() {
                 Quick <span className="text-accent-yellow">help</span>
               </h2>
               <p className="text-text-secondary mb-8 leading-relaxed">
-                Before reaching out, you might find what you're looking for in these resources.
+                Before reaching out, you might find what you&apos;re looking for in these resources.
               </p>
 
               <div className="space-y-4">
@@ -299,7 +299,7 @@ export default function ContactPage() {
             Ready to get <span className="text-accent-yellow">started</span>?
           </h2>
           <p className="text-xl text-text-secondary mb-10 max-w-2xl mx-auto leading-relaxed">
-            Jump right in and start building. It's free, and you don't need a credit card.
+            Jump right in and start building. It&apos;s free, and you don&apos;t need a credit card.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button size="lg" asChild className="px-8">

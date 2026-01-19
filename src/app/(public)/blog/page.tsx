@@ -223,7 +223,7 @@ export default function BlogPage() {
               <Heart className="w-8 h-8 text-accent-yellow" />
             </div>
             <h2 className="text-2xl md:text-3xl font-serif font-medium text-text-primary mb-4">
-              Like what you're reading?
+              Like what you&apos;re reading?
             </h2>
             <p className="text-lg text-text-secondary mb-8 leading-relaxed max-w-2xl mx-auto">
               We write about product development, technology accessibility, and the journey of building a startup. 
@@ -265,7 +265,7 @@ export default function BlogPage() {
               </Link>
             </Button>
             <Button size="lg" variant="secondary" asChild>
-              <Link href="/changelog">See what's new</Link>
+              <Link href="/changelog">See what&apos;s new</Link>
             </Button>
           </div>
         </div>

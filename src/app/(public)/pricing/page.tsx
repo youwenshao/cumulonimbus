@@ -273,7 +273,7 @@ export default function PricingPage() {
 
           <div className="text-center mt-12">
             <p className="text-text-secondary mb-4">
-              Still have questions? We're here to help.
+              Still have questions? We&apos;re here to help.
             </p>
             <Button variant="secondary" asChild>
               <Link href="/contact">Contact Support</Link>

@@ -40,14 +40,14 @@ export default function PrivacyPage() {
             <Eye className="w-6 h-6 text-accent-yellow mb-3" />
             <h3 className="font-medium text-text-primary mb-1">Transparency First</h3>
             <p className="text-sm text-text-secondary">
-              We're clear about what we collect and why.
+              We&apos;re clear about what we collect and why.
             </p>
           </div>
           <div className="p-4 rounded-xl bg-surface-elevated/50 border border-outline-light">
             <Database className="w-6 h-6 text-accent-yellow mb-3" />
             <h3 className="font-medium text-text-primary mb-1">Minimal Collection</h3>
             <p className="text-sm text-text-secondary">
-              We only collect what's necessary to provide the service.
+              We only collect what&apos;s necessary to provide the service.
             </p>
           </div>
         </div>
@@ -113,7 +113,7 @@ export default function PrivacyPage() {
             <section>
               <h2 className="text-2xl font-serif font-medium text-text-primary mb-4">4. AI and Your Data</h2>
               <p className="leading-relaxed mb-4">
-                Our AI models process your prompts to generate applications. Here's what you should know:
+                Our AI models process your prompts to generate applications. Here&apos;s what you should know:
               </p>
               <ul className="list-disc pl-6 space-y-2">
                 <li><strong className="text-text-primary">No Training Without Consent:</strong> We do not use your private data to train our AI models without your explicit permission</li>
@@ -188,7 +188,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-serif font-medium text-text-primary mb-4">10. Children's Privacy</h2>
+              <h2 className="text-2xl font-serif font-medium text-text-primary mb-4">10. Children&apos;s Privacy</h2>
               <p className="leading-relaxed">
                 The Service is not intended for children under 13 years of age. We do not knowingly collect personal 
                 information from children under 13. If we learn we have collected information from a child under 13, 
@@ -217,7 +217,7 @@ export default function PrivacyPage() {
               <h2 className="text-2xl font-serif font-medium text-text-primary mb-4">12. Changes to This Policy</h2>
               <p className="leading-relaxed">
                 We may update this Privacy Policy from time to time. We will notify you of significant changes by 
-                posting the new policy on this page and updating the "Last updated" date. We encourage you to review 
+                posting the new policy on this page and updating the &quot;Last updated&quot; date. We encourage you to review 
                 this policy periodically.
               </p>
             </section>
