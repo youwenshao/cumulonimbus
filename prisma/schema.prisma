@@ -20,6 +20,14 @@ model User {
   ollamaModel          String?        @default("qwen3-coder:30b")
   ollamaSmallModel     String?        @default("qwen3:4b")
   preferredLLMProvider String?        @default("auto")
+  
+  // Subscription fields
+  plan                 Plan           @default(FREE)
+  subscriptionStatus   String?        @default("ACTIVE")
+  subscriptionPeriod   String?        @default("MONTHLY")
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+
   apps                 App[]
   conversations        Conversation[]
 }
@@ -89,4 +97,10 @@ enum ConversationPhase {
   PICTURE
   PLAN
   COMPLETE
+}
+
+enum Plan {
+  FREE
+  PLUS
+  PRO
 }

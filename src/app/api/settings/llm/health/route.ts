@@ -30,12 +30,18 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Error checking LLM health:', error);
+    
+    // Health check failures are not critical - return empty results
+    // This allows the UI to still function even if health checks fail
     return NextResponse.json(
       { 
+        success: false,
         error: 'Health check failed',
+        message: 'Unable to check provider health at this time',
         results: [],
+        timestamp: new Date().toISOString(),
       },
-      { status: 500 }
+      { status: 200 } // Return 200 so the UI doesn't break
     );
   }
 }

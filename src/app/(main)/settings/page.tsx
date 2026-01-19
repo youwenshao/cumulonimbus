@@ -24,6 +24,8 @@ export default function SettingsPage() {
   const [llmSettings, setLLMSettings] = useState<LLMSettings>(defaultLLMSettings);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isRetryable, setIsRetryable] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -31,7 +33,9 @@ export default function SettingsPage() {
 
   const loadSettings = async () => {
     try {
+      setLoadError(null);
       const response = await fetch('/api/settings/llm');
+      
       if (response.ok) {
         const data = await response.json();
         setLLMSettings({
@@ -43,9 +47,16 @@ export default function SettingsPage() {
           lmstudioModel: data.lmstudioModel || defaultLLMSettings.lmstudioModel,
           fallbackEnabled: data.fallbackEnabled ?? true,
         });
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.message || errorData.error || 'Failed to load settings';
+        setLoadError(errorMessage);
+        setIsRetryable(errorData.retryable || response.status === 503 || response.status === 504);
       }
     } catch (error) {
       console.error('Failed to load settings:', error);
+      setLoadError('Unable to connect to the server. Please check your connection.');
+      setIsRetryable(true);
     }
   };
 
@@ -64,10 +75,18 @@ export default function SettingsPage() {
         setSaveMessage('Settings saved successfully!');
         setTimeout(() => setSaveMessage(null), 3000);
       } else {
-        throw new Error('Failed to save');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.message || errorData.error || 'Failed to save settings';
+        setSaveMessage(errorMessage);
+        
+        // Auto-clear non-retryable errors after a delay
+        if (!errorData.retryable) {
+          setTimeout(() => setSaveMessage(null), 5000);
+        }
       }
     } catch (error) {
-      setSaveMessage('Failed to save settings');
+      console.error('Failed to save settings:', error);
+      setSaveMessage('Unable to connect to the server. Please check your connection and try again.');
     } finally {
       setIsSaving(false);
     }
@@ -112,6 +131,27 @@ export default function SettingsPage() {
 
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-4xl mx-auto px-6 py-6 space-y-6">
+            {loadError && (
+              <div className="p-4 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30">
+                <div className="flex items-start gap-3">
+                  <Bell className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-medium mb-1">Unable to Load Settings</p>
+                    <p className="text-sm opacity-90 mb-3">{loadError}</p>
+                    {isRetryable && (
+                      <Button
+                        onClick={loadSettings}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        Try Again
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {saveMessage && (
               <div className={`p-3 rounded-lg text-sm ${
                 saveMessage.includes('success') 
@@ -122,12 +162,12 @@ export default function SettingsPage() {
               </div>
             )}
 
-            <div className="flex gap-2 border-b border-outline-light pb-4">
+            <div className="flex gap-2 border-b border-outline-light pb-4 overflow-x-auto">
               {tabs.map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium focus-ring-yellow transition-colors ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium focus-ring-yellow transition-colors whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'bg-accent-yellow/15 text-accent-yellow border border-accent-yellow/40'
                       : 'text-text-secondary hover:text-text-primary hover:bg-surface-elevated/70 border border-transparent'

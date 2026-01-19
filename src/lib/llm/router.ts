@@ -89,12 +89,10 @@ export async function checkAllHealth(): Promise<HealthCheckResult[]> {
   results.push(openrouterHealth);
   routerState.openrouterAvailable = openrouterHealth.available;
 
-  // Check LM Studio
-  if (config.lmstudioEnabled) {
-    const lmstudioHealth = await checkLMStudioHealth();
-    results.push(lmstudioHealth);
-    routerState.lmstudioAvailable = lmstudioHealth.available;
-  }
+  // Check LM Studio (always check local providers)
+  const lmstudioHealth = await checkLMStudioHealth();
+  results.push(lmstudioHealth);
+  routerState.lmstudioAvailable = lmstudioHealth.available;
 
   routerState.lastHealthCheck = new Date();
 

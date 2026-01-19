@@ -84,8 +84,14 @@ export function NavigationRail({ className }: NavigationRailProps) {
 
       {/* User avatar at bottom */}
       <div className="mt-auto">
-        <button 
-          className="w-10 h-10 rounded-full bg-surface-elevated flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-layer transition-all duration-200 hover:scale-105 group relative"
+        <Link 
+          href="/profile"
+          className={cn(
+            "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 group relative",
+            pathname?.startsWith('/profile')
+              ? 'bg-accent-yellow text-text-primary shadow-lg shadow-accent-yellow/30'
+              : 'bg-surface-elevated text-text-tertiary hover:text-text-primary hover:bg-surface-layer hover:scale-105'
+          )}
           title="Profile"
         >
           <User className="w-5 h-5" />
@@ -93,7 +99,7 @@ export function NavigationRail({ className }: NavigationRailProps) {
           <div className="absolute left-full ml-2 px-3 py-1.5 bg-surface-base text-text-primary text-sm rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 border border-outline-light/20 shadow-xl bottom-0">
             Profile
           </div>
-        </button>
+        </Link>
       </div>
     </nav>
   );
