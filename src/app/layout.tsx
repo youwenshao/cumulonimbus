@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { SessionProvider } from '@/components/providers/SessionProvider';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
+import { Toaster } from 'sonner';
 import './globals.css';
 
 // Using system fonts to avoid Google Fonts network dependency during build
@@ -36,6 +37,7 @@ export default function RootLayout({
         <SessionProvider>
           <ThemeProvider>
             {children}
+            <Toaster position="bottom-right" theme="system" />
           </ThemeProvider>
         </SessionProvider>
       </body>

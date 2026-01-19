@@ -30,7 +30,11 @@ function isDockerUnavailableError(error: unknown): boolean {
     if (message.includes('/var/run/docker.sock')) return true;
     if (message.includes('docker daemon') && message.includes('not running')) return true;
     if (message.includes('cannot connect to the docker')) return true;
-    
+
+    // Check for missing Docker images (common in demo environments)
+    if (message.includes('no such container') && message.includes('no such image')) return true;
+    if (message.includes('image not found') || message.includes('no such image')) return true;
+
     // Check error code
     const errorWithCode = error as Error & { code?: string; syscall?: string; address?: string };
     if (errorWithCode.code === 'ENOENT' && errorWithCode.address?.includes('docker')) return true;

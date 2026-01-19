@@ -9,4 +9,6 @@ export { ChatInput } from './ChatInput';
 export { ChatMessage, StreamingMessage } from './ChatMessage';
 export { StatusPanel, StatusIndicator } from './StatusPanel';
 export { ThemeToggle } from './ThemeToggle';
+export { Modal } from './Modal';
+export { DropdownMenu, DropdownItem, DropdownSeparator } from './DropdownMenu';
 export type { StatusMessage, StatusPhase, StatusSeverity } from './StatusPanel';

@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect, Suspense } from 'react';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
 import { NavigationRail, ContextPanel, ChatInput, ChatMessage, Button, StatusPanel, ThemeToggle, Logo, ParticleBackground, Card } from '@/components/ui';
 import type { StatusMessage, StatusPhase } from '@/components/ui';
 import { ImplementationPlan, CodeViewer, LivePreview, FreeformCreator } from '@/components/scaffolder';
+import { AgentStream } from '@/components/scaffolder/agent/AgentStream';
+import { SimulationEvent } from '@/lib/demo/seed-data';
 import type { ProjectSpec, ImplementationPlan as ImplementationPlanType } from '@/lib/scaffolder/types';
 import type { GeneratedCode } from '@/lib/scaffolder/code-generator';
 import { cn } from '@/lib/utils';
@@ -41,6 +44,7 @@ function CreateContent() {
   
   // Check for mode via query param
   const queryMode = searchParams.get('mode');
+  const appId = searchParams.get('appId');
   const useV2 = searchParams.get('v2') === 'true' || 
                 process.env.NEXT_PUBLIC_SCAFFOLDER_VERSION === 'v2';
   
@@ -52,8 +56,11 @@ function CreateContent() {
       setMode('guided');
     } else if (useV2 || queryMode === 'v2') {
       setMode('v2');
+    } else if (appId) {
+      // Default to guided mode if editing an app
+      setMode('guided');
     }
-  }, [queryMode, useV2]);
+  }, [queryMode, useV2, appId]);
   
   // Show mode selector if no mode is set
   if (!mode) {
@@ -220,7 +227,7 @@ function CreateContent() {
   }
   
   // V1 scaffolder (existing implementation)
-  return <CreatePageV1 onModeChange={() => setMode(null)} />;
+  return <CreatePageV1 onModeChange={() => setMode(null)} appId={appId} />;
 }
 
 function ModeSelector({ onSelect }: { onSelect: (mode: CreateMode) => void }) {
@@ -245,7 +252,7 @@ function ModeSelector({ onSelect }: { onSelect: (mode: CreateMode) => void }) {
           {/* Freeform Mode */}
           <button
             onClick={() => onSelect('freeform')}
-            className="p-6 bg-gradient-to-br from-accent-yellow/10 to-orange-900/20 border border-accent-yellow/30 rounded-xl text-left hover:border-accent-yellow/60 hover:bg-accent-yellow/20 transition-all group"
+            className="p-6 bg-surface-elevated/50 border border-accent-yellow/30 rounded-xl text-left hover:border-accent-yellow/60 hover:bg-accent-yellow/20 transition-all group"
           >
             <div className="mb-4">
               <Sparkles className="w-8 h-8 text-accent-yellow" />
@@ -298,7 +305,7 @@ function ModeSelector({ onSelect }: { onSelect: (mode: CreateMode) => void }) {
   );
 }
 
-function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
+function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appId?: string | null }) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -308,6 +315,7 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
   const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
   const [contextPanelOpen, setContextPanelOpen] = useState(false);
   const [statusMessages, setStatusMessages] = useState<StatusMessage[]>([]);
+  const [simulationEvents, setSimulationEvents] = useState<SimulationEvent[]>([]);
   const [currentPhase, setCurrentPhase] = useState<StatusPhase | undefined>();
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   // Build phase state
@@ -320,6 +328,49 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const currentStreamIdRef = useRef<string | null>(null); // Track current stream ID
+
+  // Load existing conversation if appId is present
+  useEffect(() => {
+    if (appId && !conversationId) {
+      const loadConversation = async () => {
+        setIsLoading(true);
+        try {
+          // Attempt to load conversation for this app
+          const response = await fetch('/api/scaffolder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'load',
+              appId,
+            }),
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.conversationId) {
+              setConversationId(data.conversationId);
+              setMessages(data.messages || []);
+              setState(data.state);
+              
+              if (data.state?.phase === 'plan' || data.state?.phase === 'complete') {
+                setCurrentPhase('plan');
+              }
+              
+              // Reconnect SSE
+              connectToStatusStream(data.conversationId);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load conversation:', error);
+          toast.error('Failed to load previous session');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      
+      loadConversation();
+    }
+  }, [appId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -400,9 +451,13 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
           try {
             const data = JSON.parse(event.data);
 
+            // #region agent log hypothesis_4
+            fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:SSE',message:'Received SSE message',data:{convId,type:data.type,messageType:data.message?.phase || 'unknown'},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+            // #endregion
+
             // Check if this is the initial connection confirmation
             if (data.type === 'connected') {
-              console.log(`✅ SSE connected: ${convId}${data.bufferedCount > 0 ? ` (${data.bufferedCount} buffered messages)` : ''}`);
+              console.log(`✅ SSE connected: ${convId}`);
               clearTimeout(connectionTimeout);
               if (!resolved) {
                 resolved = true;
@@ -411,7 +466,25 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
               return;
             }
 
-            // Handle status messages
+            // Handle simulation events (Agent Stream)
+            if (data.type === 'simulation_event') {
+               const event: SimulationEvent = data.payload;
+
+               // #region agent log hypothesis_4
+               fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:SSE',message:'Received simulation event',data:{convId,eventType:event.type,simulationEventsLength:simulationEvents.length},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+               // #endregion
+
+               setSimulationEvents(prev => [...prev, event]);
+
+               // If code generation starts, switch view (finalize will be auto-triggered by useEffect)
+               if (event.type === 'code_generation') {
+                 setBuildPhase('generating');
+                 // Don't clear events, we want to keep history
+               }
+               return;
+            }
+
+            // Handle status messages (Legacy / Fallback)
             const statusMessage: StatusMessage = data;
             if (statusMessage.phase) {
               console.log(`📥 SSE status: ${statusMessage.phase} - ${statusMessage.message}`);
@@ -453,6 +526,7 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
   const handleSubmit = async (message: string) => {
     setIsLoading(true);
     setStatusMessages([]);
+    setSimulationEvents([]); // Clear previous stream
     setCurrentPhase('parse');
 
     // Add user message to UI
@@ -613,6 +687,12 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
   };
 
   const handleFinalize = async () => {
+    console.log('🎯 handleFinalize called', { conversationId, isLoading, isAgentStreaming, buildPhase });
+
+    // #region agent log hypothesis_4
+    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:handleFinalize',message:'handleFinalize called',data:{conversationId,isLoading,isAgentStreaming,buildPhase},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+    // #endregion
+
     if (!conversationId || isLoading) return;
 
     setIsLoading(true);
@@ -624,6 +704,10 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
     console.log(`🏗️ Finalizing app, connecting to conversation: ${conversationId}`);
     await connectToStatusStream(conversationId);
 
+    // #region agent log hypothesis_4
+    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:handleFinalize','message':'About to make finalize API call',data:{conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+    // #endregion
+
     // Add execution message
     setMessages(prev => [...prev, {
       id: Date.now().toString(),
@@ -633,6 +717,10 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
     }]);
 
     try {
+      // #region agent log hypothesis_4
+      fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:handleFinalize','message':'Making finalize API call',data:{conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+      // #endregion
+
       const response = await fetch('/api/scaffolder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -642,17 +730,21 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
         }),
       });
 
+      // #region agent log hypothesis_4
+      fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:handleFinalize','message':'Finalize API response received',data:{conversationId,responseOk:response.ok,responseStatus:response.status},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+      // #endregion
+
       const data = await response.json();
 
       if (response.ok && data.app) {
         setCurrentPhase('complete');
         setGeneratedAppId(data.app.id);
-        
+
         // Store generated code if available
         if (data.generatedCode) {
           setGeneratedCode(data.generatedCode);
         }
-        
+
         // Update message
         setMessages(prev => [...prev.slice(0, -1), {
           id: Date.now().toString(),
@@ -662,6 +754,10 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
 
         // Move to preview phase
         setBuildPhase('preview');
+
+        // #region agent log hypothesis_4
+        fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:handleFinalize','message':'Finalize successful',data:{appId:data.app.id,appName:data.app.name},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+        // #endregion
       } else {
         setBuildPhase('idle');
         setMessages(prev => [...prev.slice(0, -1), {
@@ -669,12 +765,24 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
           role: 'assistant',
           content: `Sorry, there was an error creating your app: ${data.error}`,
         }]);
+
+        // #region agent log hypothesis_4
+        fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:handleFinalize','message':'Finalize failed - response not ok',data:{conversationId,dataError:data.error},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+        // #endregion
       }
     } catch (error) {
       console.error('Error:', error);
       setBuildPhase('idle');
+
+      // #region agent log hypothesis_4
+      fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:handleFinalize','message':'Finalize failed - exception',data:{conversationId,error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+      // #endregion
     } finally {
       setIsLoading(false);
+
+      // #region agent log hypothesis_4
+      fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:handleFinalize','message':'Finalize finally block - setting isLoading false',data:{conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+      // #endregion
     }
   };
 
@@ -748,6 +856,34 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
   // Get plan from state or from message metadata
   const currentPlan = state?.plan || messages.find(m => m.metadata?.plan)?.metadata?.plan;
 
+  // Check if we are in simulation mode (Agent Stream active)
+  const isAgentStreaming = simulationEvents.length > 0;
+
+  // Auto-trigger finalize when in agent streaming mode and buildPhase becomes generating
+  React.useEffect(() => {
+    console.log('🔍 useEffect check:', { isAgentStreaming, buildPhase, isLoading, conversationId });
+
+    // #region agent log hypothesis_4
+    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:auto-finalize-effect',message:'useEffect triggered',data:{conversationId,isLoading,isAgentStreaming,buildPhase},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+    // #endregion
+
+    if (isAgentStreaming && buildPhase === 'generating') {
+      console.log('🎯 Auto-triggering finalize for agent streaming mode');
+
+      // #region agent log hypothesis_4
+      fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:auto-finalize-effect',message:'Auto-triggering finalize via useEffect',data:{conversationId,isLoading,isAgentStreaming,buildPhase},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+      // #endregion
+
+      handleFinalize();
+    }
+  }, [isAgentStreaming, buildPhase, conversationId]); // Removed isLoading from dependencies
+
+  // #region agent log hypothesis_5
+  React.useEffect(() => {
+    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:render',message:'CreatePage render state',data:{messagesLength:messages.length,simulationEventsLength:simulationEvents.length,isAgentStreaming,buildPhase},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_5'})}).catch(()=>{});
+  }, [messages.length, simulationEvents.length, isAgentStreaming, buildPhase]);
+  // #endregion
+
   return (
     <div className="h-screen bg-surface-base flex">
       {/* Navigation Rail - Hidden on mobile, shown on desktop */}
@@ -796,11 +932,17 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-4xl mx-auto p-8">
             {messages.length === 0 ? (
-              <WelcomeScreen />
+              <WelcomeScreen onSelect={handleSubmit} />
             ) : (
               <div className="space-y-6">
-                {/* Status Panel - Show during loading (except during code generation which has its own) */}
-                {statusMessages.length > 0 && (isLoading || currentPhase === 'plan') && buildPhase !== 'generating' && (
+
+                {/* Standard Chat History */}
+                {!isAgentStreaming && messages.map((message) => (
+                  <ChatMessage key={message.id} message={message} />
+                ))}
+
+                {/* Legacy Status Panel (Only show if NOT streaming new agent events) */}
+                {statusMessages.length > 0 && !isAgentStreaming && (isLoading || currentPhase === 'plan') && buildPhase !== 'generating' && (
                   <StatusPanel
                     messages={statusMessages}
                     currentPhase={currentPhase}
@@ -809,12 +951,25 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
                   />
                 )}
 
-                {messages.map((message) => (
-                  <ChatMessage key={message.id} message={message} />
-                ))}
+                {/* NEW Agent Stream UI */}
+                {isAgentStreaming && (
+                  <div className="animate-fade-in">
+                    {/* Show user message first if it exists */}
+                    {messages.filter(m => m.role === 'user').map(m => (
+                       <ChatMessage key={m.id} message={m} />
+                    ))}
+
+                    <div className="my-6">
+                      <AgentStream
+                        events={simulationEvents}
+                        isComplete={buildPhase === 'preview' || buildPhase === 'complete'}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Options */}
-                {showOptions && (
+                {showOptions && !isAgentStreaming && (
                   <div className="space-y-2 animate-slide-up">
                     {lastMessage.metadata!.options!.map((option) => (
                       <button
@@ -849,14 +1004,14 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
                 )}
 
                 {/* Implementation Plan Display */}
-                {currentPlan && !isLoading && buildPhase === 'idle' && (
+                {currentPlan && !isLoading && buildPhase === 'idle' && !isAgentStreaming && (
                   <div className="animate-slide-up">
                     <ImplementationPlan plan={currentPlan} className="mb-6" />
                   </div>
                 )}
 
                 {/* Build Button - Show after plan is displayed */}
-                {showFinalize && buildPhase === 'idle' && !isLoading && (
+                {showFinalize && buildPhase === 'idle' && !isLoading && !isAgentStreaming && (
                   <div className="animate-slide-up">
                     <Button
                       onClick={handleFinalize}
@@ -871,23 +1026,26 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
 
                 {/* Code Generation Phase */}
                 {buildPhase === 'generating' && conversationId && (
-                  <div className="animate-slide-up space-y-4">
-                    {/* Toggle between status and code view */}
-                    <div className="flex gap-2">
-                      <Button 
-                        onClick={() => setShowCodeView(false)} 
-                        variant={!showCodeView ? 'primary' : 'ghost'}
-                        size="sm"
-                      >
-                        Status View
-                      </Button>
-                      <Button 
-                        onClick={() => setShowCodeView(true)} 
-                        variant={showCodeView ? 'primary' : 'ghost'}
-                        size="sm"
-                      >
-                        Code View
-                      </Button>
+                  <div className="animate-slide-up space-y-4 border-t border-outline-light pt-6 mt-6">
+                    <div className="flex items-center justify-between">
+                       <h3 className="text-lg font-medium text-text-primary">Generating Application Code</h3>
+                       {/* Toggle between status and code view */}
+                        <div className="flex gap-2">
+                          <Button 
+                            onClick={() => setShowCodeView(false)} 
+                            variant={!showCodeView ? 'primary' : 'ghost'}
+                            size="sm"
+                          >
+                            Status View
+                          </Button>
+                          <Button 
+                            onClick={() => setShowCodeView(true)} 
+                            variant={showCodeView ? 'primary' : 'ghost'}
+                            size="sm"
+                          >
+                            Code View
+                          </Button>
+                        </div>
                     </div>
                     
                     {showCodeView ? (
@@ -896,19 +1054,19 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
                         onComplete={handleCodeGenComplete}
                       />
                     ) : (
-                      <StatusPanel
-                        messages={statusMessages}
-                        currentPhase={currentPhase}
-                        showTechnicalDetails={showTechnicalDetails}
-                        onToggleTechnical={setShowTechnicalDetails}
-                      />
+                      <div className="p-4 bg-surface-elevated rounded-xl border border-outline-light">
+                         <div className="flex items-center gap-3">
+                            <div className="animate-spin text-xl">⚙️</div>
+                            <div className="text-text-secondary">Writing components and resolving dependencies...</div>
+                         </div>
+                      </div>
                     )}
                   </div>
                 )}
 
                 {/* Live Preview Phase */}
                 {buildPhase === 'preview' && generatedAppId && (
-                  <div className="animate-slide-up">
+                  <div className="animate-slide-up mt-8">
                     <LivePreview
                       appId={generatedAppId}
                       appName={state?.spec?.name || 'Your App'}
@@ -973,7 +1131,7 @@ function CreatePageV1({ onModeChange }: { onModeChange?: () => void }) {
   );
 }
 
-function WelcomeScreen() {
+function WelcomeScreen({ onSelect }: { onSelect: (text: string) => void }) {
   return (
     <div className="text-center py-16 animate-fade-in">
       <h2 className="text-3xl font-serif font-medium text-text-primary mb-4">
@@ -983,9 +1141,10 @@ function WelcomeScreen() {
         Describe your idea in natural language. I&apos;ll guide you through the process of building a personalized web application.
       </p>
       <div className="space-y-3 max-w-lg mx-auto">
-        <ExamplePrompt text="I want to track my daily expenses and see monthly spending trends" />
-        <ExamplePrompt text="Help me build a habit tracker for my morning routine" />
-        <ExamplePrompt text="I need to manage my freelance projects and log hours" />
+        <ExamplePrompt 
+          text="An order tracker for a Hong Kong cha chaan teng restaurant" 
+          onClick={() => onSelect("An order tracker for a Hong Kong cha chaan teng restaurant")}
+        />
       </div>
     </div>
   );
@@ -999,9 +1158,12 @@ export default function CreatePage() {
   );
 }
 
-function ExamplePrompt({ text }: { text: string }) {
+function ExamplePrompt({ text, onClick }: { text: string; onClick?: () => void }) {
   return (
-    <div className="p-4 rounded-xl bg-surface-elevated border border-outline-light text-left hover:border-accent-yellow/50 transition-colors cursor-pointer group">
+    <div 
+      onClick={onClick}
+      className="p-4 rounded-xl bg-surface-elevated border border-outline-light text-left hover:border-accent-yellow/50 transition-colors cursor-pointer group"
+    >
       <p className="text-text-secondary group-hover:text-text-primary">{text}</p>
     </div>
   );

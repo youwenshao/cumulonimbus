@@ -36,6 +36,7 @@ import { proposalEngine } from '@/lib/scaffolder-v2/proposals';
 import { mockupGenerator } from '@/lib/scaffolder-v2/mockup';
 import { FeedbackLoop } from '@/lib/scaffolder-v2/feedback-loop';
 import { FeedbackStats } from '@/lib/scaffolder-v2/feedback-stats';
+import { IS_DEMO_MODE } from '@/lib/config';
 import type { 
   ConversationState,
   DynamicConversationState,
@@ -165,6 +166,29 @@ async function handleChat(
   }
 
   // Use adaptive orchestrator for dynamic pipeline
+  if (IS_DEMO_MODE) {
+    // Add assistant message to state
+    state = addMessageToState(state, 'assistant', 'Demo Mode: The Advanced Scaffolder (V2) is connected to live AI services which are disabled in this demo environment. Please use the "Guided" mode for a simulated experience.', {
+      phase: state.phase,
+    }) as DynamicConversationState;
+
+    return NextResponse.json({
+      conversationId: state.id,
+      messages: state.messages,
+      state: {
+        phase: state.phase,
+        schemas: state.schemas,
+        layout: state.layout,
+        suggestedAppName: state.suggestedAppName,
+        readiness: state.readiness,
+        currentProposals: state.currentProposals,
+        suggestions: state.suggestions,
+      },
+      requiresUserInput: true,
+      suggestedActions: [],
+    });
+  }
+
   const orchestratorResponse = await adaptiveOrchestrator.process(message, state, userSettings);
   const decision = orchestratorResponse.data as EnhancedOrchestratorDecision;
 

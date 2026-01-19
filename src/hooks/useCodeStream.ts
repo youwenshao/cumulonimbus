@@ -2,9 +2,10 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { FreeformDesign } from '@/lib/scaffolder-v2/agents';
+import type { SimulationEvent } from '@/lib/demo/seed-data';
 
 export interface CodeStreamEvent {
-  type: 'design' | 'chunk' | 'file' | 'progress' | 'complete' | 'error';
+  type: 'design' | 'chunk' | 'file' | 'progress' | 'complete' | 'error' | 'simulation_event';
   data: {
     design?: FreeformDesign;
     content?: string;
@@ -13,6 +14,7 @@ export interface CodeStreamEvent {
     appId?: string;
     error?: string;
     message?: string;
+    simulationEvent?: SimulationEvent;
   };
 }
 
@@ -25,6 +27,7 @@ export interface CodeStreamState {
   design: FreeformDesign | null;
   appId: string | null;
   error: string | null;
+  simulationEvents: SimulationEvent[];
 }
 
 export interface UseCodeStreamOptions {
@@ -34,6 +37,7 @@ export interface UseCodeStreamOptions {
   onFile?: (filename: string, content: string) => void;
   onComplete?: (appId: string) => void;
   onError?: (error: string) => void;
+  onSimulationEvent?: (event: SimulationEvent) => void;
 }
 
 const initialState: CodeStreamState = {
@@ -45,6 +49,7 @@ const initialState: CodeStreamState = {
   design: null,
   appId: null,
   error: null,
+  simulationEvents: [],
 };
 
 /**
@@ -114,6 +119,16 @@ export function useCodeStream(options: UseCodeStreamOptions = {}) {
             message: data.message || prev.message,
           }));
           optionsRef.current.onFile?.(data.filename, data.content);
+        }
+        break;
+
+      case 'simulation_event':
+        if (data.simulationEvent) {
+          setState(prev => ({
+            ...prev,
+            simulationEvents: [...prev.simulationEvents, data.simulationEvent!],
+          }));
+          optionsRef.current.onSimulationEvent?.(data.simulationEvent);
         }
         break;
 

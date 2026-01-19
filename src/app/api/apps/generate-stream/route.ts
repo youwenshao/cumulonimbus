@@ -6,11 +6,13 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from '@/lib/auth';
 import prisma from '@/lib/db';
-import { generateId } from '@/lib/utils';
+import { generateId, sleep } from '@/lib/utils';
 import { freeformGenerator } from '@/lib/scaffolder-v2/agents';
 import { bundleCode } from '@/lib/runtime';
 import { bundleAppCode } from '@/lib/runtime/server-bundler';
 import type { FreeformDesign } from '@/lib/scaffolder-v2/agents';
+import { IS_DEMO_MODE } from '@/lib/config';
+import { DEMO_SCENARIOS, type DemoScenario, type SimulationEvent } from '@/lib/demo/seed-data';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,7 +26,7 @@ interface GenerateRequest {
 }
 
 interface SSEEvent {
-  type: 'design' | 'chunk' | 'file' | 'progress' | 'complete' | 'error';
+  type: 'design' | 'chunk' | 'file' | 'progress' | 'complete' | 'error' | 'simulation_event';
   data: {
     design?: FreeformDesign;
     content?: string;
@@ -33,6 +35,7 @@ interface SSEEvent {
     appId?: string;
     error?: string;
     message?: string;
+    simulationEvent?: SimulationEvent;
   };
 }
 
@@ -56,7 +59,7 @@ export async function POST(request: NextRequest) {
         encodeSSE({ type: 'error', data: { error: 'Unauthorized' } }),
         { 
           status: 401,
-          headers: { 'Content-Type': 'text/event-stream' },
+          headers: { 'Content-Type': 'text/event-stream' }
         }
       );
     }
@@ -69,7 +72,7 @@ export async function POST(request: NextRequest) {
         encodeSSE({ type: 'error', data: { error: 'Prompt is required' } }),
         { 
           status: 400,
-          headers: { 'Content-Type': 'text/event-stream' },
+          headers: { 'Content-Type': 'text/event-stream' }
         }
       );
     }
@@ -81,24 +84,148 @@ export async function POST(request: NextRequest) {
         const encoder = new TextEncoder();
 
         const sendEvent = (event: SSEEvent) => {
-          // #region agent log
-          fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:81',message:'Attempting to send SSE event',data:{eventType:event.type,controllerClosed},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H1'})}).catch(()=>{});
-          // #endregion
           try {
             if (!controllerClosed) {
               controller.enqueue(encoder.encode(encodeSSE(event)));
-            } else {
-              console.warn('Attempted to send event after controller closed:', event.type);
             }
           } catch (enqueueError) {
-            // #region agent log
-            fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:89',message:'Failed to enqueue SSE event',data:{eventType:event.type,error:(enqueueError as Error).message,controllerClosed},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H1'})}).catch(()=>{});
-            // #endregion
             console.error('Failed to enqueue SSE event:', enqueueError);
           }
         };
 
         try {
+          // Check for DEMO mode and matching scenario
+          let demoScenario: DemoScenario | undefined;
+          if (IS_DEMO_MODE) {
+            demoScenario = DEMO_SCENARIOS.find(s => s.trigger.test(prompt));
+          }
+
+          if (demoScenario) {
+            console.log(`🎮 Demo Mode: Matched scenario "${demoScenario.name}" for freeform generation`);
+            
+            // 1. Run simulation timeline (Agent thinking process)
+            for (const event of demoScenario.timeline) {
+              // Skip code_generation event type for now, we handle it explicitly later
+              if (event.type === 'code_generation') continue;
+
+              sendEvent({
+                type: 'simulation_event',
+                data: { simulationEvent: event }
+              });
+              
+              await sleep(event.delay || 1000);
+            }
+
+            // 2. Mock Design Phase
+            const design: FreeformDesign = {
+              appName: demoScenario.spec.name,
+              description: demoScenario.spec.description,
+              features: demoScenario.spec.views.map(v => v.title), // Approximate from views
+              schema: {
+                name: 'Item', // Generic name
+                label: 'Item',
+                fields: demoScenario.spec.dataStore.fields.map(f => ({
+                  name: f.name,
+                  label: f.label,
+                  type: f.type as any,
+                  required: f.required
+                }))
+              },
+              uiComponents: ['Card', 'Button', 'Table', 'Form'],
+              interactions: ['Create Order', 'Update Status', 'Calculate Total'],
+              complexity: 'moderate'
+            };
+
+            sendEvent({
+              type: 'design',
+              data: { design, progress: 15, message: 'App designed!' }
+            });
+
+            await sleep(800);
+
+            // 3. Mock Code Generation
+            sendEvent({
+              type: 'progress',
+              data: { progress: 20, message: 'Generating code...' }
+            });
+
+            // Use the seeded code from the scenario
+            const fullCode = demoScenario.code.pageComponent;
+            const chunkSize = 50;
+            let chunkCount = 0;
+
+            for (let i = 0; i < fullCode.length; i += chunkSize) {
+              const chunk = fullCode.slice(i, i + chunkSize);
+              
+              sendEvent({
+                type: 'chunk',
+                data: {
+                  content: chunk,
+                  progress: Math.min(85, 20 + ((i / fullCode.length) * 65)),
+                }
+              });
+              
+              chunkCount++;
+              await sleep(20); // Fast typing simulation
+            }
+
+            // 4. Bundle and Save (Mocked for speed/reliability in demo)
+            sendEvent({
+              type: 'progress',
+              data: { progress: 90, message: 'Bundling app...' },
+            });
+            
+            await sleep(500);
+
+            const appIdToUse = existingAppId || generateId();
+
+            // Create bundle result manually since we have the code
+            const bundle = bundleCode({
+              appId: appIdToUse,
+              appCode: fullCode,
+              schema: design.schema,
+            });
+
+            // Save to DB
+            const app = await prisma.app.create({
+              data: {
+                id: appIdToUse,
+                userId: session.user.id,
+                name: design.appName,
+                description: design.description,
+                version: 'v2',
+                spec: design.schema as unknown as object,
+                config: { design, requiredBundles: ['utils'] } as unknown as object,
+                componentFiles: { 'App.tsx': fullCode, ...bundle.files } as unknown as object,
+                executionMode: 'preview', // Use preview mode for demo to avoid Docker dependency
+                data: [],
+                status: 'ACTIVE',
+                buildStatus: 'COMPLETED',
+              },
+            });
+
+            // Send files for viewer
+            for (const [filename, content] of Object.entries(bundle.files)) {
+              sendEvent({
+                type: 'file',
+                data: { filename, content },
+              });
+            }
+
+            sendEvent({
+              type: 'complete',
+              data: {
+                appId: app.id,
+                progress: 100,
+                message: 'App generated successfully!',
+              },
+            });
+
+            return; // End of demo flow
+          }
+
+          // --- STANDARD FLOW (Non-Demo) ---
+
           // Step 1: Design the app
           sendEvent({
             type: 'progress',
@@ -121,16 +248,8 @@ export async function POST(request: NextRequest) {
           let fullCode = '';
           let chunkCount = 0;
 
-          // #region agent log
-          fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:108',message:'Starting streaming code generation',data:{promptLength:prompt.length,designFeatures:design.features?.length},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H3'})}).catch(()=>{});
-          // #endregion
-
           try {
             for await (const result of freeformGenerator.streamGenerateCode(prompt, design)) {
-              // #region agent log
-              fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:115',message:'Received streaming result',data:{type:result.type,contentLength:result.content?.length,chunkCount},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H3'})}).catch(()=>{});
-              // #endregion
-
               if (result.type === 'chunk') {
                 fullCode += result.content;
                 chunkCount++;
@@ -150,13 +269,7 @@ export async function POST(request: NextRequest) {
                 fullCode = result.content;
               }
             }
-            // #region agent log
-            fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:127',message:'Streaming loop completed',data:{totalChunks:chunkCount,fullCodeLength:fullCode.length},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H3'})}).catch(()=>{});
-            // #endregion
           } catch (streamError) {
-            // #region agent log
-            fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:154',message:'Streaming loop failed',data:{errorMessage:streamError instanceof Error ? streamError.message : String(streamError)},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H3'})}).catch(()=>{});
-            // #endregion
             throw streamError; // Re-throw to be caught by outer try-catch
           }
 
@@ -166,10 +279,6 @@ export async function POST(request: NextRequest) {
             data: { progress: 90, message: 'Bundling app...' },
           });
 
-          // #region agent log
-          fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:135',message:'Starting code bundling',data:{fullCodeLength:fullCode.length,hasSchema:!!design.schema},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H4'})}).catch(()=>{});
-          // #endregion
-
           const appIdToUse = existingAppId || generateId();
           
           const bundle = bundleCode({
@@ -177,10 +286,6 @@ export async function POST(request: NextRequest) {
             appCode: fullCode,
             schema: design.schema,
           });
-
-          // #region agent log
-          fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:142',message:'Code bundling completed',data:{bundleSize:bundle.bundleSize,filesCount:Object.keys(bundle.files).length},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H4'})}).catch(()=>{});
-          // #endregion
 
           // Step 3.5: Server-side bundling (transpile TSX -> JS)
           let serverBundledCode: string | null = null;
@@ -196,14 +301,9 @@ export async function POST(request: NextRequest) {
             if (serverBundle.success) {
               serverBundledCode = serverBundle.code;
               requiredBundles = serverBundle.requiredBundles;
-              console.log('[generate-stream] Server bundling successful, size:', serverBundledCode.length);
-            } else {
-              console.warn('[generate-stream] Server bundling failed:', serverBundle.errors);
-              // Fall back to raw code - the runtime will handle it
             }
           } catch (bundleError) {
             console.error('[generate-stream] Server bundling error:', bundleError);
-            // Continue without server-bundled code
           }
 
           // Step 4: Save to database
@@ -213,10 +313,6 @@ export async function POST(request: NextRequest) {
           });
 
           let appId: string;
-
-          // #region agent log
-          fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:149',message:'Starting database save',data:{regenerate,existingAppId:!!existingAppId},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H5'})}).catch(()=>{});
-          // #endregion
 
           if (regenerate && existingAppId) {
             // Update existing app
@@ -247,7 +343,7 @@ export async function POST(request: NextRequest) {
                 config: { design, requiredBundles } as unknown as object,
                 componentFiles: bundle.files as unknown as object,
                 bundledCode: serverBundledCode,
-                executionMode: 'sandbox',
+                executionMode: 'preview', // Use preview mode for better development experience
                 data: [],
                 status: 'ACTIVE',
                 buildStatus: 'COMPLETED',
@@ -274,9 +370,6 @@ export async function POST(request: NextRequest) {
             });
           }
         } catch (error) {
-          // #region agent log
-          fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:201',message:'Caught generation error',data:{errorMessage:error instanceof Error ? error.message : String(error)},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H1'})}).catch(()=>{});
-          // #endregion
           console.error('Generation error:', error);
           sendEvent({
             type: 'error',
@@ -285,9 +378,6 @@ export async function POST(request: NextRequest) {
             },
           });
         } finally {
-          // #region agent log
-          fetch('http://127.0.0.1:7244/ingest/943e0f46-b287-498e-bc97-8654de1662dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate-stream/route.ts:209',message:'Closing controller in finally block',data:{controllerClosed},sessionId:'debug-session',runId:'stream-debug',hypothesisId:'H2'})}).catch(()=>{});
-          // #endregion
           controllerClosed = true;
           controller.close();
         }

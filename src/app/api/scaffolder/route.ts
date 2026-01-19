@@ -15,8 +15,8 @@ import { generateAppConfig, validateSpec } from '@/lib/scaffolder/compiler';
 import { generateImplementationPlan, formatPlanMessage } from '@/lib/scaffolder/plan-generator';
 import { generateAppCode, generateFallbackCode, type GeneratedCode } from '@/lib/scaffolder/code-generator';
 import type { BlueprintState, Message, ProjectSpec } from '@/lib/scaffolder/types';
-import { generateId } from '@/lib/utils';
-import { emitStatus, waitForConnection, getConnectionStats } from '@/lib/scaffolder/status/emitter';
+import { generateId, sleep } from '@/lib/utils';
+import { emitStatus, waitForConnection, getConnectionStats, emitEvent } from '@/lib/scaffolder/status/emitter';
 import { emitCodeChunk, emitCodeComplete, emitCodeError } from '@/lib/scaffolder/code-stream/emitter';
 import { 
   ScaffolderError, 
@@ -25,6 +25,8 @@ import {
   ValidationError, 
   DatabaseError 
 } from '@/lib/error-handling/scaffolder-errors';
+import { IS_DEMO_MODE } from '@/lib/config';
+import { DEMO_SCENARIOS, type DemoScenario, type SimulationEvent } from '@/lib/demo/seed-data';
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,7 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { action, conversationId, message, questionId, answer, tempConversationId } = body;
+    const { action, conversationId, message, questionId, answer, tempConversationId, appId } = body;
 
     switch (action) {
       case 'start':
@@ -47,6 +49,9 @@ export async function POST(request: NextRequest) {
       case 'finalize':
         return handleFinalize(session.user.id, conversationId);
       
+      case 'load':
+        return handleLoad(session.user.id, appId);
+
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
@@ -69,22 +74,88 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Load an existing conversation for an app
+async function handleLoad(userId: string, appId: string) {
+  if (!appId) {
+    return NextResponse.json({ error: 'App ID required' }, { status: 400 });
+  }
+
+  const conversation = await prisma.conversation.findFirst({
+    where: { appId, userId },
+    orderBy: { updatedAt: 'desc' },
+  });
+
+  if (!conversation) {
+    return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+  }
+
+  const state = conversation.spec as unknown as BlueprintState;
+  
+  return NextResponse.json({
+    conversationId: conversation.id,
+    messages: conversation.messages,
+    state: {
+      phase: state.phase,
+      spec: state.spec,
+      plan: state.plan,
+      questions: state.questions,
+      allQuestionsAnswered: state.questions ? !state.questions.some(q => !q.answered) : true,
+    },
+  });
+}
+
+// Helper to run demo simulation
+async function runSimulation(conversationId: string, demoScenario: DemoScenario) {
+  console.log(`🎮 Running simulation with conversation ID: ${conversationId}`);
+
+  // #region agent log hypothesis_2
+  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:runSimulation',message:'Running simulation',data:{conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_2'})}).catch(()=>{});
+  // #endregion
+
+  await sleep(500); // Give SSE connection time to establish
+
+  for (let i = 0; i < demoScenario.timeline.length; i++) {
+    const event = demoScenario.timeline[i];
+
+    // #region agent log hypothesis_2
+    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:runSimulation',message:'Emitting simulation event',data:{eventIndex:i,eventType:event.type,conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_2'})}).catch(()=>{});
+    // #endregion
+
+    emitEvent(conversationId, 'simulation_event', event);
+
+    await sleep(event.delay || 1000);
+
+    if (event.type === 'code_generation') {
+      // Handled separately by the parent container switching views
+      break;
+    }
+  }
+}
+
 // Start a new conversation with initial prompt
 async function handleStart(userId: string, userMessage: string, tempConversationId?: string) {
   // Use provided temp ID or generate one for status tracking
   const statusId = tempConversationId || generateId();
-  
+
   console.log(`\n🚀 === handleStart ===`);
   console.log(`📋 User message: "${userMessage}"`);
   console.log(`🔑 StatusId: ${statusId}`);
   console.log(`🔑 TempConversationId provided: ${tempConversationId || 'none'}`);
   console.log(`📊 Connection stats:`, getConnectionStats());
-  
+
+  // #region agent log hypothesis_1
+  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleStart',message:'Starting handleStart',data:{statusId,userMessage:userMessage.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_1'})}).catch(()=>{});
+  // #endregion
+
   // Wait for SSE connection to be ready (with timeout)
   // This ensures status messages are delivered reliably
   const connectionReady = await waitForConnection(statusId, 2000);
   console.log(`📡 SSE connection ready: ${connectionReady}`);
-  
+
+  // #region agent log hypothesis_1
+  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleStart',message:'Connection ready result',data:{connectionReady,connectionStats:getConnectionStats()},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_1'})}).catch(()=>{});
+  // #endregion
+
   // Emit: Starting to parse (will be buffered if connection not ready)
   emitStatus(statusId, 'parse', 'Analyzing your request...', {
     severity: 'info',
@@ -93,7 +164,23 @@ async function handleStart(userId: string, userMessage: string, tempConversation
   });
 
   // Parse the user's intent
-  const intent = await parseIntent(userMessage, statusId);
+  let intent = null;
+  let demoScenario: DemoScenario | undefined;
+
+  if (IS_DEMO_MODE) {
+    demoScenario = DEMO_SCENARIOS.find(s => s.trigger.test(userMessage));
+    if (demoScenario) {
+       console.log(`🎮 Demo Mode: Matched scenario "${demoScenario.name}"`);
+       intent = demoScenario.intent;
+       
+       // Add scenario ID to intent for tracking (hacky but effective)
+       (intent as any)._demoScenarioId = demoScenario.id;
+    }
+  }
+
+  if (!intent) {
+    intent = await parseIntent(userMessage, statusId);
+  }
   
   console.log(`✅ Intent parsed:`, JSON.stringify(intent, null, 2));
   
@@ -111,7 +198,13 @@ async function handleStart(userId: string, userMessage: string, tempConversation
   });
 
   // Generate probe questions
-  const questions = await generateProbeQuestions(intent, statusId);
+  let questions;
+  if (demoScenario) {
+    questions = demoScenario.questions;
+    console.log(`🎮 Demo Mode: Using ${questions.length} pre-generated questions`);
+  } else {
+    questions = await generateProbeQuestions(intent, statusId);
+  }
   
   console.log(`✅ Questions generated (${questions.length}):`);
   questions.forEach((q, i) => {
@@ -178,6 +271,12 @@ async function handleStart(userId: string, userMessage: string, tempConversation
       spec: state as unknown as object,
     },
   });
+
+  // Update the simulation to use the real conversation ID
+  if (demoScenario && questions.length === 0) {
+    // Only run simulation immediately if there are no questions
+    setTimeout(() => runSimulation(conversation.id, demoScenario), 500);
+  }
 
   // Emit: Complete
   emitStatus(statusId, 'probe', 'Ready to start!', {
@@ -268,6 +367,15 @@ async function handleAnswer(
       },
     });
   } else {
+    // All questions answered, check for demo simulation
+    const demoScenarioId = (state.intent as any)?._demoScenarioId;
+    if (IS_DEMO_MODE && demoScenarioId) {
+      const scenario = DEMO_SCENARIOS.find(s => s.id === demoScenarioId);
+      if (scenario) {
+        setTimeout(() => runSimulation(conversationId, scenario), 500);
+      }
+    }
+
     // All questions answered, build spec and generate implementation plan
     console.log(`\n🏗️ === Building Spec ===`);
     console.log(`📊 Final answers object:`, JSON.stringify(state.answers, null, 2));
@@ -297,7 +405,23 @@ async function handleAnswer(
 
     // Generate the implementation plan using LLM
     console.log(`\n🎯 === Generating Implementation Plan ===`);
-    const plan = await generateImplementationPlan(spec, conversationId);
+
+    let plan;
+    // Check for demo scenario in intent (stored in handleStart)
+    const planDemoScenarioId = (state.intent as any)?._demoScenarioId;
+
+    if (IS_DEMO_MODE && planDemoScenarioId) {
+      const scenario = DEMO_SCENARIOS.find(s => s.id === planDemoScenarioId);
+      if (scenario) {
+        console.log(`🎮 Demo Mode: Using pre-generated plan for "${scenario.name}"`);
+        plan = scenario.plan;
+      }
+    }
+    
+    if (!plan) {
+       plan = await generateImplementationPlan(spec, conversationId);
+    }
+    
     state.plan = plan;
     state.phase = 'plan';
 
@@ -368,6 +492,10 @@ async function handleFinalize(userId: string, conversationId: string) {
   console.log(`\n🏭 === handleFinalize ===`);
   console.log(`🔑 ConversationId: ${conversationId}`);
 
+  // #region agent log hypothesis_4
+  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleFinalize','message':'handleFinalize started','data':{userId,conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+  // #endregion
+
   emitStatus(conversationId, 'build', 'Starting app generation...', {
     severity: 'info',
     technicalDetails: 'Loading conversation spec',
@@ -376,9 +504,17 @@ async function handleFinalize(userId: string, conversationId: string) {
 
   let conversation;
   try {
+    // #region agent log hypothesis_4
+    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleFinalize','message':'Finding conversation','data':{conversationId,userId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+    // #endregion
+
     conversation = await prisma.conversation.findFirst({
       where: { id: conversationId, userId },
     });
+
+    // #region agent log hypothesis_4
+    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleFinalize','message':'Conversation found','data':{conversationId,found:!!conversation},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+    // #endregion
   } catch (dbError) {
     const error = new DatabaseError('find conversation', dbError instanceof Error ? dbError : undefined);
     console.error('❌ Database error:', error.toJSON());
@@ -416,8 +552,23 @@ async function handleFinalize(userId: string, conversationId: string) {
   console.log(`   Fields: ${state.spec.dataStore?.fields?.length || 0}`);
   console.log(`   Views: ${state.spec.views?.length || 0}`);
 
-  // Cast spec to ProjectSpec for type safety
-  const spec = state.spec as ProjectSpec;
+  // Cast spec to ProjectSpec for type safety, or use demo spec
+  let spec = state.spec as ProjectSpec;
+
+  // Check if this is a demo scenario and use the demo spec
+  const demoScenarioId = (state.intent as any)?._demoScenarioId;
+  if (IS_DEMO_MODE && demoScenarioId) {
+    const demoScenario = DEMO_SCENARIOS.find(s => s.id === demoScenarioId);
+    if (demoScenario) {
+      spec = demoScenario.spec;
+      // Update phase to picture for demo mode compilation
+      state.phase = 'picture';
+    }
+  }
+
+  // #region agent log hypothesis_4
+  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleFinalize','message':'Spec found, validating','data':{specName:spec.name,hasSpec:!!spec,isDemo:!!demoScenarioId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+  // #endregion
 
   emitStatus(conversationId, 'build', 'Validating app specification...', {
     severity: 'info',
@@ -427,6 +578,11 @@ async function handleFinalize(userId: string, conversationId: string) {
 
   // Validate the spec
   const validation = validateSpec(spec);
+
+  // #region agent log hypothesis_4
+  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleFinalize','message':'Validation result','data':{valid:validation.valid,errorsCount:validation.errors?.length || 0},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+  // #endregion
+
   if (!validation.valid) {
     const error = new ValidationError(validation.errors, validation.warnings || [], 'build');
     emitStatus(conversationId, 'build', 'Validation failed', {
@@ -462,6 +618,10 @@ async function handleFinalize(userId: string, conversationId: string) {
   // Create the app in the database with GENERATING status
   let app;
   try {
+    // #region agent log hypothesis_4
+    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleFinalize','message':'Creating app in database','data':{specName:spec.name,userId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+    // #endregion
+
     app = await prisma.app.create({
       data: {
         userId,
@@ -474,6 +634,10 @@ async function handleFinalize(userId: string, conversationId: string) {
         buildStatus: 'GENERATING',
       },
     });
+
+    // #region agent log hypothesis_4
+    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleFinalize','message':'App created successfully','data':{appId:app.id,appName:app.name},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
+    // #endregion
   } catch (dbError) {
     const error = new DatabaseError('create app', dbError instanceof Error ? dbError : undefined);
     console.error('❌ Database error creating app:', error.toJSON());
@@ -493,7 +657,7 @@ async function handleFinalize(userId: string, conversationId: string) {
   });
 
   // Generate code with streaming
-  const generatedCode: GeneratedCode = {
+  let generatedCode: GeneratedCode = {
     pageComponent: '',
     types: '',
   };
@@ -502,40 +666,77 @@ async function handleFinalize(userId: string, conversationId: string) {
   try {
     console.log(`\n🔧 === Starting Code Generation for ${app.id} ===`);
     
-    for await (const chunk of generateAppCode(spec, app.id)) {
-      generationLog.push({
-        timestamp: new Date().toISOString(),
-        message: `[${chunk.type}] ${chunk.content?.substring(0, 100) || 'chunk'}`,
-      });
+    // Check for demo scenario
+    const demoScenarioId = (state.intent as any)?._demoScenarioId;
+    let usedDemoCode = false;
 
-      if (chunk.type === 'status') {
-        emitStatus(conversationId, 'build', chunk.content, {
-          severity: 'info',
-          progress: Math.min(30 + Math.floor(chunk.progress * 0.6), 90),
+    if (IS_DEMO_MODE && demoScenarioId) {
+       const scenario = DEMO_SCENARIOS.find(s => s.id === demoScenarioId);
+       if (scenario) {
+         console.log(`🎮 Demo Mode: Using pre-generated code for "${scenario.name}"`);
+         
+         // Simulate streaming steps
+         emitStatus(conversationId, 'build', 'Designing component architecture...', { severity: 'info', progress: 40 });
+         await new Promise(resolve => setTimeout(resolve, 800));
+         
+         emitStatus(conversationId, 'build', 'Writing React components...', { severity: 'info', progress: 60 });
+         
+         // Emit chunks to simulate typing
+         const fullCode = scenario.code.pageComponent;
+         const chunkSize = 200;
+         for (let i = 0; i < fullCode.length; i += chunkSize) {
+            emitCodeChunk(conversationId, {
+               component: 'page',
+               code: fullCode.slice(i, i + chunkSize),
+               progress: Math.min(60 + (i / fullCode.length) * 30, 90)
+            });
+            await new Promise(resolve => setTimeout(resolve, 50));
+         }
+
+         generatedCode = scenario.code;
+         usedDemoCode = true;
+
+         // Emit completion signal
+         emitCodeComplete(conversationId);
+       }
+    }
+
+    if (!usedDemoCode) {
+      for await (const chunk of generateAppCode(spec, app.id)) {
+        generationLog.push({
+          timestamp: new Date().toISOString(),
+          message: `[${chunk.type}] ${chunk.content?.substring(0, 100) || 'chunk'}`,
         });
-      } else if (chunk.type === 'code') {
-        // Emit code chunk for real-time display
-        emitCodeChunk(conversationId, {
-          component: chunk.component || 'page',
-          code: chunk.content,
-          progress: chunk.progress,
-        });
-        
-        // Accumulate code
-        if (chunk.component === 'page') {
-          generatedCode.pageComponent += chunk.content;
-        } else if (chunk.component === 'types') {
-          generatedCode.types = (generatedCode.types || '') + chunk.content;
+
+        if (chunk.type === 'status') {
+          emitStatus(conversationId, 'build', chunk.content, {
+            severity: 'info',
+            progress: Math.min(30 + Math.floor(chunk.progress * 0.6), 90),
+          });
+        } else if (chunk.type === 'code') {
+          // Emit code chunk for real-time display
+          emitCodeChunk(conversationId, {
+            component: chunk.component || 'page',
+            code: chunk.content,
+            progress: chunk.progress,
+          });
+          
+          // Accumulate code
+          if (chunk.component === 'page') {
+            generatedCode.pageComponent += chunk.content;
+          } else if (chunk.component === 'types') {
+            generatedCode.types = (generatedCode.types || '') + chunk.content;
+          }
+        } else if (chunk.type === 'complete') {
+          // Final complete chunk contains the full cleaned code
+          generatedCode.pageComponent = chunk.content;
+          console.log(`✅ Code generation complete, length: ${chunk.content.length}`);
+          break;
+        } else if (chunk.type === 'error') {
+          console.error(`❌ Code generation error: ${chunk.content}`);
+          emitCodeError(conversationId, chunk.content);
+          throw new Error(chunk.content);
         }
-      } else if (chunk.type === 'complete') {
-        // Final complete chunk contains the full cleaned code
-        generatedCode.pageComponent = chunk.content;
-        console.log(`✅ Code generation complete, length: ${chunk.content.length}`);
-        break;
-      } else if (chunk.type === 'error') {
-        console.error(`❌ Code generation error: ${chunk.content}`);
-        emitCodeError(conversationId, chunk.content);
-        throw new Error(chunk.content);
       }
     }
   } catch (genError) {

@@ -27,6 +27,70 @@ export const HEARTBEAT_INTERVAL = 15000;
 export const MESSAGE_BUFFER_MAX_SIZE = 100;
 export const MESSAGE_BUFFER_MAX_AGE_MS = 60000; // 1 minute
 
+// Type definitions for simulation events
+export interface SimulationEventPayload {
+  type: string;
+  payload: any;
+}
+
+/**
+ * Emit a custom event to the SSE stream (e.g. for simulation)
+ */
+export function emitEvent(
+  conversationId: string,
+  type: string,
+  payload: any
+): boolean {
+  const eventMessage = {
+    type: type,
+    payload: payload
+  };
+
+  // #region agent log hypothesis_3
+  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'status/emitter.ts:emitEvent',message:'Attempting to emit event',data:{conversationId,type,hasController:globalStatusEmitters.has(conversationId),isHealthy:isControllerHealthy(conversationId)},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_3'})}).catch(()=>{});
+  // #endregion
+
+  // Check if we have a healthy controller
+  if (!isControllerHealthy(conversationId)) {
+    // For simulation events, we skip buffering for now as they are time-sensitive
+    // and usually occur after connection is established.
+    // If needed, we can add a separate buffer for events.
+    console.log(`⚠️ skipped emitEvent [${conversationId}] - no connection`);
+
+    // #region agent log hypothesis_3
+    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'status/emitter.ts:emitEvent',message:'Skipped - no healthy connection',data:{conversationId,type,controllerExists:globalStatusEmitters.has(conversationId)},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_3'})}).catch(()=>{});
+    // #endregion
+
+    return false;
+  }
+
+  const controller = globalStatusEmitters.get(conversationId)!;
+
+  try {
+    const data = `data: ${JSON.stringify(eventMessage)}\n\n`;
+    controller.enqueue(encoder.encode(data));
+    console.log(`📤 emitEvent [${conversationId}]: ${type}`);
+
+    // Update connection timestamp
+    connectionTimestamps.set(conversationId, Date.now());
+
+    // #region agent log hypothesis_3
+    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'status/emitter.ts:emitEvent',message:'Successfully emitted event',data:{conversationId,type},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_3'})}).catch(()=>{});
+    // #endregion
+
+    return true;
+  } catch (error) {
+    console.error(`❌ emitEvent failed [${conversationId}]:`, error);
+    cleanupConnection(conversationId);
+
+    // #region agent log hypothesis_3
+    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'status/emitter.ts:emitEvent',message:'Failed to emit event',data:{conversationId,type,error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_3'})}).catch(()=>{});
+    // #endregion
+
+    return false;
+  }
+}
+
 /**
  * Cleanup connection state
  */

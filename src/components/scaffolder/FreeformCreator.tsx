@@ -12,6 +12,7 @@ import {
 import { Button, ChatInput, ChatMessage } from '@/components/ui';
 import { CodeStreamViewer } from './CodeStreamViewer';
 import { LivePreview } from './LivePreview';
+import { AgentStream } from './agent/AgentStream';
 import { useCodeStream } from '@/hooks/useCodeStream';
 import { cn } from '@/lib/utils';
 
@@ -40,6 +41,7 @@ export function FreeformCreator({ className = '' }: FreeformCreatorProps) {
     design,
     appId,
     error,
+    simulationEvents,
     startGeneration,
     reset,
   } = useCodeStream({
@@ -64,7 +66,7 @@ export function FreeformCreator({ className = '' }: FreeformCreatorProps) {
   // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isStreaming, appId]);
+  }, [messages, isStreaming, appId, simulationEvents]);
 
   const handleSubmit = useCallback(async (text: string) => {
     if (!text.trim() || isStreaming) return;
@@ -92,6 +94,9 @@ export function FreeformCreator({ className = '' }: FreeformCreatorProps) {
     }
   }, [appId, router]);
 
+  // Determine if code view should be shown (after code starts generating)
+  const hasCode = code.length > 0;
+
   return (
     <div className={cn('flex flex-col h-full', className)}>
       {/* Messages Area */}
@@ -105,8 +110,18 @@ export function FreeformCreator({ className = '' }: FreeformCreatorProps) {
                 <ChatMessage key={msg.id} message={msg} />
               ))}
 
-              {/* Streaming/Generation State */}
-              {isStreaming && (
+              {/* Agent Thinking Stream */}
+              {simulationEvents.length > 0 && (
+                 <div className="animate-fade-in my-6">
+                   <AgentStream 
+                     events={simulationEvents} 
+                     isComplete={!isStreaming && !!appId} 
+                   />
+                 </div>
+              )}
+
+              {/* Code Generation State */}
+              {isStreaming && hasCode && (
                 <div className="animate-slide-up space-y-4">
                   <div className="flex items-center justify-between">
                      <div className="flex items-center gap-2 text-sm text-text-secondary">
@@ -204,7 +219,7 @@ export function FreeformCreator({ className = '' }: FreeformCreatorProps) {
 function WelcomeScreen({ onSelect }: { onSelect: (text: string) => void }) {
   return (
     <div className="text-center py-16 md:py-10 animate-fade-in">
-      <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-accent-yellow/10 to-orange-900/20 rounded-full border border-accent-yellow/30 mb-8">
+      <div className="inline-flex items-center gap-2 px-4 py-2 bg-surface-elevated/50 rounded-full border border-accent-yellow/30 mb-8">
         <Sparkles className="w-4 h-4 text-accent-yellow" />
         <span className="text-sm text-accent-yellow">Freeform AI Generation</span>
       </div>
@@ -218,24 +233,33 @@ function WelcomeScreen({ onSelect }: { onSelect: (text: string) => void }) {
       </p>
       
       <div className="space-y-3 max-w-lg mx-auto">
-        <ExamplePrompt text="A habit tracker with daily streaks and weekly summaries" onSelect={onSelect} />
-        <ExamplePrompt text="A Kanban board for managing tasks with drag and drop" onSelect={onSelect} />
-        <ExamplePrompt text="An expense tracker with categories and monthly charts" onSelect={onSelect} />
+        <ExamplePrompt 
+          text="An order tracker for a Hong Kong cha chaan teng restaurant" 
+          onClick={() => onSelect("An order tracker for a Hong Kong cha chaan teng restaurant")}
+        />
+        <ExamplePrompt 
+          text="A habit tracker with daily streaks and weekly summaries" 
+          onClick={() => onSelect("A habit tracker with daily streaks and weekly summaries")}
+        />
+        <ExamplePrompt 
+          text="A Kanban board for managing tasks with drag and drop" 
+          onClick={() => onSelect("A Kanban board for managing tasks with drag and drop")}
+        />
       </div>
     </div>
   );
 }
 
-function ExamplePrompt({ text, onSelect }: { text: string; onSelect: (text: string) => void }) {
+function ExamplePrompt({ text, onClick }: { text: string; onClick?: () => void }) {
   return (
-    <button
-      onClick={() => onSelect(text)}
-      className="w-full p-4 rounded-xl bg-surface-elevated border border-outline-light text-left hover:border-accent-yellow/50 transition-all hover:bg-surface-elevated/80 group"
+    <div 
+      onClick={onClick}
+      className="p-4 rounded-xl bg-surface-elevated border border-outline-light text-left hover:border-accent-yellow/50 transition-colors cursor-pointer group"
     >
       <div className="flex items-center justify-between">
         <p className="text-text-secondary group-hover:text-text-primary transition-colors">{text}</p>
         <Wand2 className="w-4 h-4 text-accent-yellow opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
-    </button>
+    </div>
   );
 }
