@@ -45,6 +45,18 @@ class NebulaSupervisor {
   }
 
   /**
+   * Force restart a worker
+   */
+  public async restartWorker(appId: string): Promise<Worker> {
+    const existing = this.workers.get(appId);
+    if (existing) {
+      existing.worker.terminate();
+      this.workers.delete(appId);
+    }
+    return this.getWorker(appId);
+  }
+
+  /**
    * Spawn a new worker thread for an app
    */
   private async spawnWorker(appId: string): Promise<Worker> {
@@ -68,10 +80,6 @@ class NebulaSupervisor {
       }
     });
 
-    // #region agent log hypothesis_4
-    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'supervisor.ts:spawnWorker',message:'Prisma lookup result',data:{searchQuery:appId,found:!!app,realId:app?.id,subdomain:app?.subdomain},timestamp:Date.now(),sessionId:'debug-session',runId:'subdomain-fix',hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
-
     if (!app || !app.subdomain) {
       throw new Error(`App ${appId} not found or missing subdomain`);
     }
@@ -79,10 +87,6 @@ class NebulaSupervisor {
     const workerPath = path.resolve(process.cwd(), 'src/lib/nebula/worker.ts');
     
     const code = (app.componentFiles as any)?.['App.tsx'] || (app.generatedCode as any)?.pageComponent || '';
-
-    // #region agent log hypothesis_4
-    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'supervisor.ts:spawnWorker',message:'Spawning worker',data:{workerPath,appId:app.id,codeLength:code.length,hasComponentFiles:!!app.componentFiles,hasGeneratedCode:!!app.generatedCode},timestamp:Date.now(),sessionId:'debug-session',runId:'subdomain-fix',hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
 
     const worker = new Worker(workerPath, {
       workerData: {
@@ -104,48 +108,28 @@ class NebulaSupervisor {
 
     this.workers.set(app.id, { worker, info }); // Store by real CUID
 
-    // #region agent log hypothesis_4
-    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'supervisor.ts:spawnWorker',message:'Spawning worker',data:{workerPath,appId:app.id},timestamp:Date.now(),sessionId:'debug-session',runId:'subdomain-fix',hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
-
     worker.on('message', (msg: WorkerMessage) => {
-      // #region agent log hypothesis_4
-      fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'supervisor.ts:onMessage',message:'Worker message',data:{appId:app.id,type:msg.type},timestamp:Date.now(),sessionId:'debug-session',runId:'subdomain-fix',hypothesisId:'H4'})}).catch(()=>{});
-      // #endregion
       this.handleWorkerMessage(msg);
     });
     worker.on('error', (err) => {
       console.error(`Worker error for app ${app.id}:`, err);
       info.status = 'error';
       info.error = err.message;
-      // #region agent log hypothesis_4
-      fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'supervisor.ts:onError',message:'Worker error',data:{appId:app.id,error:err.message,stack:err.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'subdomain-fix',hypothesisId:'H4'})}).catch(()=>{});
-      // #endregion
     });
     worker.on('exit', (code) => {
       if (code !== 0) {
         console.error(`Worker for app ${app.id} exited with code ${code}`);
       }
-      // #region agent log hypothesis_4
-      fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'supervisor.ts:onExit',message:'Worker exit',data:{appId:app.id,code},timestamp:Date.now(),sessionId:'debug-session',runId:'subdomain-fix',hypothesisId:'H4'})}).catch(()=>{});
-      // #endregion
       this.workers.delete(app.id);
     });
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        // #region agent log hypothesis_4
-        fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'supervisor.ts:timeout',message:'Worker start timeout',data:{appId:app.id,expectedId:app.id},timestamp:Date.now(),sessionId:'debug-session',runId:'subdomain-fix',hypothesisId:'H4'})}).catch(()=>{});
-        // #endregion
         reject(new Error(`Worker start timeout for app ${app.id}`));
       }, 15000);
       
       const onReady = (msg: WorkerMessage) => {
         if (msg.type === 'ready') {
-          // #region agent log hypothesis_4
-          fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'supervisor.ts:onReady',message:'Received ready message',data:{appId:msg.appId,expectedId:app.id,match:msg.appId === app.id},timestamp:Date.now(),sessionId:'debug-session',runId:'subdomain-fix',hypothesisId:'H4'})}).catch(()=>{});
-          // #endregion
-          
           if (msg.appId === app.id) {
             clearTimeout(timeout);
             info.status = 'running';
@@ -165,10 +149,6 @@ class NebulaSupervisor {
     if (entry) {
       entry.info.lastActivity = Date.now();
     }
-
-    // #region agent log hypothesis_4
-    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'supervisor.ts:handleWorkerMessage',message:'Received message from worker',data:{appId,type,correlationId,hasCorrelation:!!correlationId,isPending:correlationId ? this.pendingRequests.has(correlationId) : false,payload},timestamp:Date.now(),sessionId:'debug-session',runId:'subdomain-fix',hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
 
     if (correlationId && this.pendingRequests.has(correlationId)) {
       const resolve = this.pendingRequests.get(correlationId);

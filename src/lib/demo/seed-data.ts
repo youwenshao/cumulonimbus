@@ -1,7 +1,7 @@
 import { ParsedIntent, ProbeQuestion, ImplementationPlan } from '@/lib/scaffolder/types';
 import { GeneratedCode } from '@/lib/scaffolder/code-generator';
 
-export type SimulationEventType = 'thinking' | 'tool_call' | 'web_search' | 'code_generation' | 'message';
+export type SimulationEventType = 'thinking' | 'tool_call' | 'web_search' | 'code_generation' | 'message' | 'user_message';
 
 export interface SimulationEvent {
   type: SimulationEventType;
@@ -309,7 +309,7 @@ function App() {
                 <Coffee className="w-5 h-5 text-white" />
               </div>
               <div>
-                <                h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+                <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
                   Cha Chaan Teng <span className="text-accent-yellow">LaoBan</span>
                 </h1>
               </div>

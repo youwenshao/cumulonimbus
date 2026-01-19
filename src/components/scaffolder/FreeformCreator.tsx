@@ -1,38 +1,59 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { AgentStream } from './agent/AgentStream';
 import { CodeViewer } from './CodeViewer';
 import { LivePreview } from './LivePreview';
 import { SimulationEvent } from '@/lib/demo/seed-data';
 import { GeneratedCode } from '@/lib/scaffolder/code-generator';
-import { Button, StatusPanel, ThemeToggle, Logo } from '@/components/ui';
+import { Button, StatusPanel, ThemeToggle, Logo, ChatInput, ChatMessage } from '@/components/ui';
 import { Sparkles, Terminal, Rocket, CheckCircle, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface FreeformCreatorProps {
-  onComplete?: (appId: string) => void;
+  onComplete?: (appId: string, subdomain?: string) => void;
   onCancel?: () => void;
+}
+
+interface Message {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
 }
 
 type Phase = 'thinking' | 'coding' | 'deploying' | 'preview';
 
 export function FreeformCreator({ onComplete, onCancel }: FreeformCreatorProps) {
-  const [phase, setPhase] = useState<Phase>('thinking');
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [simulationEvents, setSimulationEvents] = useState<SimulationEvent[]>([]);
-  const [generatedCode, setGeneratedCode] = useState<GeneratedCode | null>(null);
-  const [generatedAppId, setGeneratedAppId] = useState<string | null>(null);
-  const [isComplete, setIsComplete] = useState(false);
+  const [phase, setPhase] = React.useState<Phase>('thinking');
+  const [conversationId, setConversationId] = React.useState<string | null>(null);
+  const [simulationEvents, setSimulationEvents] = React.useState<SimulationEvent[]>([]);
+  const [generatedCode, setGeneratedCode] = React.useState<GeneratedCode | null>(null);
+  const [generatedAppId, setGeneratedAppId] = React.useState<string | null>(null);
+  const [generatedSubdomain, setGeneratedSubdomain] = React.useState<string | null>(null);
+  const [isComplete, setIsComplete] = React.useState(false);
+  const [messages, setMessages] = React.useState<Message[]>([]);
+  const [isThinking, setIsThinking] = React.useState(false);
   
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const eventSourceRef = React.useRef<EventSource | null>(null);
+  const conversationIdRef = React.useRef<string | null>(null);
+  const didInitialize = React.useRef(false);
+  const didTriggerFinalize = React.useRef(false);
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  React.useEffect(() => {
+    if (didInitialize.current) return;
+    didInitialize.current = true;
+
     startDemo();
     return () => {
       eventSourceRef.current?.close();
     };
   }, []);
+
+  React.useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, simulationEvents, phase]);
 
   const startDemo = async () => {
     const tempId = `demo-${Date.now()}`;
@@ -41,7 +62,7 @@ export function FreeformCreator({ onComplete, onCancel }: FreeformCreatorProps) 
     const es = new EventSource(`/api/scaffolder/status/${tempId}`);
     eventSourceRef.current = es;
 
-    es.onmessage = (event) => {
+    es.onmessage = async (event) => {
       const data = JSON.parse(event.data);
       if (data.type === 'simulation_event') {
         const simEvent: SimulationEvent = data.payload;
@@ -49,6 +70,39 @@ export function FreeformCreator({ onComplete, onCancel }: FreeformCreatorProps) 
         
         if (simEvent.type === 'code_generation') {
           setPhase('coding');
+          
+          // Trigger the actual code generation on the server
+          if (didTriggerFinalize.current) return;
+          didTriggerFinalize.current = true;
+
+          try {
+            const currentConvId = conversationIdRef.current;
+            if (currentConvId) {
+              const res = await fetch('/api/scaffolder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'finalize',
+                  conversationId: currentConvId,
+                }),
+              });
+
+              const finalizeData = await res.json();
+
+              if (res.ok && finalizeData.app) {
+                setGeneratedAppId(finalizeData.app.id);
+                setGeneratedSubdomain(finalizeData.app.subdomain);
+                setPhase('preview');
+                setIsComplete(true);
+                toast.success('App generated successfully!');
+              } else {
+                toast.error('Generation failed: ' + (finalizeData.error || 'Unknown error'));
+              }
+            }
+          } catch (err) {
+            console.error('Failed to trigger finalize:', err);
+            toast.error('Error during generation');
+          }
         }
       }
     };
@@ -66,6 +120,7 @@ export function FreeformCreator({ onComplete, onCancel }: FreeformCreatorProps) 
       const data = await res.json();
       if (res.ok) {
         setConversationId(data.conversationId);
+        conversationIdRef.current = data.conversationId;
         // Switch event source to real ID
         es.close();
         const realEs = new EventSource(`/api/scaffolder/status/${data.conversationId}`);
@@ -82,32 +137,30 @@ export function FreeformCreator({ onComplete, onCancel }: FreeformCreatorProps) 
 
   const handleCodeGenComplete = async (code: GeneratedCode) => {
     setGeneratedCode(code);
-    setPhase('deploying');
-    
-    // Auto-finalize
-    try {
-      const res = await fetch('/api/scaffolder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'finalize',
-          conversationId,
-        }),
-      });
+  };
 
-      const data = await res.json();
-      if (res.ok && data.app) {
-        setGeneratedAppId(data.app.id);
-        setPhase('preview');
-        setIsComplete(true);
-        toast.success('App deployed successfully!');
-      } else {
-        toast.error('Deployment failed');
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error('Error during deployment');
-    }
+  const handleSubmit = async (text: string) => {
+    if (!text.trim() || isThinking) return;
+
+    // Add user message
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: text
+    };
+    setMessages(prev => [...prev, userMsg]);
+
+    setIsThinking(true);
+    
+    // Simulate assistant response for demo
+    setTimeout(() => {
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: "I've noted your request. I'm adjusting the generation logic accordingly."
+      }]);
+      setIsThinking(false);
+    }, 1500);
   };
 
   return (
@@ -142,9 +195,16 @@ export function FreeformCreator({ onComplete, onCancel }: FreeformCreatorProps) 
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-5xl mx-auto space-y-12">
-          {/* Phase 1: Thinking */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-5xl mx-auto p-8 space-y-12">
+          {/* Chat Messages */}
+          <div className="space-y-6">
+            {messages.map((msg) => (
+              <ChatMessage key={msg.id} message={msg} />
+            ))}
+          </div>
+
+          {/* Phase 1: Thinking (Agent Stream) */}
           <section className={cn(
             "transition-all duration-500",
             phase === 'thinking' ? "opacity-100 translate-y-0" : "opacity-40 scale-[0.98]"
@@ -157,7 +217,7 @@ export function FreeformCreator({ onComplete, onCancel }: FreeformCreatorProps) 
           </section>
 
           {/* Phase 2: Coding */}
-          {(phase === 'coding' || phase === 'deploying' || phase === 'preview') && (
+          {(phase === 'coding' || phase === 'deploying') && (
             <section className={cn(
               "transition-all duration-500 delay-300",
               phase === 'coding' || phase === 'deploying' ? "opacity-100 translate-y-0" : "opacity-40 scale-[0.98]"
@@ -188,17 +248,25 @@ export function FreeformCreator({ onComplete, onCancel }: FreeformCreatorProps) 
               </div>
               <LivePreview 
                 appId={generatedAppId} 
+                subdomain={generatedSubdomain || undefined}
                 appName="Cha Chaan Teng LaoBan"
-                onAccept={() => onComplete?.(generatedAppId)}
+                onAccept={() => onComplete?.(generatedAppId, generatedSubdomain || undefined)}
               />
             </section>
           )}
+          <div ref={messagesEndRef} />
         </div>
       </main>
+
+      {/* Input Area */}
+      <div className="p-8 pt-0 max-w-5xl mx-auto w-full">
+        <ChatInput
+          onSubmit={handleSubmit}
+          disabled={isComplete}
+          isThinking={isThinking}
+          placeholder="Describe changes or new requirements..."
+        />
+      </div>
     </div>
   );
-}
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ');
 }

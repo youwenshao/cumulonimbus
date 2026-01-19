@@ -48,15 +48,16 @@ export function AgentStream({ events, isComplete }: AgentStreamProps) {
             );
 
           case 'message':
+          case 'user_message':
             return (
               <ChatMessage
                 key={index}
                 message={{
                   id: `msg-${index}`,
-                  role: 'assistant',
+                  role: event.type === 'user_message' ? 'user' : 'assistant',
                   content: event.content,
                 }}
-                enableTypewriter={true}
+                enableTypewriter={event.type === 'message'}
               />
             );
 

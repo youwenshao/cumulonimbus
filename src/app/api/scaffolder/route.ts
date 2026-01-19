@@ -111,7 +111,7 @@ async function handleLoad(userId: string, appId: string) {
 async function runSimulation(conversationId: string, demoScenario: DemoScenario) {
   console.log(`🎮 Running simulation with conversation ID: ${conversationId}`);
 
-  await sleep(500); // Give SSE connection time to establish
+  await sleep(1500); // Give SSE connection more time to establish in demo mode
 
   for (let i = 0; i < demoScenario.timeline.length; i++) {
     const event = demoScenario.timeline[i];
@@ -870,6 +870,7 @@ async function handleFinalize(userId: string, conversationId: string) {
       id: app.id,
       name: app.name,
       description: app.description,
+      subdomain: app.subdomain,
       url: `/apps/${app.id}`,
     },
     generatedCode,

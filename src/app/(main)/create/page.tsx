@@ -70,7 +70,13 @@ function CreateContent() {
   if (mode === 'demo') {
     return (
       <FreeformCreator 
-        onComplete={(id) => router.push(`/apps/${id}`)}
+        onComplete={(id, subdomain) => {
+          if (subdomain) {
+            window.location.href = `http://${subdomain}.localhost:3000`;
+          } else {
+            router.push(`/apps/${id}`);
+          }
+        }}
         onCancel={() => setMode(null)}
       />
     );
@@ -299,6 +305,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
   // Build phase state
   const [buildPhase, setBuildPhase] = useState<'idle' | 'generating' | 'preview' | 'complete'>('idle');
   const [generatedAppId, setGeneratedAppId] = useState<string | null>(null);
+  const [generatedSubdomain, setGeneratedSubdomain] = useState<string | null>(null);
   const [generatedCode, setGeneratedCode] = useState<GeneratedCode | null>(null);
   const [showCodeView, setShowCodeView] = useState(false);
   const [showIssueDialog, setShowIssueDialog] = useState(false);
@@ -693,6 +700,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
       if (response.ok && data.app) {
         setCurrentPhase('complete');
         setGeneratedAppId(data.app.id);
+        setGeneratedSubdomain(data.app.subdomain);
 
         // Store generated code if available
         if (data.generatedCode) {
@@ -787,7 +795,12 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
         eventSourceRef.current.close();
         eventSourceRef.current = null;
       }
-      router.push(`/apps/${generatedAppId}`);
+      
+      if (generatedSubdomain) {
+        window.location.href = `http://${generatedSubdomain}.localhost:3000`;
+      } else {
+        router.push(`/apps/${generatedAppId}`);
+      }
     }
   };
 
@@ -997,6 +1010,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
                   <div className="animate-slide-up mt-8">
                     <LivePreview
                       appId={generatedAppId}
+                      subdomain={generatedSubdomain || undefined}
                       appName={state?.spec?.name || 'Your App'}
                       onReportIssue={handleReportIssue}
                       onAccept={handleAcceptApp}

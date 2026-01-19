@@ -18,49 +18,56 @@ export async function GET(
     appId = host.split('.')[0];
   }
 
-  // #region agent log hypothesis_4
-  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'serve/route.ts',message:'Processing request',data:{appId,host,url:request.url,searchParams:Object.fromEntries(url.searchParams.entries())},timestamp:Date.now(),sessionId:'debug-session',runId:'subdomain-fix',hypothesisId:'H4'})}).catch(()=>{});
-  // #endregion
-
   if (!appId) {
     return NextResponse.json({ error: 'App ID required' }, { status: 400 });
   }
 
   try {
+    let body = null;
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      try {
+        body = await request.text();
+      } catch (e) {
+        console.warn('Failed to read request body');
+      }
+    }
+
+    const path = url.searchParams.get('originalPath') || url.pathname;
+
     const payload = {
       method: request.method,
-      path: url.pathname,
+      path: path,
       query: Object.fromEntries(url.searchParams.entries()),
       headers: Object.fromEntries(request.headers.entries()),
+      body: body
     };
 
     const response = await nebulaSupervisor.request(appId, payload);
-
-    // #region agent log hypothesis_4
-    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'serve/route.ts',message:'Response from supervisor',data:{appId,responseStatus:response.status,hasBody:!!response.body,bodyLength:response.body?.length,error:response.error},timestamp:Date.now(),sessionId:'debug-session',runId:'subdomain-fix',hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
 
     if (response.error) {
       return NextResponse.json({ error: response.error }, { status: 500 });
     }
 
     // Determine Content-Type based on path
-    let contentType = 'text/html';
-    const originalPath = url.searchParams.get('originalPath') || url.pathname;
-    if (originalPath.endsWith('.js')) contentType = 'application/javascript';
-    else if (originalPath.endsWith('.css')) contentType = 'text/css';
-    else if (originalPath.endsWith('.png')) contentType = 'image/png';
-    else if (originalPath.endsWith('.jpg') || originalPath.endsWith('.jpeg')) contentType = 'image/jpeg';
-    else if (originalPath.endsWith('.svg')) contentType = 'image/svg+xml';
-    else if (originalPath.endsWith('.json')) contentType = 'application/json';
+    let contentType = response.headers?.['Content-Type'] || response.headers?.['content-type'];
+    if (!contentType) {
+      const originalPath = url.searchParams.get('originalPath') || url.pathname;
+      if (originalPath.endsWith('.js')) contentType = 'application/javascript';
+      else if (originalPath.endsWith('.css')) contentType = 'text/css';
+      else if (originalPath.endsWith('.png')) contentType = 'image/png';
+      else if (originalPath.endsWith('.jpg') || originalPath.endsWith('.jpeg')) contentType = 'image/jpeg';
+      else if (originalPath.endsWith('.svg')) contentType = 'image/svg+xml';
+      else if (originalPath.endsWith('.json')) contentType = 'application/json';
+      else contentType = 'text/html';
+    }
 
     // Nebula apps return a simplified response object
     // { status, body, headers }
     return new Response(response.body, {
       status: response.status || 200,
       headers: {
-        'Content-Type': contentType,
         ...response.headers,
+        'Content-Type': contentType,
       },
     });
   } catch (error: any) {

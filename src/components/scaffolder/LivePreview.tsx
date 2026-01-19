@@ -20,6 +20,7 @@ type DeviceView = 'mobile' | 'tablet' | 'desktop';
 
 interface LivePreviewProps {
   appId: string;
+  subdomain?: string;
   appName: string;
   onReportIssue?: () => void;
   onAccept?: () => void;
@@ -34,6 +35,7 @@ const DEVICE_DIMENSIONS: Record<DeviceView, { width: number; label: string }> = 
 
 export function LivePreview({ 
   appId, 
+  subdomain,
   appName, 
   onReportIssue, 
   onAccept,
@@ -64,10 +66,15 @@ export function LivePreview({
   };
 
   const handleOpenInNewTab = () => {
-    window.open(`/apps/${appId}`, '_blank');
+    const url = subdomain 
+      ? `http://${subdomain}.localhost:3000` 
+      : `/apps/${appId}`;
+    window.open(url, '_blank');
   };
 
-  const previewUrl = `/apps/${appId}?preview=true`;
+  const previewUrl = subdomain 
+    ? `http://${subdomain}.localhost:3000`
+    : `/apps/${appId}?preview=true`;
   const currentDevice = DEVICE_DIMENSIONS[deviceView];
 
   return (

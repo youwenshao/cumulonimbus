@@ -48,17 +48,26 @@ export function emitEvent(
 
   // Check if we have a healthy controller
   if (!isControllerHealthy(conversationId)) {
-    // For simulation events, we skip buffering for now as they are time-sensitive
-    // and usually occur after connection is established.
-    // If needed, we can add a separate buffer for events.
-    console.log(`⚠️ skipped emitEvent [${conversationId}] - no connection`);
-
+    // Buffer simulation events for reliability
+    if (!pendingMessages.has(conversationId)) {
+      pendingMessages.set(conversationId, []);
+    }
+    const buffer = pendingMessages.get(conversationId)!;
+    if (buffer.length < MESSAGE_BUFFER_MAX_SIZE) {
+      buffer.push(eventMessage as any);
+    }
+    
+    console.log(`⚠️ buffered emitEvent [${conversationId}] - no connection`);
+    scheduleBufferFlush(conversationId);
     return false;
   }
 
   const controller = globalStatusEmitters.get(conversationId)!;
 
   try {
+    // First flush any buffered messages
+    flushBufferedMessages(conversationId);
+
     const data = `data: ${JSON.stringify(eventMessage)}\n\n`;
     controller.enqueue(encoder.encode(data));
     console.log(`📤 emitEvent [${conversationId}]: ${type}`);
@@ -142,7 +151,9 @@ export function isControllerHealthy(conversationId: string): boolean {
   const controller = globalStatusEmitters.get(conversationId);
   const timestamp = connectionTimestamps.get(conversationId);
   
-  if (!controller) return false;
+  if (!controller) {
+    return false;
+  }
   
   // Check if connection is too old without activity
   if (timestamp && Date.now() - timestamp > MESSAGE_BUFFER_MAX_AGE_MS * 2) {
