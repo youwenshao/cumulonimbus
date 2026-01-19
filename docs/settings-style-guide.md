@@ -36,6 +36,10 @@ All tokens are backed by CSS variables, providing automatic dark mode support.
 
 ## Interactive Elements
 
+- Health Monitoring:
+  - Connection Test: `btn-ghost` with `RefreshCw` icon for manual status refresh.
+  - Availability: `CheckCircle2` (green) or `XCircle` (red) icons for real-time provider health.
+  - Error Feedback: `AlertCircle` with `text-red-400` for provider-specific error messages.
 - Tabs:
   - Base: `text-sm font-medium`, rounded `rounded-xl`.
   - Active: `bg-accent-yellow/15 text-accent-yellow border border-accent-yellow/40`.

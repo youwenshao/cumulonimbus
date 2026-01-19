@@ -384,7 +384,7 @@ export default function Home() {
             <div className="flex items-center gap-4 mb-4 md:mb-0">
               <Logo size="sm" />
               <span className="text-text-tertiary text-sm">
-                © 2026 Sonatina Technologies Hong Kong. All rights reserved.
+                © 2026 Sentimento Technologies Hong Kong. All rights reserved.
               </span>
             </div>
 
@@ -400,7 +400,7 @@ export default function Home() {
                 <Twitter className="w-5 h-5" />
               </a>
               <a 
-                href="https://github.com/sonatina-tech" 
+                href="https://github.com/Sentimento-tech" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="w-10 h-10 rounded-lg bg-surface-elevated hover:bg-surface-base flex items-center justify-center text-text-tertiary hover:text-text-primary transition-colors"
@@ -409,7 +409,7 @@ export default function Home() {
                 <Github className="w-5 h-5" />
               </a>
               <a 
-                href="https://linkedin.com/company/sonatina-tech" 
+                href="https://linkedin.com/company/Sentimento-tech" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="w-10 h-10 rounded-lg bg-surface-elevated hover:bg-surface-base flex items-center justify-center text-text-tertiary hover:text-text-primary transition-colors"

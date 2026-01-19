@@ -1,5 +1,10 @@
 # Settings Page Style Changelog
 
+## 2026-01-20
+
+- Added documentation for LLM provider health monitoring UI tokens and interactive elements.
+- Updated settings style guide with connection test and availability indicator patterns.
+
 ## 2026-01-15
 
 - Updated Settings header to use serif typography and enhanced subtitle.

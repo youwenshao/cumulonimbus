@@ -355,7 +355,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
       
       loadConversation();
     }
-  }, [appId]);
+  }, [appId, conversationId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -823,7 +823,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
 
       handleFinalize();
     }
-  }, [isAgentStreaming, buildPhase, conversationId]); // Removed isLoading from dependencies
+  }, [isAgentStreaming, buildPhase, conversationId, handleFinalize, isLoading]);
 
   return (
     <div className="h-screen bg-surface-base flex">

@@ -39,13 +39,19 @@ Cumulonimbus is an intent-to-application platform that allows non-technical user
   - **Dynamic Schema Generation**: AI generates custom data schemas from natural language
   - **Flexible Layout System**: Layout DSL with responsive templates (dashboard, sidebar, kanban)
   - **Live Preview**: Real-time preview updates during app generation with SSE streaming
-  - **Iterative Refinement**: Conversational refinement with history tracking
+  - **Iterative Refinement**: Conversational refinement with history tracking and undo support
   - **Modular Code Generation**: Separate component files with TypeScript types and validators
   - **Feature Flags**: Gradual rollout with beta user access and percentage-based enabling
-- **Multiple View Modes**: Toggle between table, chart, or both views
-- **Data Visualization**: Advanced charting with grouping, aggregation, and multiple chart types
-- **Responsive Design**: Works seamlessly on desktop and mobile devices
-- **Dark Theme UI**: Modern, accessible interface with custom color palette
+- **Multi-Model Intelligence**: 
+  - Smart LLM routing across Ollama, LM Studio, OpenRouter, and DeepSeek
+  - Automatic health monitoring and failover between providers
+  - Local-first priority for privacy and zero-cost generation
+- **App Hosting & Isolation**:
+  - Secure application hosting using Docker containers
+  - Isolated SQLite databases for each generated application
+  - Watch code generation in real-time with SSE streaming
+- **Interactive Dashboard**: Manage, search, and monitor all your generated apps in one place
+- **Responsive & Atmospheric UI**: Modern design system with dark mode support and glassmorphism effects
 
 ## Tech Stack
 
@@ -63,12 +69,14 @@ Cumulonimbus is an intent-to-application platform that allows non-technical user
 
 ### Prerequisites
 
-- Node.js 18+
-- PostgreSQL database
+- **Node.js**: 18.0.0 or higher
+- **PostgreSQL**: 14+ (for the platform database)
+- **Docker**: (Optional) Required for app hosting and isolation features
 - **AI Options** (choose one or more):
-  - **Local AI - Ollama**: Ollama (recommended for privacy and offline use)
-  - **Local AI - LM Studio**: LM Studio (alternative local option with any model)
-  - **Cloud AI**: Qwen API key from OpenRouter (free tier available)
+  - **Local AI - Ollama**: Recommended for privacy and offline use
+  - **Local AI - LM Studio**: Alternative local option with any model
+  - **Cloud AI - DeepSeek**: High-performance hosted models (requires API key)
+  - **Cloud AI - OpenRouter**: Universal API for multiple cloud models (requires API key)
 
 ### Installation
 
@@ -166,7 +174,7 @@ Cumulonimbus includes advanced V2 features for enhanced app generation:
 
 ### Quick Setup Script
 
-For a faster setup, you can use the setup script:
+For a faster setup, you can use the interactive setup script:
 ```bash
 npm run setup
 ```
@@ -174,18 +182,11 @@ npm run setup
 This will:
 - Install dependencies
 - Copy `.env.example` to `.env` (if it doesn't exist)
-- Set up the database
-- Generate Prisma client
+- Set up the database and generate the Prisma client
+- Check for AI providers (Ollama) and runtime dependencies (Docker)
+- Provide next steps for configuration
 
-**Note**: Configure your AI providers in `.env`:
-- For Ollama: Install Ollama and run `ollama pull qwen3-coder:30b` and `ollama pull qwen3:4b`
-- For LM Studio: Download from lmstudio.ai and load your preferred models
-- For OpenRouter: Get an API key from openrouter.ai
-
-**Note**: The setup script will configure environment variables for Ollama, LM Studio, and OpenRouter. Make sure to:
-- Install and start Ollama if using Ollama
-- Install and start LM Studio if using LM Studio
-- Add your OpenRouter API key if using cloud AI
+**Note**: The setup script provides a guided experience to get you up and running quickly. After running it, follow the printed instructions to finalize your AI and database configuration.
 
 ## Project Structure
 
