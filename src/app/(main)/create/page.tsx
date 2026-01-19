@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { NavigationRail, ContextPanel, ChatInput, ChatMessage, Button, StatusPanel, ThemeToggle, Logo, ParticleBackground, Card } from '@/components/ui';
 import type { StatusMessage, StatusPhase } from '@/components/ui';
-import { ImplementationPlan, CodeViewer, LivePreview, FreeformCreator } from '@/components/scaffolder';
+import { ImplementationPlan, CodeViewer, LivePreview, FreeformCreator, WelcomeScreen } from '@/components/scaffolder';
 import { AgentStream } from '@/components/scaffolder/agent/AgentStream';
 import { SimulationEvent } from '@/lib/demo/seed-data';
 import type { ProjectSpec, ImplementationPlan as ImplementationPlanType } from '@/lib/scaffolder/types';
@@ -222,11 +222,11 @@ function ModeSelector({ onSelect }: { onSelect: (mode: CreateMode) => void }) {
           <ThemeToggle />
         </div>
 
-        <h1 className="text-4xl font-serif font-medium text-text-primary mb-4">
+        <h1 className="text-4xl font-serif font-medium text-text-primary mb-4 text-center">
           Create Your App
         </h1>
         <p className="text-text-secondary text-center max-w-lg mb-12">
-          Choose how you&apos;d like to build your app
+          Choose the best way to bring your vision to life.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl w-full">
@@ -241,12 +241,12 @@ function ModeSelector({ onSelect }: { onSelect: (mode: CreateMode) => void }) {
             <div className="mb-4">
               <Sparkles className="w-8 h-8 text-accent-yellow" />
             </div>
-            <h3 className="text-2xl font-medium font-serif text-text-primary mb-2">Freeform Demo</h3>
+            <h3 className="text-2xl font-medium font-serif text-text-primary mb-2">Freeform</h3>
             <p className="text-sm text-text-secondary">
-              Watch the AI build the "Cha Chaan Teng LaoBan" app from scratch. No input required.
+              Describe your idea and watch the AI build it in real-time. A hands-free experience for rapid prototyping.
             </p>
             <div className="mt-4 text-xs text-text-tertiary group-hover:text-text-secondary">
-              Hands-free experience
+              Best for: Fast experimentation, rapid prototyping
             </div>
           </button>
 
@@ -1073,40 +1073,10 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
   );
 }
 
-function WelcomeScreen({ onSelect }: { onSelect: (text: string) => void }) {
-  return (
-    <div className="text-center py-16 animate-fade-in">
-      <h2 className="text-3xl font-serif font-medium text-text-primary mb-4">
-        What would you like to <span className="bg-accent-yellow px-2 py-1 text-black">create</span>?
-      </h2>
-        <p className="text-text-secondary max-w-md mx-auto mb-8 leading-relaxed">
-        Describe your idea in natural language. I&apos;ll guide you through the process of building a personalized web application.
-      </p>
-      <div className="space-y-3 max-w-lg mx-auto">
-        <ExamplePrompt 
-          text="An order tracker for a Hong Kong cha chaan teng restaurant" 
-          onClick={() => onSelect("An order tracker for a Hong Kong cha chaan teng restaurant")}
-        />
-      </div>
-    </div>
-  );
-}
-
 export default function CreatePage() {
   return (
     <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}>
       <CreateContent />
     </Suspense>
-  );
-}
-
-function ExamplePrompt({ text, onClick }: { text: string; onClick?: () => void }) {
-  return (
-    <div 
-      onClick={onClick}
-      className="p-4 rounded-xl bg-surface-elevated border border-outline-light text-left hover:border-accent-yellow/50 transition-colors cursor-pointer group"
-    >
-      <p className="text-text-secondary group-hover:text-text-primary">{text}</p>
-    </div>
   );
 }

@@ -7,6 +7,7 @@ import { LivePreview } from './LivePreview';
 import { SimulationEvent } from '@/lib/demo/seed-data';
 import { GeneratedCode } from '@/lib/scaffolder/code-generator';
 import { Button, StatusPanel, ThemeToggle, Logo, ChatInput, ChatMessage } from '@/components/ui';
+import { WelcomeScreen } from './WelcomeScreen';
 import { Sparkles, Terminal, Rocket, CheckCircle, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -42,10 +43,8 @@ export function FreeformCreator({ onComplete, onCancel }: FreeformCreatorProps) 
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    if (didInitialize.current) return;
-    didInitialize.current = true;
-
-    startDemo();
+    // We no longer auto-start the demo here. 
+    // It will be started when the user selects a prompt or sends a message.
     return () => {
       eventSourceRef.current?.close();
     };
@@ -55,55 +54,69 @@ export function FreeformCreator({ onComplete, onCancel }: FreeformCreatorProps) 
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, simulationEvents, phase]);
 
-  const startDemo = async () => {
+  const startDemo = async (initialMessage?: string) => {
     const tempId = `demo-${Date.now()}`;
     
+    // Add initial user message if provided to simulate the chat starting
+    if (initialMessage) {
+      const userMsg: Message = {
+        id: `user-init-${Date.now()}`,
+        role: 'user',
+        content: initialMessage
+      };
+      setMessages(prev => [...prev, userMsg]);
+    }
+
     // Connect to status stream
     const es = new EventSource(`/api/scaffolder/status/${tempId}`);
     eventSourceRef.current = es;
 
     es.onmessage = async (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'simulation_event') {
-        const simEvent: SimulationEvent = data.payload;
-        setSimulationEvents(prev => [...prev, simEvent]);
-        
-        if (simEvent.type === 'code_generation') {
-          setPhase('coding');
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'simulation_event') {
+          const simEvent: SimulationEvent = data.payload;
+          setSimulationEvents(prev => [...prev, simEvent]);
           
-          // Trigger the actual code generation on the server
-          if (didTriggerFinalize.current) return;
-          didTriggerFinalize.current = true;
+          if (simEvent.type === 'code_generation') {
+            setPhase('coding');
+            
+            // Trigger the actual code generation on the server
+            if (didTriggerFinalize.current) return;
+            didTriggerFinalize.current = true;
 
-          try {
-            const currentConvId = conversationIdRef.current;
-            if (currentConvId) {
-              const res = await fetch('/api/scaffolder', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  action: 'finalize',
-                  conversationId: currentConvId,
-                }),
-              });
+            try {
+              const currentConvId = conversationIdRef.current;
+              if (currentConvId) {
+                const res = await fetch('/api/scaffolder', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    action: 'finalize',
+                    conversationId: currentConvId,
+                  }),
+                });
 
-              const finalizeData = await res.json();
+                const finalizeData = await res.json();
 
-              if (res.ok && finalizeData.app) {
-                setGeneratedAppId(finalizeData.app.id);
-                setGeneratedSubdomain(finalizeData.app.subdomain);
-                setPhase('preview');
-                setIsComplete(true);
-                toast.success('App generated successfully!');
-              } else {
-                toast.error('Generation failed: ' + (finalizeData.error || 'Unknown error'));
+                if (res.ok && finalizeData.app) {
+                  setGeneratedAppId(finalizeData.app.id);
+                  setGeneratedSubdomain(finalizeData.app.subdomain);
+                  setPhase('preview');
+                  setIsComplete(true);
+                  toast.success('App generated successfully!');
+                } else {
+                  toast.error('Generation failed: ' + (finalizeData.error || 'Unknown error'));
+                }
               }
+            } catch (err) {
+              console.error('Failed to trigger finalize:', err);
+              toast.error('Error during generation');
             }
-          } catch (err) {
-            console.error('Failed to trigger finalize:', err);
-            toast.error('Error during generation');
           }
         }
+      } catch (err) {
+        console.error('Failed to parse message:', err);
       }
     };
 
@@ -142,6 +155,12 @@ export function FreeformCreator({ onComplete, onCancel }: FreeformCreatorProps) 
   const handleSubmit = async (text: string) => {
     if (!text.trim() || isThinking) return;
 
+    if (simulationEvents.length === 0) {
+      // If we haven't started the demo yet, start it with this message
+      startDemo(text);
+      return;
+    }
+
     // Add user message
     const userMsg: Message = {
       id: Date.now().toString(),
@@ -166,93 +185,106 @@ export function FreeformCreator({ onComplete, onCancel }: FreeformCreatorProps) 
   return (
     <div className="flex flex-col h-full bg-surface-base">
       <header className="border-b border-outline-mid bg-surface-base px-8 py-6">
-        <div className="flex items-center justify-between max-w-6xl mx-auto w-full">
-          <div className="flex items-center gap-3">
-            <Sparkles className="w-6 h-6 text-accent-yellow animate-pulse" />
-            <h1 className="text-2xl font-serif font-medium text-text-primary">
-              Freeform <span className="text-accent-yellow">Demo</span>
-            </h1>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-serif font-medium text-text-primary">Create</h1>
+            <p className="text-sm text-text-secondary mt-1">Freeform Mode</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-surface-elevated border border-outline-light">
               <div className={cn(
                 "w-2 h-2 rounded-full animate-pulse",
-                isComplete ? "bg-green-500" : "bg-accent-yellow"
+                isComplete ? "bg-green-500" : (simulationEvents.length > 0 ? "bg-accent-yellow" : "bg-text-tertiary")
               )} />
               <span className="text-xs font-mono text-text-secondary uppercase tracking-wider">
-                {phase === 'thinking' && 'Analyzing Intent'}
+                {simulationEvents.length === 0 && 'Awaiting Input'}
+                {simulationEvents.length > 0 && phase === 'thinking' && 'Analyzing Intent'}
                 {phase === 'coding' && 'Generating Code'}
                 {phase === 'deploying' && 'Deploying to Nebula'}
                 {phase === 'preview' && 'Ready for Use'}
               </span>
             </div>
-            {onCancel && (
-              <Button variant="ghost" size="sm" onClick={onCancel}>
-                Exit Demo
-              </Button>
-            )}
+            <div className="flex gap-2">
+              <ThemeToggle />
+              {onCancel && (
+                <Button variant="ghost" size="sm" onClick={onCancel}>
+                  Change Mode
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-5xl mx-auto p-8 space-y-12">
-          {/* Chat Messages */}
-          <div className="space-y-6">
-            {messages.map((msg) => (
-              <ChatMessage key={msg.id} message={msg} />
-            ))}
-          </div>
-
-          {/* Phase 1: Thinking (Agent Stream) */}
-          <section className={cn(
-            "transition-all duration-500",
-            phase === 'thinking' ? "opacity-100 translate-y-0" : "opacity-40 scale-[0.98]"
-          )}>
-            <div className="flex items-center gap-2 mb-6">
-              <Terminal className="w-5 h-5 text-text-tertiary" />
-              <h2 className="text-lg font-medium text-text-secondary uppercase tracking-widest text-xs">Agent Intelligence Stream</h2>
-            </div>
-            <AgentStream events={simulationEvents} isComplete={phase !== 'thinking'} />
-          </section>
-
-          {/* Phase 2: Coding */}
-          {(phase === 'coding' || phase === 'deploying') && (
-            <section className={cn(
-              "transition-all duration-500 delay-300",
-              phase === 'coding' || phase === 'deploying' ? "opacity-100 translate-y-0" : "opacity-40 scale-[0.98]"
-            )}>
-              <div className="flex items-center gap-2 mb-6">
-                <Terminal className="w-5 h-5 text-text-tertiary" />
-                <h2 className="text-lg font-medium text-text-secondary uppercase tracking-widest text-xs">Real-time Code Generation</h2>
+          {messages.length === 0 && simulationEvents.length === 0 ? (
+            <WelcomeScreen 
+              onSelect={(text) => startDemo(text)} 
+              isDemo={true} 
+            />
+          ) : (
+            <>
+              {/* Chat Messages */}
+              <div className="space-y-6">
+                {messages.map((msg) => (
+                  <ChatMessage key={msg.id} message={msg} />
+                ))}
               </div>
-              <CodeViewer 
-                conversationId={conversationId!} 
-                onComplete={handleCodeGenComplete}
-              />
-            </section>
-          )}
 
-          {/* Phase 3: Preview */}
-          {phase === 'preview' && generatedAppId && (
-            <section className="animate-fade-in translate-y-0">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <Rocket className="w-5 h-5 text-accent-yellow" />
-                  <h2 className="text-lg font-medium text-text-primary">App Deployed</h2>
-                </div>
-                <div className="flex items-center gap-2 text-green-500 bg-green-500/10 px-3 py-1 rounded-full border border-green-500/20">
-                  <CheckCircle className="w-4 h-4" />
-                  <span className="text-xs font-bold uppercase tracking-wider">Production Ready</span>
-                </div>
-              </div>
-              <LivePreview 
-                appId={generatedAppId} 
-                subdomain={generatedSubdomain || undefined}
-                appName="Cha Chaan Teng LaoBan"
-                onAccept={() => onComplete?.(generatedAppId, generatedSubdomain || undefined)}
-              />
-            </section>
+              {/* Phase 1: Thinking (Agent Stream) */}
+              {simulationEvents.length > 0 && (
+                <section className={cn(
+                  "transition-all duration-500",
+                  phase === 'thinking' ? "opacity-100 translate-y-0" : "opacity-40 scale-[0.98]"
+                )}>
+                  <div className="flex items-center gap-2 mb-6">
+                    <Terminal className="w-5 h-5 text-text-tertiary" />
+                    <h2 className="text-lg font-medium text-text-secondary uppercase tracking-widest text-xs">Agent Intelligence Stream</h2>
+                  </div>
+                  <AgentStream events={simulationEvents} isComplete={phase !== 'thinking'} />
+                </section>
+              )}
+
+              {/* Phase 2: Coding */}
+              {(phase === 'coding' || phase === 'deploying') && (
+                <section className={cn(
+                  "transition-all duration-500 delay-300",
+                  phase === 'coding' || phase === 'deploying' ? "opacity-100 translate-y-0" : "opacity-40 scale-[0.98]"
+                )}>
+                  <div className="flex items-center gap-2 mb-6">
+                    <Terminal className="w-5 h-5 text-text-tertiary" />
+                    <h2 className="text-lg font-medium text-text-secondary uppercase tracking-widest text-xs">Real-time Code Generation</h2>
+                  </div>
+                  <CodeViewer 
+                    conversationId={conversationId!} 
+                    onComplete={handleCodeGenComplete}
+                  />
+                </section>
+              )}
+
+              {/* Phase 3: Preview */}
+              {phase === 'preview' && generatedAppId && (
+                <section className="animate-fade-in translate-y-0">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2">
+                      <Rocket className="w-5 h-5 text-accent-yellow" />
+                      <h2 className="text-lg font-medium text-text-primary">App Deployed</h2>
+                    </div>
+                    <div className="flex items-center gap-2 text-green-500 bg-green-500/10 px-3 py-1 rounded-full border border-green-500/20">
+                      <CheckCircle className="w-4 h-4" />
+                      <span className="text-xs font-bold uppercase tracking-wider">Production Ready</span>
+                    </div>
+                  </div>
+                  <LivePreview 
+                    appId={generatedAppId} 
+                    subdomain={generatedSubdomain || undefined}
+                    appName="Cha Chaan Teng LaoBan"
+                    onAccept={() => onComplete?.(generatedAppId, generatedSubdomain || undefined)}
+                  />
+                </section>
+              )}
+            </>
           )}
           <div ref={messagesEndRef} />
         </div>

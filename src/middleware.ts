@@ -20,10 +20,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  // #region agent log hypothesis_3
-  fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'middleware.ts:24',message:'Incoming request',data:{host,pathname,url:request.url,cookies:request.cookies.getAll().map(c => c.name)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-  // #endregion
-
   // --- Nebula Subdomain Routing ---
   const isSubdomain = host !== domain && host.endsWith(`.${domain}`);
   
@@ -35,10 +31,6 @@ export async function middleware(request: NextRequest) {
     url.searchParams.set('appId', subdomain);
     url.searchParams.set('originalPath', pathname);
     
-    // #region agent log hypothesis_3
-    fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'middleware.ts:39',message:'Rewriting subdomain request',data:{from:host + pathname,to:url.toString(),subdomain},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-    // #endregion
-
     return NextResponse.rewrite(url);
   }
 

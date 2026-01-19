@@ -7,6 +7,7 @@
 // Type definitions for code chunks
 export interface CodeChunk {
   id: string;
+  type: 'chunk' | 'complete' | 'error' | 'connected';
   component: 'page' | 'form' | 'table' | 'chart' | 'types' | 'error' | 'complete';
   code: string;
   progress: number;
@@ -54,7 +55,9 @@ export function flushBufferedChunks(conversationId: string) {
   for (const chunk of buffer) {
     try {
       const data = `data: ${JSON.stringify(chunk)}\n\n`;
-      controller.enqueue(encoder.encode(data));
+      const encodedData = encoder.encode(data);
+      console.log(`📤 Code Stream: Flushing buffered chunk type: ${chunk.type}, length: ${encodedData.length}`);
+      controller.enqueue(encodedData);
     } catch (error) {
       console.error(`❌ Failed to flush code chunk:`, error);
       break;
@@ -95,13 +98,14 @@ export function isControllerHealthy(conversationId: string): boolean {
  */
 export function emitCodeChunk(
   conversationId: string,
-  chunk: Omit<CodeChunk, 'id' | 'timestamp'>
+  chunk: Omit<CodeChunk, 'id' | 'timestamp' | 'type'>
 ): boolean {
   const codeChunk: CodeChunk = {
     id: `code-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    type: chunk.component === 'complete' ? 'complete' : (chunk.component === 'error' ? 'error' : 'chunk'),
     ...chunk,
     timestamp: new Date().toISOString(),
-  };
+  } as CodeChunk;
 
   // Check if we have a healthy controller
   if (!isControllerHealthy(conversationId)) {
@@ -118,7 +122,9 @@ export function emitCodeChunk(
   // Then send the current chunk
   try {
     const data = `data: ${JSON.stringify(codeChunk)}\n\n`;
-    controller.enqueue(encoder.encode(data));
+    const encodedData = encoder.encode(data);
+    console.log(`📤 Code Stream: Emitting chunk for ${conversationId}, type: ${codeChunk.type}, length: ${encodedData.length}`);
+    controller.enqueue(encodedData);
     return true;
   } catch (error) {
     console.error(`❌ Failed to emit code chunk:`, error);

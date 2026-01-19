@@ -485,14 +485,6 @@ function AppCard({
     ? `${protocol}://${app.subdomain}.${domain}`
     : null;
 
-  // #region agent log hypothesis_1
-  useEffect(() => {
-    if (liveUrl) {
-      fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DashboardContent.tsx:AppCard',message:'Generated liveUrl',data:{appId:app.id,subdomain:app.subdomain,liveUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'subdomain-fix',hypothesisId:'H1'})}).catch(()=>{});
-    }
-  }, [liveUrl, app.id, app.subdomain]);
-  // #endregion
-
   return (
     <Card
       variant="outlined"

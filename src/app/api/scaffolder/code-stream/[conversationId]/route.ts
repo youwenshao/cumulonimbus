@@ -49,7 +49,9 @@ export async function GET(
           timestamp: new Date().toISOString(),
           bufferedCount: pendingCodeChunks.get(conversationId)?.length || 0,
         };
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(connectedMsg)}\n\n`));
+        const encodedData = encoder.encode(`data: ${JSON.stringify(connectedMsg)}\n\n`);
+        console.log(`📡 Code Stream: Sending connected message for ${conversationId}, length: ${encodedData.length}`);
+        controller.enqueue(encodedData);
         
         // Flush any buffered chunks immediately
         flushBufferedChunks(conversationId);
