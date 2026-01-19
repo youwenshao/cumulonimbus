@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { NavigationRail, ContextPanel, ChatInput, ChatMessage, Button, StatusPanel, ThemeToggle, Logo, ParticleBackground, Card } from '@/components/ui';
 import type { StatusMessage, StatusPhase } from '@/components/ui';
-import { ImplementationPlan, CodeViewer, LivePreview } from '@/components/scaffolder';
+import { ImplementationPlan, CodeViewer, LivePreview, FreeformCreator } from '@/components/scaffolder';
 import { AgentStream } from '@/components/scaffolder/agent/AgentStream';
 import { SimulationEvent } from '@/lib/demo/seed-data';
 import type { ProjectSpec, ImplementationPlan as ImplementationPlanType } from '@/lib/scaffolder/types';
@@ -35,7 +35,7 @@ interface ConversationState {
   allQuestionsAnswered?: boolean;
 }
 
-type CreateMode = 'guided' | 'v2';
+type CreateMode = 'guided' | 'v2' | 'demo';
 
 function CreateContent() {
   const router = useRouter();
@@ -54,6 +54,8 @@ function CreateContent() {
       setMode('guided');
     } else if (useV2 || queryMode === 'v2') {
       setMode('v2');
+    } else if (queryMode === 'demo') {
+      setMode('demo');
     } else if (appId) {
       // Default to guided mode if editing an app
       setMode('guided');
@@ -63,6 +65,15 @@ function CreateContent() {
   // Show mode selector if no mode is set
   if (!mode) {
     return <ModeSelector onSelect={setMode} />;
+  }
+
+  if (mode === 'demo') {
+    return (
+      <FreeformCreator 
+        onComplete={(id) => router.push(`/apps/${id}`)}
+        onCancel={() => setMode(null)}
+      />
+    );
   }
   
   // Render advanced IDE landing page for v2 mode
@@ -212,7 +223,27 @@ function ModeSelector({ onSelect }: { onSelect: (mode: CreateMode) => void }) {
           Choose how you&apos;d like to build your app
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl w-full">
+          {/* Freeform Demo Mode */}
+          <button
+            onClick={() => onSelect('demo')}
+            className="p-6 bg-surface-elevated/50 border border-accent-yellow/30 rounded-xl text-left hover:border-accent-yellow hover:bg-surface-elevated transition-all group relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 p-2">
+              <div className="bg-accent-yellow text-black text-[10px] font-bold px-2 py-0.5 rounded-bl-lg uppercase tracking-tighter">Demo</div>
+            </div>
+            <div className="mb-4">
+              <Sparkles className="w-8 h-8 text-accent-yellow" />
+            </div>
+            <h3 className="text-2xl font-medium font-serif text-text-primary mb-2">Freeform Demo</h3>
+            <p className="text-sm text-text-secondary">
+              Watch the AI build the "Cha Chaan Teng LaoBan" app from scratch. No input required.
+            </p>
+            <div className="mt-4 text-xs text-text-tertiary group-hover:text-text-secondary">
+              Hands-free experience
+            </div>
+          </button>
+
           {/* Guided Mode */}
           <button
             onClick={() => onSelect('guided')}

@@ -15,7 +15,8 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "build:demo": "cd demo-site && npm install && npm run build && cd .. && rm -rf public/demo-static && mkdir -p public/demo-static && cp -r demo-site/dist/client/* public/demo-static/"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

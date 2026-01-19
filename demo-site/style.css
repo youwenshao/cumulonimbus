@@ -1,0 +1,36 @@
+@import "tailwindcss";
+@config "./tailwind.config.ts";
+
+:root {
+  --surface-base: 255 255 255;
+  --surface-layer: 241 245 249;
+  --surface-elevated: 248 250 252;
+  --outline-light: 226 232 240;
+  --outline-mid: 203 213 225;
+  --text-primary: 15 23 42;
+  --text-secondary: 71 85 105;
+  --text-tertiary: 100 116 139;
+  --accent-yellow: 252 160 0;
+  --pastel-blue: 107 177 224;
+  --pastel-green: 139 219 177;
+  --pastel-yellow: 240 216 144;
+  --pastel-purple: 200 176 240;
+}
+
+.dark {
+  --surface-base: 10 10 10;
+  --surface-layer: 17 17 17;
+  --surface-elevated: 26 26 26;
+  --outline-light: 45 45 45;
+  --outline-mid: 51 51 51;
+  --text-primary: 255 255 255;
+  --text-secondary: 204 204 204;
+  --text-tertiary: 136 136 136;
+  --accent-yellow: 252 160 0;
+}
+
+@layer base {
+  body {
+    @apply bg-surface-base text-text-primary antialiased;
+  }
+}

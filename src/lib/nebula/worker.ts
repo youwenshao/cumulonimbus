@@ -76,6 +76,10 @@ async function start() {
     // 3. Execution (Server-side)
     let requestHandler: (req: any) => Promise<any>;
 
+    // SSR utilities
+    const React = require('react');
+    const ReactDOMServer = require('react-dom/server');
+
     // Default handler for UI-only apps
     const defaultHandler = async (req: any) => {
       // Fetch latest data if needed
@@ -98,6 +102,34 @@ async function start() {
         }
       });
 
+      // Perform SSR
+      let ssrHtml = '';
+      try {
+        const ssrResult = await esbuild.transform(code, {
+          loader: 'tsx',
+          format: 'cjs',
+          target: 'node18',
+        });
+        
+        const mod = { exports: {} as any };
+        const execFn = new Function('React', 'require', 'module', 'exports', ssrResult.code);
+        execFn(React, require, mod, mod.exports);
+        
+        const AppToRender = mod.exports.default || mod.exports.App || Object.values(mod.exports).find(v => typeof v === 'function');
+        
+        if (AppToRender) {
+          const APP_PROPS = {
+            appId,
+            name: currentName,
+            description: currentDesc,
+            initialData: currentData
+          };
+          ssrHtml = ReactDOMServer.renderToString(React.createElement(AppToRender, APP_PROPS));
+        }
+      } catch (err: any) {
+        console.warn(`[Worker ${appId}] SSR failed:`, err.message);
+      }
+
       return {
         status: 200,
         body: `
@@ -112,9 +144,9 @@ async function start() {
     <script type="importmap">
     {
       "imports": {
-        "react": "https://esm.sh/react@18",
-        "react-dom": "https://esm.sh/react-dom@18",
-        "react-dom/client": "https://esm.sh/react-dom@18/client",
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom": "https://esm.sh/react-dom@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
         "lucide-react": "https://esm.sh/lucide-react@0.468.0",
         "framer-motion": "https://esm.sh/framer-motion@11.15.0",
         "date-fns": "https://esm.sh/date-fns@3.6.0",
@@ -135,9 +167,29 @@ async function start() {
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
-                        surface: { base: '#000000', elevated: '#111111', layer: '#1a1a1a' },
-                        text: { primary: '#ffffff', secondary: '#a1a1aa', tertiary: '#71717a' },
-                        accent: { yellow: '#facc15' }
+                        surface: { 
+                          base: '#000000', 
+                          elevated: '#111111', 
+                          layer: '#1a1a1a' 
+                        },
+                        text: { 
+                          primary: '#ffffff', 
+                          secondary: '#a1a1aa', 
+                          tertiary: '#71717a' 
+                        },
+                        accent: { 
+                          yellow: '#facc15' 
+                        },
+                        // Sync with main site tokens
+                        'surface-base': '#000000',
+                        'surface-layer': '#111111',
+                        'surface-elevated': '#1a1a1a',
+                        'text-primary': '#ffffff',
+                        'text-secondary': '#a1a1aa',
+                        'text-tertiary': '#71717a',
+                        'accent-yellow': '#facc15',
+                        'outline-light': '#2d2d2d',
+                        'outline-mid': '#3f3f46'
                     }
                 }
             }
@@ -148,18 +200,18 @@ async function start() {
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #000; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-        #root { min-h-screen; }
+        #root { min-height: 100vh; }
     </style>
 </head>
 <body class="bg-black text-white">
-    <div id="root">
+    <div id="root">${ssrHtml || `
         <div class="h-screen flex items-center justify-center">
             <div class="text-center">
                 <div class="w-12 h-12 border-2 border-accent-yellow border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                 <p class="text-text-secondary animate-pulse">Launching ${currentName}...</p>
             </div>
         </div>
-    </div>
+    `}</div>
 
     <script type="module">
         import React from 'react';
@@ -168,6 +220,15 @@ async function start() {
         // Mock Globals
         window.React = React;
         window.process = { env: { NODE_ENV: 'development' } };
+        
+        // Global Error Handling
+        window.onerror = (message, source, lineno, colno, error) => {
+          console.error('Nebula Runtime Error:', { message, source, lineno, colno, error });
+          return false;
+        };
+        window.onunhandledrejection = (event) => {
+          console.error('Nebula Unhandled Rejection:', event.reason);
+        };
         
         const APP_PROPS = {
             appId: "${appId}",
@@ -183,7 +244,7 @@ async function start() {
             
             const addRecord = async (record) => {
                 const newRecord = { ...record, id: Math.random().toString(36).substr(2, 9), createdAt: new Date().toISOString() };
-                setData(prev => [...prev, newRecord]);
+                setData(prev => [newRecord, ...prev]);
                 return newRecord;
             };
             
@@ -199,37 +260,31 @@ async function start() {
         };
 
         // App Component Injection
-        try {
-            console.log('Nebula: Starting app injection');
-            // We use a blob to load the transpiled ESM code as a module
-            const code = \`${browserResult.code.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`;
-            const blob = new Blob([code], { type: 'text/javascript' });
-            const url = URL.createObjectURL(blob);
-            
-            const module = await import(url);
-            console.log('Nebula: Module imported', Object.keys(module));
-            const AppToRender = module.default || module.App || Object.values(module).find(v => typeof v === 'function');
-            
-            if (!AppToRender) throw new Error('Could not find App component in module exports');
+        async function hydrate() {
+            try {
+                console.log('Nebula: Starting app injection');
+                const code = \`${browserResult.code.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`;
+                const blob = new Blob([code], { type: 'text/javascript' });
+                const url = URL.createObjectURL(blob);
+                
+                const module = await import(url);
+                const AppToRender = module.default || module.App || Object.values(module).find(v => typeof v === 'function');
+                
+                if (!AppToRender) throw new Error('Could not find App component in module exports');
 
-            const root = ReactDOM.createRoot(document.getElementById('root'));
-            root.render(React.createElement(AppToRender, APP_PROPS));
-            console.log('Nebula: App render triggered');
-            
-            fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'browser-shell',message:'App rendered successfully',data:{appId:APP_PROPS.appId},timestamp:Date.now(),sessionId:'debug-session',runId:'subdomain-fix',hypothesisId:'H4'})}).catch(()=>{});
-        } catch (err) {
-            console.error('Nebula Render Error:', err);
-            fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'browser-shell',message:'Render error',data:{appId:APP_PROPS.appId,error:err.message,stack:err.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'subdomain-fix',hypothesisId:'H4'})}).catch(()=>{});
-
-            document.getElementById('root').innerHTML = \`
-                <div class="p-10 text-red-500 max-w-3xl mx-auto">
-                    <h1 class="text-3xl font-bold mb-6">Runtime Error</h1>
-                    <div class="bg-gray-900 p-6 rounded-xl border border-red-500/30">
-                        <pre class="text-sm font-mono whitespace-pre-wrap">\${err.stack || err.message}</pre>
-                    </div>
-                </div>
-            \`;
+                const root = ReactDOM.hydrateRoot(document.getElementById('root'), React.createElement(AppToRender, APP_PROPS));
+                console.log('Nebula: App hydration triggered');
+            } catch (err) {
+                console.error('Nebula Hydration Error:', err);
+                // Fallback to render if hydration fails or if no SSR was present
+                try {
+                  const root = ReactDOM.createRoot(document.getElementById('root'));
+                  root.render(React.createElement(AppToRender, APP_PROPS));
+                } catch (e) {}
+            }
         }
+        
+        hydrate();
     </script>
 </body>
 </html>

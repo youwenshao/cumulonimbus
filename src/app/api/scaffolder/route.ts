@@ -43,6 +43,9 @@ export async function POST(request: NextRequest) {
       case 'start':
         return handleStart(session.user.id, message, tempConversationId);
       
+      case 'demo':
+        return handleDemo(session.user.id, tempConversationId);
+      
       case 'answer':
         return handleAnswer(session.user.id, conversationId, questionId, answer);
       
@@ -122,6 +125,71 @@ async function runSimulation(conversationId: string, demoScenario: DemoScenario)
       break;
     }
   }
+}
+
+// Start a demo simulation conversation
+async function handleDemo(userId: string, tempConversationId?: string) {
+  const statusId = tempConversationId || generateId();
+  const demoScenario = DEMO_SCENARIOS[0]; // Cha Chaan Teng LaoBan
+
+  console.log(`\n🎮 === handleDemo ===`);
+  console.log(`🔑 StatusId: ${statusId}`);
+
+  await waitForConnection(statusId, 2000);
+
+  emitStatus(statusId, 'parse', 'Initializing demo simulation...', {
+    severity: 'info',
+    progress: 10,
+  });
+
+  const intent = { ...demoScenario.intent };
+  (intent as any)._demoScenarioId = demoScenario.id;
+
+  let state = createBlueprintState();
+  state = updateBlueprintWithIntent(state, intent);
+  state = updateBlueprintWithQuestions(state, []); // No questions for demo
+  state.phase = 'picture';
+  state.spec = demoScenario.spec;
+  state.plan = demoScenario.plan;
+
+  const messages: Message[] = [
+    {
+      id: generateId(),
+      role: 'assistant',
+      content: `Welcome to the Freeform Demo! I'm going to show you how I build a **${intent.suggestedName}**.`,
+      timestamp: new Date(),
+      metadata: { phase: 'parse' },
+    },
+  ];
+
+  const conversation = await prisma.conversation.create({
+    data: {
+      userId,
+      messages: messages as unknown as object[],
+      phase: 'PICTURE',
+      spec: state as unknown as object,
+    },
+  });
+
+  // Start simulation immediately
+  setTimeout(() => runSimulation(conversation.id, demoScenario), 500);
+
+  emitStatus(statusId, 'probe', 'Ready to start demo!', {
+    severity: 'success',
+    progress: 100,
+  });
+
+  return NextResponse.json({
+    conversationId: conversation.id,
+    messages,
+    state: {
+      phase: state.phase,
+      intent: state.intent,
+      spec: state.spec,
+      plan: state.plan,
+      allQuestionsAnswered: true,
+    },
+  });
 }
 
 // Start a new conversation with initial prompt

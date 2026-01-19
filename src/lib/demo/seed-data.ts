@@ -34,7 +34,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       entities: ['orders', 'menu items', 'tables'],
       actions: ['track', 'manage', 'calculate'],
       relationships: ['orders belong to tables'],
-      suggestedName: 'Cha Chaan Teng Master',
+      suggestedName: 'Cha Chaan Teng LaoBan',
       confidence: 0.99,
     },
     questions: [
@@ -99,7 +99,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       estimatedComplexity: 'moderate'
     },
     spec: {
-      name: 'Cha Chaan Teng Master',
+      name: 'Cha Chaan Teng LaoBan',
       description: 'A specialized order management system for a Hong Kong style tea restaurant.',
       category: 'custom',
       dataStore: {
@@ -309,8 +309,8 @@ function App() {
                 <Coffee className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-                  Cha Chaan Teng <span className="text-accent-yellow">Master</span>
+                <                h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+                  Cha Chaan Teng <span className="text-accent-yellow">LaoBan</span>
                 </h1>
               </div>
             </div>

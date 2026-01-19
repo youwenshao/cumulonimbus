@@ -44,12 +44,22 @@ export async function GET(
       return NextResponse.json({ error: response.error }, { status: 500 });
     }
 
+    // Determine Content-Type based on path
+    let contentType = 'text/html';
+    const originalPath = url.searchParams.get('originalPath') || url.pathname;
+    if (originalPath.endsWith('.js')) contentType = 'application/javascript';
+    else if (originalPath.endsWith('.css')) contentType = 'text/css';
+    else if (originalPath.endsWith('.png')) contentType = 'image/png';
+    else if (originalPath.endsWith('.jpg') || originalPath.endsWith('.jpeg')) contentType = 'image/jpeg';
+    else if (originalPath.endsWith('.svg')) contentType = 'image/svg+xml';
+    else if (originalPath.endsWith('.json')) contentType = 'application/json';
+
     // Nebula apps return a simplified response object
     // { status, body, headers }
     return new Response(response.body, {
       status: response.status || 200,
       headers: {
-        'Content-Type': 'text/html',
+        'Content-Type': contentType,
         ...response.headers,
       },
     });

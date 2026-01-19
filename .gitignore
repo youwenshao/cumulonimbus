@@ -47,3 +47,7 @@ prisma/*.db-journal
 # Runtime dependency bundles (auto-generated)
 /public/runtime-deps/*.js
 /public/runtime-deps/manifest.json
+
+# Demo standalone app build files
+demo-site/dist/
+/public/demo-static/

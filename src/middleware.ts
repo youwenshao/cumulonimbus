@@ -11,6 +11,15 @@ export async function middleware(request: NextRequest) {
   const host = request.headers.get('host') || '';
   const domain = process.env.NEXT_PUBLIC_DOMAIN || 'localhost:3000';
 
+  // --- Demo Subdomain Routing ---
+  const isDemoSubdomain = host === `demo.${domain}` || host.startsWith('demo.');
+  if (isDemoSubdomain && !pathname.startsWith('/api') && !pathname.startsWith('/_next')) {
+    // For the demo subdomain, we serve the static site from public/demo-static
+    // We rewrite to the index.html or the specific path (including assets)
+    const url = new URL(`/demo-static${pathname === '/' ? '/index.html' : pathname}`, request.url);
+    return NextResponse.rewrite(url);
+  }
+
   // #region agent log hypothesis_3
   fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'middleware.ts',message:'Incoming request',data:{host,pathname,url:request.url,cookies:request.cookies.getAll().map(c => c.name)},timestamp:Date.now(),sessionId:'debug-session',runId:'subdomain-fix',hypothesisId:'H3'})}).catch(()=>{});
   // #endregion
@@ -41,12 +50,13 @@ export async function middleware(request: NextRequest) {
     '/auth/error',
     '/api/auth',
     '/api/nebula/serve', // Allow Nebula serving to be accessible (internally it handles its own security)
+    '/demo-static', // Allow access to static demo assets
   ];
 
   // Check if the path is public
   const isPublicRoute = publicRoutes.some(route => 
     pathname === route || pathname.startsWith(`${route}/`)
-  );
+  ) || pathname.endsWith('.js') || pathname.endsWith('.css');
 
   // Allow public routes without authentication
   if (isPublicRoute) {
@@ -91,6 +101,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder files
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|demo-static|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
