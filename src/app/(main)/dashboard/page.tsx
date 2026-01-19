@@ -11,18 +11,26 @@ export default async function DashboardPage() {
     redirect('/auth/signin?callbackUrl=/dashboard');
   }
 
-  const apps = await prisma.app.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      status: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+  const [user, apps] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { plan: true }
+    }),
+    prisma.app.findMany({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        subdomain: true,
+        isAlwaysOn: true,
+      },
+    })
+  ]);
 
   return (
     <div className="h-screen bg-surface-base flex">
@@ -35,6 +43,7 @@ export default async function DashboardPage() {
       <DashboardContent 
         apps={apps} 
         userEmail={session.user.email || ''} 
+        userPlan={user?.plan || 'FREE'}
       />
     </div>
   );

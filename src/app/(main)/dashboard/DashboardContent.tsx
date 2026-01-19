@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { Plus, ExternalLink, Settings, Search, ArrowUpDown, LogOut, MoreVertical, Pencil, Copy, Archive, Trash, ArchiveRestore } from 'lucide-react';
 import { Button, Card, DropdownMenu, DropdownItem, DropdownSeparator, Modal } from '@/components/ui';
@@ -14,19 +14,8 @@ type App = {
   status: string;
   createdAt: Date;
   updatedAt: Date;
-  // spec and config are needed for duplication but not displayed in the list directly usually
-  // However, the duplication endpoint might handle fetching full details or we trust the API to copy based on ID.
-  // The POST /api/apps requires spec and config, but if we implement a duplicate endpoint or use the client side data...
-  // Wait, the POST /api/apps expects { name, description, spec, config }.
-  // But the app list here only has summary data.
-  // We need to fetch the full app details to duplicate it properly using POST /api/apps, 
-  // OR we can rely on the backend to handle duplication if we had a duplicate endpoint.
-  // Since we don't have a specific duplicate endpoint, we'll need to fetch the single app data first or update the list query to include spec/config.
-  // Updating the list query in DashboardPage is better to avoid N+1 requests on duplication if we want to do it client side without a new endpoint.
-  // But for now, let's assume we can fetch it or just pass what we have if spec/config are available.
-  // Actually, let's modify the DashboardPage to include spec/config in the initial fetch, or fetch on demand.
-  // Fetching on demand is cleaner for payload size.
-  // I'll add a fetchAppDetails function.
+  subdomain: string | null;
+  isAlwaysOn: boolean;
 };
 
 type SortOption = 'name' | 'date' | 'status';
@@ -34,9 +23,10 @@ type SortOption = 'name' | 'date' | 'status';
 interface DashboardContentProps {
   apps: App[];
   userEmail: string;
+  userPlan: string;
 }
 
-export function DashboardContent({ apps: initialApps, userEmail }: DashboardContentProps) {
+export function DashboardContent({ apps: initialApps, userEmail, userPlan }: DashboardContentProps) {
   const [apps, setApps] = useState<App[]>(initialApps);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('date');
@@ -215,9 +205,22 @@ export function DashboardContent({ apps: initialApps, userEmail }: DashboardCont
     }
   };
 
-  const handleCopyId = (id: string) => {
-    navigator.clipboard.writeText(id);
-    toast.success('App ID copied to clipboard');
+  const handleToggleAlwaysOn = async (appId: string, isAlwaysOn: boolean) => {
+    try {
+      const response = await fetch(`/api/apps/${appId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isAlwaysOn }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update hosting settings');
+
+      setApps(apps.map((a) => (a.id === appId ? { ...a, isAlwaysOn } : a)));
+      toast.success(isAlwaysOn ? 'Always-on enabled' : 'Always-on disabled');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to update hosting settings');
+    }
   };
 
   return (
@@ -334,11 +337,13 @@ export function DashboardContent({ apps: initialApps, userEmail }: DashboardCont
                       key={app.id} 
                       app={app} 
                       index={index}
+                      userPlan={userPlan}
                       onEdit={() => handleEdit(app)}
                       onDuplicate={() => handleDuplicate(app)}
                       onArchive={() => handleArchive(app)}
                       onDelete={() => handleDelete(app)}
                       onCopyId={() => handleCopyId(app.id)}
+                      onToggleAlwaysOn={(isAlwaysOn) => handleToggleAlwaysOn(app.id, isAlwaysOn)}
                     />
                   ))}
                 </div>
@@ -446,21 +451,25 @@ function EmptyState() {
 interface AppCardProps {
   app: App;
   index: number;
+  userPlan: string;
   onEdit: () => void;
   onDuplicate: () => void;
   onArchive: () => void;
   onDelete: () => void;
   onCopyId: () => void;
+  onToggleAlwaysOn: (isAlwaysOn: boolean) => void;
 }
 
 function AppCard({
   app,
   index,
+  userPlan,
   onEdit,
   onDuplicate,
   onArchive,
   onDelete,
   onCopyId,
+  onToggleAlwaysOn,
 }: AppCardProps) {
   const statusStyles = {
     ACTIVE: 'bg-pastel-green/20 text-pastel-green border border-pastel-green/30',
@@ -468,6 +477,21 @@ function AppCard({
     GENERATING: 'bg-pastel-blue/20 text-pastel-blue border border-pastel-blue/30',
     ARCHIVED: 'bg-surface-elevated text-text-tertiary border border-outline-mid',
   };
+
+  const isPro = userPlan === 'PRO' || userPlan === 'PLUS';
+  const domain = process.env.NEXT_PUBLIC_DOMAIN || 'localhost:3000';
+  const protocol = domain.includes('localhost') ? 'http' : 'https';
+  const liveUrl = app.subdomain 
+    ? `${protocol}://${app.subdomain}.${domain}`
+    : null;
+
+  // #region agent log hypothesis_1
+  useEffect(() => {
+    if (liveUrl) {
+      fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DashboardContent.tsx:AppCard',message:'Generated liveUrl',data:{appId:app.id,subdomain:app.subdomain,liveUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'subdomain-fix',hypothesisId:'H1'})}).catch(()=>{});
+    }
+  }, [liveUrl, app.id, app.subdomain]);
+  // #endregion
 
   return (
     <Card
@@ -483,21 +507,38 @@ function AppCard({
             Edit
           </Link>
         </Button>
-        <Button asChild size="sm">
-          <Link href={`/apps/${app.id}`} className="flex items-center gap-2">
-            <ExternalLink className="w-3.5 h-3.5" />
-            Visit
-          </Link>
-        </Button>
+        {liveUrl ? (
+          <Button asChild size="sm">
+            <a href={liveUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
+              <ExternalLink className="w-3.5 h-3.5" />
+              Visit Live
+            </a>
+          </Button>
+        ) : (
+          <Button asChild size="sm">
+            <Link href={`/apps/${app.id}`} className="flex items-center gap-2">
+              <ExternalLink className="w-3.5 h-3.5" />
+              Preview
+            </Link>
+          </Button>
+        )}
       </div>
 
       <div className="flex items-start justify-between mb-4">
-        <div
-          className={`px-3 py-1 rounded-full text-xs font-medium ${
-            statusStyles[app.status as keyof typeof statusStyles] || statusStyles.DRAFT
-          }`}
-        >
-          {app.status}
+        <div className="flex flex-col gap-2">
+          <div
+            className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${
+              statusStyles[app.status as keyof typeof statusStyles] || statusStyles.DRAFT
+            }`}
+          >
+            {app.status}
+          </div>
+          {app.subdomain && (
+            <div className="flex items-center gap-1.5 text-[10px] text-accent-yellow font-mono bg-accent-yellow/5 px-2 py-0.5 rounded border border-accent-yellow/10">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-yellow animate-pulse" />
+              {app.subdomain}.nebula
+            </div>
+          )}
         </div>
         
         <DropdownMenu
@@ -537,8 +578,26 @@ function AppCard({
         {app.description || 'No description available'}
       </p>
 
-      <div className="text-xs text-text-tertiary">
-        Created {formatDate(app.createdAt)}
+      <div className="flex items-center justify-between mt-auto">
+        <div className="text-[10px] text-text-tertiary">
+          Created {formatDate(app.createdAt)}
+        </div>
+        
+        {isPro && app.status === 'ACTIVE' && (
+          <div className="flex items-center gap-2 bg-surface-elevated px-2 py-1 rounded-md border border-outline-light">
+            <span className="text-[10px] text-text-secondary font-medium">Always-on</span>
+            <button
+              onClick={() => onToggleAlwaysOn(!app.isAlwaysOn)}
+              className={`w-7 h-4 rounded-full transition-colors relative ${
+                app.isAlwaysOn ? 'bg-accent-yellow' : 'bg-surface-mid'
+              }`}
+            >
+              <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${
+                app.isAlwaysOn ? 'left-3.5' : 'left-0.5'
+              }`} />
+            </button>
+          </div>
+        )}
       </div>
     </Card>
   );

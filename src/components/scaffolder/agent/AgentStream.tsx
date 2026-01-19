@@ -14,12 +14,6 @@ interface AgentStreamProps {
 export function AgentStream({ events, isComplete }: AgentStreamProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // #region agent log hypothesis_5
-  React.useEffect(() => {
-    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AgentStream.tsx:render',message:'AgentStream rendering',data:{eventsCount:events.length,isComplete,eventTypes:events.map(e=>e.type)},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_5'})}).catch(()=>{});
-  }, [events.length, isComplete]);
-  // #endregion
-
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [events.length, isComplete]);

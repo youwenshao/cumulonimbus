@@ -49,6 +49,12 @@ model App {
   version            String?     @default("v1")
   componentFiles     Json?
   layoutDefinition   Json?
+  
+  // Nebula Hosting fields
+  subdomain          String?     @unique
+  isAlwaysOn         Boolean     @default(false)
+  lastActivity       DateTime    @default(now())
+  
   user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])

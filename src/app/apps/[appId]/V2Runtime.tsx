@@ -31,10 +31,6 @@ export function V2Runtime({
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<Record<string, any>>({});
 
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'V2Runtime.tsx:25',message:'V2Runtime initialized',data:{appId,name,schemaName:schema.name,hasLayout:!!layout,hasComponentFiles:!!componentFiles,initialDataCount:initialData.length},sessionId:'debug-session',runId:'v2-runtime-fix',hypothesisId:'H2'})}).catch(()=>{});
-  // #endregion
-
   const handleAddRecord = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);

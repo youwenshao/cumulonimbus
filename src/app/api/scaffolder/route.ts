@@ -108,18 +108,10 @@ async function handleLoad(userId: string, appId: string) {
 async function runSimulation(conversationId: string, demoScenario: DemoScenario) {
   console.log(`🎮 Running simulation with conversation ID: ${conversationId}`);
 
-  // #region agent log hypothesis_2
-  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:runSimulation',message:'Running simulation',data:{conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_2'})}).catch(()=>{});
-  // #endregion
-
   await sleep(500); // Give SSE connection time to establish
 
   for (let i = 0; i < demoScenario.timeline.length; i++) {
     const event = demoScenario.timeline[i];
-
-    // #region agent log hypothesis_2
-    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:runSimulation',message:'Emitting simulation event',data:{eventIndex:i,eventType:event.type,conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_2'})}).catch(()=>{});
-    // #endregion
 
     emitEvent(conversationId, 'simulation_event', event);
 
@@ -143,18 +135,10 @@ async function handleStart(userId: string, userMessage: string, tempConversation
   console.log(`🔑 TempConversationId provided: ${tempConversationId || 'none'}`);
   console.log(`📊 Connection stats:`, getConnectionStats());
 
-  // #region agent log hypothesis_1
-  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleStart',message:'Starting handleStart',data:{statusId,userMessage:userMessage.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_1'})}).catch(()=>{});
-  // #endregion
-
   // Wait for SSE connection to be ready (with timeout)
   // This ensures status messages are delivered reliably
   const connectionReady = await waitForConnection(statusId, 2000);
   console.log(`📡 SSE connection ready: ${connectionReady}`);
-
-  // #region agent log hypothesis_1
-  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleStart',message:'Connection ready result',data:{connectionReady,connectionStats:getConnectionStats()},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_1'})}).catch(()=>{});
-  // #endregion
 
   // Emit: Starting to parse (will be buffered if connection not ready)
   emitStatus(statusId, 'parse', 'Analyzing your request...', {
@@ -487,14 +471,19 @@ async function handleAnswer(
   });
 }
 
+// Helper to generate a URL-safe subdomain from app name
+function generateSubdomain(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || generateId().substring(0, 8);
+}
+
 // Finalize and create the app
 async function handleFinalize(userId: string, conversationId: string) {
   console.log(`\n🏭 === handleFinalize ===`);
   console.log(`🔑 ConversationId: ${conversationId}`);
-
-  // #region agent log hypothesis_4
-  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleFinalize','message':'handleFinalize started','data':{userId,conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-  // #endregion
 
   emitStatus(conversationId, 'build', 'Starting app generation...', {
     severity: 'info',
@@ -504,17 +493,10 @@ async function handleFinalize(userId: string, conversationId: string) {
 
   let conversation;
   try {
-    // #region agent log hypothesis_4
-    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleFinalize','message':'Finding conversation','data':{conversationId,userId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-    // #endregion
-
     conversation = await prisma.conversation.findFirst({
       where: { id: conversationId, userId },
     });
 
-    // #region agent log hypothesis_4
-    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleFinalize','message':'Conversation found','data':{conversationId,found:!!conversation},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-    // #endregion
   } catch (dbError) {
     const error = new DatabaseError('find conversation', dbError instanceof Error ? dbError : undefined);
     console.error('❌ Database error:', error.toJSON());
@@ -566,10 +548,6 @@ async function handleFinalize(userId: string, conversationId: string) {
     }
   }
 
-  // #region agent log hypothesis_4
-  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleFinalize','message':'Spec found, validating','data':{specName:spec.name,hasSpec:!!spec,isDemo:!!demoScenarioId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-  // #endregion
-
   emitStatus(conversationId, 'build', 'Validating app specification...', {
     severity: 'info',
     technicalDetails: 'Running validateSpec()',
@@ -578,10 +556,6 @@ async function handleFinalize(userId: string, conversationId: string) {
 
   // Validate the spec
   const validation = validateSpec(spec);
-
-  // #region agent log hypothesis_4
-  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleFinalize','message':'Validation result','data':{valid:validation.valid,errorsCount:validation.errors?.length || 0},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-  // #endregion
 
   if (!validation.valid) {
     const error = new ValidationError(validation.errors, validation.warnings || [], 'build');
@@ -618,9 +592,7 @@ async function handleFinalize(userId: string, conversationId: string) {
   // Create the app in the database with GENERATING status
   let app;
   try {
-    // #region agent log hypothesis_4
-    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleFinalize','message':'Creating app in database','data':{specName:spec.name,userId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-    // #endregion
+    const subdomain = `${generateSubdomain(spec.name)}-${generateId().substring(0, 4)}`;
 
     app = await prisma.app.create({
       data: {
@@ -632,12 +604,10 @@ async function handleFinalize(userId: string, conversationId: string) {
         data: [],
         status: 'GENERATING',
         buildStatus: 'GENERATING',
+        subdomain,
       },
     });
 
-    // #region agent log hypothesis_4
-    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'scaffolder/route.ts:handleFinalize','message':'App created successfully','data':{appId:app.id,appName:app.name},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-    // #endregion
   } catch (dbError) {
     const error = new DatabaseError('create app', dbError instanceof Error ? dbError : undefined);
     console.error('❌ Database error creating app:', error.toJSON());

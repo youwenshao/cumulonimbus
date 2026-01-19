@@ -398,10 +398,6 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
           try {
             const data = JSON.parse(event.data);
 
-            // #region agent log hypothesis_4
-            fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:SSE',message:'Received SSE message',data:{convId,type:data.type,messageType:data.message?.phase || 'unknown'},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-            // #endregion
-
             // Check if this is the initial connection confirmation
             if (data.type === 'connected') {
               console.log(`✅ SSE connected: ${convId}`);
@@ -416,10 +412,6 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
             // Handle simulation events (Agent Stream)
             if (data.type === 'simulation_event') {
                const event: SimulationEvent = data.payload;
-
-               // #region agent log hypothesis_4
-               fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:SSE',message:'Received simulation event',data:{convId,eventType:event.type,simulationEventsLength:simulationEvents.length},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-               // #endregion
 
                setSimulationEvents(prev => [...prev, event]);
 
@@ -636,10 +628,6 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
   const handleFinalize = async () => {
     console.log('🎯 handleFinalize called', { conversationId, isLoading, isAgentStreaming, buildPhase });
 
-    // #region agent log hypothesis_4
-    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:handleFinalize',message:'handleFinalize called',data:{conversationId,isLoading,isAgentStreaming,buildPhase},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-    // #endregion
-
     if (!conversationId || isLoading) return;
 
     setIsLoading(true);
@@ -651,10 +639,6 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
     console.log(`🏗️ Finalizing app, connecting to conversation: ${conversationId}`);
     await connectToStatusStream(conversationId);
 
-    // #region agent log hypothesis_4
-    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:handleFinalize','message':'About to make finalize API call',data:{conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-    // #endregion
-
     // Add execution message
     setMessages(prev => [...prev, {
       id: Date.now().toString(),
@@ -664,10 +648,6 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
     }]);
 
     try {
-      // #region agent log hypothesis_4
-      fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:handleFinalize','message':'Making finalize API call',data:{conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-      // #endregion
-
       const response = await fetch('/api/scaffolder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -676,10 +656,6 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
           conversationId,
         }),
       });
-
-      // #region agent log hypothesis_4
-      fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:handleFinalize','message':'Finalize API response received',data:{conversationId,responseOk:response.ok,responseStatus:response.status},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-      // #endregion
 
       const data = await response.json();
 
@@ -702,9 +678,6 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
         // Move to preview phase
         setBuildPhase('preview');
 
-        // #region agent log hypothesis_4
-        fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:handleFinalize','message':'Finalize successful',data:{appId:data.app.id,appName:data.app.name},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-        // #endregion
       } else {
         setBuildPhase('idle');
         setMessages(prev => [...prev.slice(0, -1), {
@@ -713,23 +686,14 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
           content: `Sorry, there was an error creating your app: ${data.error}`,
         }]);
 
-        // #region agent log hypothesis_4
-        fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:handleFinalize','message':'Finalize failed - response not ok',data:{conversationId,dataError:data.error},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-        // #endregion
       }
     } catch (error) {
       console.error('Error:', error);
       setBuildPhase('idle');
 
-      // #region agent log hypothesis_4
-      fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:handleFinalize','message':'Finalize failed - exception',data:{conversationId,error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-      // #endregion
     } finally {
       setIsLoading(false);
 
-      // #region agent log hypothesis_4
-      fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:handleFinalize','message':'Finalize finally block - setting isLoading false',data:{conversationId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-      // #endregion
     }
   };
 
@@ -810,26 +774,12 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
   React.useEffect(() => {
     console.log('🔍 useEffect check:', { isAgentStreaming, buildPhase, isLoading, conversationId });
 
-    // #region agent log hypothesis_4
-    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:auto-finalize-effect',message:'useEffect triggered',data:{conversationId,isLoading,isAgentStreaming,buildPhase},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-    // #endregion
-
     if (isAgentStreaming && buildPhase === 'generating') {
       console.log('🎯 Auto-triggering finalize for agent streaming mode');
-
-      // #region agent log hypothesis_4
-      fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:auto-finalize-effect',message:'Auto-triggering finalize via useEffect',data:{conversationId,isLoading,isAgentStreaming,buildPhase},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_4'})}).catch(()=>{});
-      // #endregion
 
       handleFinalize();
     }
   }, [isAgentStreaming, buildPhase, conversationId]); // Removed isLoading from dependencies
-
-  // #region agent log hypothesis_5
-  React.useEffect(() => {
-    fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'create/page.tsx:render',message:'CreatePage render state',data:{messagesLength:messages.length,simulationEventsLength:simulationEvents.length,isAgentStreaming,buildPhase},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'hypothesis_5'})}).catch(()=>{});
-  }, [messages.length, simulationEvents.length, isAgentStreaming, buildPhase]);
-  // #endregion
 
   return (
     <div className="h-screen bg-surface-base flex">

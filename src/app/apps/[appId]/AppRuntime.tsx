@@ -22,17 +22,9 @@ interface AppRuntimeProps {
 type ViewMode = 'table' | 'chart' | 'both';
 
 export function AppRuntime({ appId, name, description, spec, initialData }: AppRuntimeProps) {
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppRuntime.tsx:25',message:'AppRuntime component initialized',data:{appId,name,description,specKeys:Object.keys(spec),hasViews:'views' in spec,hasDataStore:'dataStore' in spec,hasLayout:'layout' in spec,specType:typeof spec,initialDataCount:initialData.length},sessionId:'debug-session',runId:'v2-runtime-fix',hypothesisId:'H1'})}).catch(()=>{});
-  // #endregion
-
   const [data, setData] = useState<DataRecord[]>(initialData);
   const [isLoading, setIsLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('both');
-
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppRuntime.tsx:30',message:'Checking for V2 vs V1 format',data:{isV2Format:spec.name && (spec as any).fields && !spec.views && !spec.dataStore,isV1Format:spec.views && spec.dataStore},sessionId:'debug-session',runId:'v2-runtime-fix',hypothesisId:'H1'})}).catch(()=>{});
-  // #endregion
 
   const handleAddRecord = useCallback(async (values: Record<string, unknown>) => {
     setIsLoading(true);
@@ -84,10 +76,6 @@ export function AppRuntime({ appId, name, description, spec, initialData }: AppR
   }
 
   // Find table and chart views from spec
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppRuntime.tsx:66',message:'About to access spec.views',data:{specViews:spec.views,specViewsType:typeof spec.views,specViewsLength:spec.views?.length},sessionId:'debug-session',runId:'v2-runtime-fix',hypothesisId:'H1'})}).catch(()=>{});
-  // #endregion
-
   const tableView = spec.views?.find(v => v.type === 'table');
   const chartView = spec.views?.find(v => v.type === 'chart');
 
