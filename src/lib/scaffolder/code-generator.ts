@@ -245,7 +245,7 @@ export async function* generateAppCode(
 
       // Emit code chunks periodically (every few chunks to avoid overwhelming)
       if (chunkCount % 3 === 0 || chunk.includes('\n')) {
-        const progress = Math.min(15 + Math.floor((fullCode.length / 3000) * 70), 85);
+        const progress = Math.min(15 + Math.round((fullCode.length / 3000) * 70), 85);
         yield {
           type: 'code',
           component: 'page',
@@ -363,7 +363,7 @@ Generate the FIXED page.tsx code now, addressing all the reported issues:`;
       chunkCount++;
 
       if (chunkCount % 3 === 0 || chunk.includes('\n')) {
-        const progress = Math.min(15 + Math.floor((fullCode.length / 3000) * 70), 85);
+        const progress = Math.min(15 + Math.round((fullCode.length / 3000) * 70), 85);
         yield {
           type: 'code',
           component: 'page',

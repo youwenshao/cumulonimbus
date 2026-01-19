@@ -166,17 +166,17 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       {
         type: 'thinking',
         content: 'Analyzing request for "Cha Chaan Teng" (Hong Kong Tea Restaurant) context...',
-        delay: 800
+        delay: 1500
       },
       {
         type: 'thinking',
         content: 'Identifying key domain requirements: Speed, shorthand codes (e.g., OT for Lemon Tea), table management, and bill calculation.',
-        delay: 1200
+        delay: 2000
       },
       {
         type: 'web_search',
         content: 'classic cha chaan teng menu items list hong kong',
-        delay: 1500,
+        delay: 2500,
         metadata: {
           results: [
             'Pineapple Bun with Butter (Bo Lo Yau)',
@@ -189,23 +189,23 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       {
         type: 'thinking',
         content: 'Retrieved popular menu items. Structuring data model for Orders with support for modifications (e.g., "Less Sweet", "Iced").',
-        delay: 1000
+        delay: 1800
       },
       {
         type: 'tool_call',
         content: 'Generating component structure...',
         metadata: { tool: 'architect_agent', input: '{ component: "OrderTable" }' },
-        delay: 1500
+        delay: 2200
       },
       {
         type: 'message',
         content: 'I\'m building a specialized tracker for your Cha Chaan Teng. I\'ve included a pre-loaded menu with classics like **Milk Tea** and **Pineapple Buns**, plus a quick-add interface for high-volume periods.',
-        delay: 500
+        delay: 1000
       },
       {
         type: 'code_generation',
         content: 'generating_code', // Special flag to trigger code streaming
-        delay: 3000
+        delay: 4000
       }
     ],
     code: {

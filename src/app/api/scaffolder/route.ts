@@ -111,14 +111,34 @@ async function handleLoad(userId: string, appId: string) {
 async function runSimulation(conversationId: string, demoScenario: DemoScenario) {
   console.log(`🎮 Running simulation with conversation ID: ${conversationId}`);
 
-  await sleep(1500); // Give SSE connection more time to establish in demo mode
+  await sleep(2000); // Give SSE connection more time to establish in demo mode
 
   for (let i = 0; i < demoScenario.timeline.length; i++) {
     const event = demoScenario.timeline[i];
 
     emitEvent(conversationId, 'simulation_event', event);
 
-    await sleep(event.delay || 1000);
+    // Calculate delay based on event type
+    let delay = event.delay || 1000;
+    
+    if (event.type === 'message' || event.type === 'user_message') {
+      // For messages, wait long enough for typewriter effect (approx 25ms/char)
+      const typingTime = event.content.length * 25;
+      delay = Math.max(delay, typingTime);
+      
+      // Special case: if this is the message right before code generation,
+      // add an extra 2-second pause as requested for realism.
+      const nextEvent = demoScenario.timeline[i + 1];
+      if (nextEvent && nextEvent.type === 'code_generation') {
+        console.log('⏱️ Final message before code gen, adding 2s pause');
+        delay += 2000;
+      }
+    } else {
+      // For thinking/tool calls, keep the slightly slower pace for readability
+      delay = delay * 1.5;
+    }
+
+    await sleep(delay);
 
     if (event.type === 'code_generation') {
       // Handled separately by the parent container switching views
@@ -715,24 +735,28 @@ async function handleFinalize(userId: string, conversationId: string) {
          
          // Simulate streaming steps
          emitStatus(conversationId, 'build', 'Designing component architecture...', { severity: 'info', progress: 40 });
-         await new Promise(resolve => setTimeout(resolve, 800));
+         await new Promise(resolve => setTimeout(resolve, 1500)); // Increased pause
          
          emitStatus(conversationId, 'build', 'Writing React components...', { severity: 'info', progress: 60 });
+         await new Promise(resolve => setTimeout(resolve, 800)); // Added pause after header
          
-         // Emit chunks to simulate typing
+         // Emit chunks to simulate typing - slowed down for better demo realism
          const fullCode = scenario.code.pageComponent;
-         const chunkSize = 200;
+         const chunkSize = 150; // Slightly smaller chunk
          for (let i = 0; i < fullCode.length; i += chunkSize) {
             emitCodeChunk(conversationId, {
                component: 'page',
                code: fullCode.slice(i, i + chunkSize),
-               progress: Math.min(60 + (i / fullCode.length) * 30, 90)
+               progress: Math.round(60 + (i / fullCode.length) * 30) // Round to nearest whole number
             });
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise(resolve => setTimeout(resolve, 80)); // Slower delay (80ms instead of 50ms)
          }
 
          generatedCode = scenario.code;
          usedDemoCode = true;
+
+         // Pause after code generation finishes for realism before moving to finalize
+         await new Promise(resolve => setTimeout(resolve, 1200));
 
          // Emit completion signal
          emitCodeComplete(conversationId);

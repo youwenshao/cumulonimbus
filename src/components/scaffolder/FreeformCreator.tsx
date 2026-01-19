@@ -194,7 +194,9 @@ export function FreeformCreator({ onComplete, onCancel }: FreeformCreatorProps) 
             <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-surface-elevated border border-outline-light">
               <div className={cn(
                 "w-2 h-2 rounded-full animate-pulse",
-                isComplete ? "bg-green-500" : (simulationEvents.length > 0 ? "bg-accent-yellow" : "bg-text-tertiary")
+                isComplete 
+                  ? "bg-emerald-500 dark:bg-emerald-600/80" 
+                  : (simulationEvents.length > 0 ? "bg-accent-yellow" : "bg-text-tertiary")
               )} />
               <span className="text-xs font-mono text-text-secondary uppercase tracking-wider">
                 {simulationEvents.length === 0 && 'Awaiting Input'}
@@ -271,7 +273,7 @@ export function FreeformCreator({ onComplete, onCancel }: FreeformCreatorProps) 
                       <Rocket className="w-5 h-5 text-accent-yellow" />
                       <h2 className="text-lg font-medium text-text-primary">App Deployed</h2>
                     </div>
-                    <div className="flex items-center gap-2 text-green-500 bg-green-500/10 px-3 py-1 rounded-full border border-green-500/20">
+                    <div className="flex items-center gap-2 text-emerald-700/80 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 dark:text-emerald-500/70 dark:bg-emerald-500/5 dark:border-emerald-500/20">
                       <CheckCircle className="w-4 h-4" />
                       <span className="text-xs font-bold uppercase tracking-wider">Production Ready</span>
                     </div>

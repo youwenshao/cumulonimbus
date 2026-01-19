@@ -158,8 +158,8 @@
 
   /* Message bubbles */
   .message-user {
-    background-color: rgb(var(--pastel-blue) / 0.1);
-    border: 1px solid rgb(var(--outline-light) / 0.3);
+    background-color: rgb(var(--accent-yellow) / 0.05);
+    border: 1px solid rgb(var(--accent-yellow) / 0.15);
     border-radius: 1rem;
   }
 

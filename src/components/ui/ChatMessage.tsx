@@ -59,14 +59,14 @@ export function ChatMessage({ message, className, enableTypewriter = false }: Ch
           className={cn(
             'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1',
             isUser
-              ? 'bg-pastel-blue'
+              ? 'bg-orange-100 dark:bg-orange-950/50 border border-orange-200 dark:border-orange-900/30'
               : 'bg-accent-yellow'
           )}
           role="img"
           aria-label={isUser ? 'User avatar' : 'Architect avatar'}
         >
           {isUser ? (
-            <User className="w-4 h-4 text-text-primary" aria-hidden="true" />
+            <User className="w-4 h-4 text-orange-600 dark:text-orange-400" aria-hidden="true" />
           ) : (
             <span className="text-text-primary font-bold text-sm" aria-hidden="true">A</span>
           )}

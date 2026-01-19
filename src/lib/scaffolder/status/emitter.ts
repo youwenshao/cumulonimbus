@@ -219,7 +219,7 @@ export function emitStatus(
     technicalDetails: options?.technicalDetails,
     severity: options?.severity || 'info',
     timestamp: new Date().toISOString(),
-    progress: options?.progress,
+    progress: options?.progress !== undefined ? Math.round(options.progress) : undefined,
   };
 
   // Check if we have a healthy controller

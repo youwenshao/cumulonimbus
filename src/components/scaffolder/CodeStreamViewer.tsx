@@ -186,7 +186,7 @@ export function CodeStreamViewer({
           {isStreaming && (
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>{message || `${progress}%`}</span>
+              <span>{message || `${Math.round(progress)}%`}</span>
             </div>
           )}
 
@@ -198,7 +198,7 @@ export function CodeStreamViewer({
             disabled={!displayCode}
           >
             {copied ? (
-              <Check className="w-4 h-4 text-green-500" />
+              <Check className="w-4 h-4 text-emerald-500" />
             ) : (
               <Copy className="w-4 h-4" />
             )}

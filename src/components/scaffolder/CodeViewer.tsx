@@ -200,11 +200,11 @@ export function CodeViewer({ conversationId, onComplete, onError, className }: C
           {status === 'connected' && (
             <span className="flex items-center gap-1 text-sm text-yellow-400">
               <Terminal className="w-4 h-4" />
-              Generating... {progress}%
+              Generating... {Math.round(progress)}%
             </span>
           )}
           {status === 'complete' && (
-            <span className="flex items-center gap-1 text-sm text-green-400">
+            <span className="flex items-center gap-1 text-sm text-emerald-600 dark:text-emerald-500/80">
               <CheckCircle className="w-4 h-4" />
               Complete
             </span>

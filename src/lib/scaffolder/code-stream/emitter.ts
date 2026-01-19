@@ -104,6 +104,7 @@ export function emitCodeChunk(
     id: `code-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     type: chunk.component === 'complete' ? 'complete' : (chunk.component === 'error' ? 'error' : 'chunk'),
     ...chunk,
+    progress: Math.round(chunk.progress),
     timestamp: new Date().toISOString(),
   } as CodeChunk;
 
