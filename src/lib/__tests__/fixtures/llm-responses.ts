@@ -4,7 +4,6 @@
  */
 
 import type { ParsedIntent } from '@/lib/scaffolder/types';
-import type { FreeformDesign } from '@/lib/scaffolder-v2/agents/freeform-generator';
 
 /**
  * Parsed intent for expense tracker
@@ -48,102 +47,6 @@ export const lowConfidenceIntentResponse: ParsedIntent = {
 export const malformedIntentResponse = {
   category: 'expense',
   // Missing entities, actions, etc.
-};
-
-/**
- * Expense tracker design response
- */
-export const expenseDesignResponse: FreeformDesign = {
-  appName: 'Expense Tracker',
-  description: 'Track and visualize your daily expenses',
-  features: [
-    'Add expenses with amount, category, and date',
-    'View all expenses in a table',
-    'Visualize spending by category',
-    'Filter by date range',
-  ],
-  schema: {
-    name: 'Expense',
-    label: 'Expense',
-    fields: [
-      {
-        name: 'id',
-        label: 'ID',
-        type: 'string',
-        required: true,
-      },
-      {
-        name: 'amount',
-        label: 'Amount',
-        type: 'number',
-        required: true,
-      },
-      {
-        name: 'category',
-        label: 'Category',
-        type: 'enum',
-        required: true,
-        options: ['Food', 'Transport', 'Entertainment', 'Bills', 'Other'],
-      },
-      {
-        name: 'description',
-        label: 'Description',
-        type: 'string',
-        required: false,
-      },
-      {
-        name: 'date',
-        label: 'Date',
-        type: 'date',
-        required: true,
-      },
-      {
-        name: 'createdAt',
-        label: 'Created At',
-        type: 'datetime',
-        required: true,
-      },
-    ],
-  },
-  uiComponents: ['form', 'table', 'pie-chart', 'filter'],
-  interactions: ['add-expense', 'delete-expense', 'filter-by-category', 'filter-by-date'],
-  complexity: 'moderate',
-};
-
-/**
- * Simple app design response
- */
-export const simpleDesignResponse: FreeformDesign = {
-  appName: 'Simple Tracker',
-  description: 'A simple tracking app',
-  features: ['Add items', 'View items', 'Delete items'],
-  schema: {
-    name: 'Item',
-    label: 'Item',
-    fields: [
-      {
-        name: 'id',
-        label: 'ID',
-        type: 'string',
-        required: true,
-      },
-      {
-        name: 'name',
-        label: 'Name',
-        type: 'string',
-        required: true,
-      },
-      {
-        name: 'createdAt',
-        label: 'Created At',
-        type: 'datetime',
-        required: true,
-      },
-    ],
-  },
-  uiComponents: ['form', 'list'],
-  interactions: ['add-item', 'delete-item'],
-  complexity: 'simple',
 };
 
 /**

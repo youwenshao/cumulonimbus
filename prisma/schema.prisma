@@ -49,9 +49,6 @@ model App {
   version            String?     @default("v1")
   componentFiles     Json?
   layoutDefinition   Json?
-  bundledCode        String?
-  executionMode      String?     @default("schema")
-  sandboxPermissions Json?
   user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])

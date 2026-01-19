@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm run build:deps && next build",
-    "build:deps": "npx ts-node scripts/build-dependencies.ts",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "test": "jest",

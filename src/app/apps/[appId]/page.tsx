@@ -4,8 +4,6 @@ import prisma from '@/lib/db';
 import { AppRuntime } from './AppRuntime';
 import { GeneratedRuntime } from './GeneratedRuntime';
 import { V2Runtime } from './V2Runtime';
-import { V2SandboxRuntime } from './V2SandboxRuntime';
-import { bundleAppCode, analyzeImports } from '@/lib/runtime';
 import type { ProjectSpec } from '@/lib/scaffolder/types';
 import type { DataRecord } from '@/lib/primitives/types';
 import type { GeneratedCode } from '@/lib/scaffolder/code-generator';
@@ -41,61 +39,6 @@ export default async function AppPage({ params }: PageProps) {
   const data = (app.data || []) as DataRecord[];
   const generatedCode = app.generatedCode as unknown as GeneratedCode | null;
   const componentFiles = app.componentFiles as Record<string, string> | null;
-  const executionMode = app.executionMode || 'schema';
-  const appConfig = app.config as { requiredBundles?: string[]; design?: unknown } | null;
-
-  // Check if this is a sandbox app (freeform AI-generated)
-  // Priority: explicit executionMode, then check for App.tsx in componentFiles
-  if (executionMode === 'sandbox' || (app.version === 'v2' && componentFiles?.['App.tsx'])) {
-    // Get raw code from component files
-    const rawCode = componentFiles?.['App.tsx'] || componentFiles?.['bundled'] || '';
-    
-    if (rawCode) {
-      // Use pre-bundled code from database if available, otherwise bundle on-the-fly
-      let bundledCode = app.bundledCode || '';
-      let requiredBundles = (appConfig?.requiredBundles || ['utils']) as import('@/lib/runtime/dependency-bundle').BundleName[];
-      
-      // Only re-bundle if we don't have pre-bundled code
-      if (!bundledCode) {
-        // Analyze imports to determine required bundles
-        requiredBundles = analyzeImports(rawCode);
-        
-        // Bundle the code server-side (transpile TSX -> JS)
-        bundledCode = rawCode;
-        try {
-          const bundleResult = await bundleAppCode({
-            code: rawCode,
-            appId: app.id,
-            minify: false, // Keep readable for debugging
-          });
-          
-          if (bundleResult.success) {
-            bundledCode = bundleResult.code;
-            requiredBundles = bundleResult.requiredBundles;
-          } else {
-            console.error('Server bundling failed:', bundleResult.errors);
-            // Fall back to raw code - let client-side handle it
-          }
-        } catch (error) {
-          console.error('Server bundling error:', error);
-          // Fall back to raw code
-        }
-      }
-      
-      return (
-        <V2SandboxRuntime
-          appId={app.id}
-          name={app.name}
-          description={app.description}
-          bundledCode={bundledCode}
-          schema={spec as unknown as Schema}
-          componentFiles={componentFiles || {}}
-          initialData={data}
-          requiredBundles={requiredBundles}
-        />
-      );
-    }
-  }
 
   // Check if this is a V2 app (schema-based)
   if (app.version === 'v2') {

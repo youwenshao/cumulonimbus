@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { NavigationRail, ContextPanel, ChatInput, ChatMessage, Button, StatusPanel, ThemeToggle, Logo, ParticleBackground, Card } from '@/components/ui';
 import type { StatusMessage, StatusPhase } from '@/components/ui';
-import { ImplementationPlan, CodeViewer, LivePreview, FreeformCreator } from '@/components/scaffolder';
+import { ImplementationPlan, CodeViewer, LivePreview } from '@/components/scaffolder';
 import { AgentStream } from '@/components/scaffolder/agent/AgentStream';
 import { SimulationEvent } from '@/lib/demo/seed-data';
 import type { ProjectSpec, ImplementationPlan as ImplementationPlanType } from '@/lib/scaffolder/types';
@@ -35,7 +35,7 @@ interface ConversationState {
   allQuestionsAnswered?: boolean;
 }
 
-type CreateMode = 'guided' | 'freeform' | 'v2';
+type CreateMode = 'guided' | 'v2';
 
 function CreateContent() {
   const router = useRouter();
@@ -50,9 +50,7 @@ function CreateContent() {
   
   // If mode is specified in URL, use it
   useEffect(() => {
-    if (queryMode === 'freeform') {
-      setMode('freeform');
-    } else if (queryMode === 'guided' || queryMode === 'v1') {
+    if (queryMode === 'guided' || queryMode === 'v1') {
       setMode('guided');
     } else if (useV2 || queryMode === 'v2') {
       setMode('v2');
@@ -65,40 +63,6 @@ function CreateContent() {
   // Show mode selector if no mode is set
   if (!mode) {
     return <ModeSelector onSelect={setMode} />;
-  }
-  
-  // Render freeform creator
-  if (mode === 'freeform') {
-    return (
-      <div className="h-screen bg-surface-base flex">
-        <div className="hidden md:block">
-          <NavigationRail />
-        </div>
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="border-b border-outline-mid bg-surface-base px-8 py-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-serif font-medium text-text-primary">Create</h1>
-                <p className="text-sm text-text-secondary mt-1">Freeform AI Generation</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <ThemeToggle />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setMode(null)}
-                >
-                  Change Mode
-                </Button>
-              </div>
-            </div>
-          </header>
-          <div className="flex-1 overflow-y-auto p-8">
-            <FreeformCreator className="max-w-4xl mx-auto" />
-          </div>
-        </div>
-      </div>
-    );
   }
   
   // Render advanced IDE landing page for v2 mode
@@ -248,24 +212,7 @@ function ModeSelector({ onSelect }: { onSelect: (mode: CreateMode) => void }) {
           Choose how you&apos;d like to build your app
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl w-full">
-          {/* Freeform Mode */}
-          <button
-            onClick={() => onSelect('freeform')}
-            className="p-6 bg-surface-elevated/50 border border-accent-yellow/30 rounded-xl text-left hover:border-accent-yellow/60 hover:bg-accent-yellow/20 transition-all group"
-          >
-            <div className="mb-4">
-              <Sparkles className="w-8 h-8 text-accent-yellow" />
-            </div>
-            <h3 className="text-2xl font-medium font-serif text-text-primary mb-2">Freeform</h3>
-            <p className="text-sm text-text-secondary">
-              Describe your app and let AI generate everything. Complete creative freedom with instant preview.
-            </p>
-            <div className="mt-4 text-xs text-accent-yellow group-hover:text-accent-yellow/80">
-              Best for: Quick prototypes, creative ideas
-            </div>
-          </button>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full">
           {/* Guided Mode */}
           <button
             onClick={() => onSelect('guided')}
