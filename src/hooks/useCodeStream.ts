@@ -2,9 +2,37 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { FreeformDesign } from '@/lib/scaffolder-v2/agents';
+import type { ErrorCategory } from '@/lib/scaffolder-v2/error-analyzer';
+import type { ErrorStage } from '@/lib/scaffolder-v2/feedback-config';
+
+/** Retry attempt information from server */
+export interface RetryAttemptData {
+  attempt: number;
+  maxAttempts: number;
+  stage: ErrorStage;
+  errorCategory: ErrorCategory;
+  errorMessage: string;
+  errorLine?: number;
+  fix?: string;
+  strategy?: string;
+}
+
+/** Individual retry attempt for display */
+export interface RetryAttempt {
+  id: string;
+  attempt: number;
+  stage: ErrorStage;
+  errorCategory: ErrorCategory;
+  errorMessage: string;
+  errorLine?: number;
+  status: 'in_progress' | 'success' | 'failed';
+  fix?: string;
+  strategy?: string;
+  timestamp: Date;
+}
 
 export interface CodeStreamEvent {
-  type: 'design' | 'chunk' | 'file' | 'progress' | 'complete' | 'error';
+  type: 'design' | 'chunk' | 'file' | 'progress' | 'complete' | 'error' | 'retry';
   data: {
     design?: FreeformDesign;
     content?: string;
@@ -13,6 +41,7 @@ export interface CodeStreamEvent {
     appId?: string;
     error?: string;
     message?: string;
+    retry?: RetryAttemptData;
   };
 }
 
@@ -25,6 +54,16 @@ export interface CodeStreamState {
   design: FreeformDesign | null;
   appId: string | null;
   error: string | null;
+  /** Whether error correction is in progress */
+  isRetrying: boolean;
+  /** Current retry attempt number */
+  currentRetryAttempt: number;
+  /** Maximum retry attempts */
+  maxRetryAttempts: number;
+  /** History of retry attempts */
+  retryAttempts: RetryAttempt[];
+  /** Whether all retries were successful */
+  allRetriesSuccessful: boolean;
 }
 
 export interface UseCodeStreamOptions {
@@ -34,6 +73,10 @@ export interface UseCodeStreamOptions {
   onFile?: (filename: string, content: string) => void;
   onComplete?: (appId: string) => void;
   onError?: (error: string) => void;
+  /** Called when a retry attempt starts */
+  onRetryStart?: (attempt: RetryAttempt) => void;
+  /** Called when a retry attempt completes (success or failure) */
+  onRetryComplete?: (attempt: RetryAttempt) => void;
 }
 
 const initialState: CodeStreamState = {
@@ -45,6 +88,11 @@ const initialState: CodeStreamState = {
   design: null,
   appId: null,
   error: null,
+  isRetrying: false,
+  currentRetryAttempt: 0,
+  maxRetryAttempts: 5,
+  retryAttempts: [],
+  allRetriesSuccessful: true,
 };
 
 /**
@@ -117,14 +165,84 @@ export function useCodeStream(options: UseCodeStreamOptions = {}) {
         }
         break;
 
+      case 'retry':
+        if (data.retry) {
+          const retryData = data.retry;
+          const attemptId = `retry_${retryData.attempt}_${Date.now()}`;
+          
+          // Check if this is a new attempt or an update to an existing one
+          const existingAttemptIndex = state.retryAttempts.findIndex(
+            a => a.attempt === retryData.attempt && a.status === 'in_progress'
+          );
+
+          const newAttempt: RetryAttempt = {
+            id: attemptId,
+            attempt: retryData.attempt,
+            stage: retryData.stage,
+            errorCategory: retryData.errorCategory,
+            errorMessage: retryData.errorMessage,
+            errorLine: retryData.errorLine,
+            status: retryData.fix ? 'success' : 'in_progress',
+            fix: retryData.fix,
+            strategy: retryData.strategy,
+            timestamp: new Date(),
+          };
+
+          setState(prev => {
+            let updatedAttempts = [...prev.retryAttempts];
+            
+            if (existingAttemptIndex >= 0 && retryData.fix) {
+              // Update existing attempt to success
+              updatedAttempts[existingAttemptIndex] = {
+                ...updatedAttempts[existingAttemptIndex],
+                status: 'success',
+                fix: retryData.fix,
+              };
+            } else if (existingAttemptIndex < 0) {
+              // Add new attempt
+              updatedAttempts.push(newAttempt);
+            }
+
+            return {
+              ...prev,
+              isRetrying: !retryData.fix, // Still retrying if no fix yet
+              currentRetryAttempt: retryData.attempt,
+              maxRetryAttempts: retryData.maxAttempts,
+              retryAttempts: updatedAttempts,
+              progress: data.progress || prev.progress,
+              message: data.message || `Fixing error (attempt ${retryData.attempt}/${retryData.maxAttempts})...`,
+            };
+          });
+
+          // Trigger callbacks
+          if (retryData.fix) {
+            optionsRef.current.onRetryComplete?.(newAttempt);
+          } else {
+            optionsRef.current.onRetryStart?.(newAttempt);
+          }
+        }
+        break;
+
       case 'complete':
-        setState(prev => ({
-          ...prev,
-          isStreaming: false,
-          progress: 100,
-          message: 'Generation complete',
-          appId: data.appId || prev.appId,
-        }));
+        setState(prev => {
+          // Mark any in-progress retries as successful
+          const finalAttempts = prev.retryAttempts.map(attempt => 
+            attempt.status === 'in_progress' 
+              ? { ...attempt, status: 'success' as const }
+              : attempt
+          );
+
+          return {
+            ...prev,
+            isStreaming: false,
+            isRetrying: false,
+            progress: 100,
+            message: data.message || 'Generation complete',
+            appId: data.appId || prev.appId,
+            retryAttempts: finalAttempts,
+            allRetriesSuccessful: finalAttempts.every(a => a.status === 'success'),
+          };
+        });
         if (data.appId) {
           optionsRef.current.onComplete?.(data.appId);
         }
@@ -132,15 +250,27 @@ export function useCodeStream(options: UseCodeStreamOptions = {}) {
 
       case 'error':
         const errorMessage = data.error || 'Unknown error';
-        setState(prev => ({
-          ...prev,
-          isStreaming: false,
-          error: errorMessage,
-        }));
+        setState(prev => {
+          // Mark any in-progress retries as failed
+          const finalAttempts = prev.retryAttempts.map(attempt => 
+            attempt.status === 'in_progress' 
+              ? { ...attempt, status: 'failed' as const }
+              : attempt
+          );
+
+          return {
+            ...prev,
+            isStreaming: false,
+            isRetrying: false,
+            error: errorMessage,
+            retryAttempts: finalAttempts,
+            allRetriesSuccessful: false,
+          };
+        });
         optionsRef.current.onError?.(errorMessage);
         break;
     }
-  }, []);
+  }, [state.retryAttempts]);
 
   /**
    * Start streaming code generation
@@ -155,11 +285,15 @@ export function useCodeStream(options: UseCodeStreamOptions = {}) {
       abortControllerRef.current.abort();
     }
 
-    // Reset state
+    // Reset state including retry state
     setState({
       ...initialState,
       isStreaming: true,
       message: 'Starting generation...',
+      retryAttempts: [],
+      isRetrying: false,
+      currentRetryAttempt: 0,
+      allRetriesSuccessful: true,
     });
 
     abortControllerRef.current = new AbortController();

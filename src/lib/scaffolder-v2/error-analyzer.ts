@@ -69,9 +69,20 @@ export class ErrorAnalyzer {
     const patterns = [
       /SyntaxError/i,
       /Unexpected token/i,
+      /Unexpected ["'<>{}[\]()]/i, // esbuild: "Unexpected '>'" or "Unexpected '{'"
+      /Expected .+ but found/i, // esbuild: "Expected identifier but found '/'"
       /Parsing error/i,
       /Unterminated string/i,
-      /Expression expected/i
+      /Unterminated regular expression/i, // esbuild regex error
+      /Expression expected/i,
+      /Invalid or unexpected token/i,
+      /Unexpected end of input/i,
+      /Unexpected end of file/i, // esbuild: "Unexpected end of file"
+      /Missing closing/i,
+      /Unclosed/i,
+      /Unexpected closing/i, // Tag mismatch
+      /does not match opening/i, // Tag mismatch
+      /JSX/i, // Generic JSX errors
     ];
     return patterns.some(p => p.test(log));
   }

@@ -284,9 +284,18 @@ const useAppData = window.useAppData || (() => ({ data: [], isLoading: false, er
 export async function bundleAppCode(options: ServerBundleOptions): Promise<ServerBundleResult> {
   const startTime = Date.now();
   const { code, appId, sourceMaps = false, minify = true, strictMode = false } = options;
-  
+
   const errors: BundleError[] = [];
   const warnings: string[] = [];
+
+  // Debug logging for require() detection
+  if (/\brequire\s*\(/.test(code)) {
+    console.log('[DEBUG-BUNDLER] Detected require() calls in code:', {
+      appId,
+      codeSnippet: code.split('\n').slice(0, 3).join('\n'),
+      hasRequire: true
+    });
+  }
   
   // 1. Security validation
   const securityCheck = validateSecurity(code);
@@ -321,6 +330,9 @@ export async function bundleAppCode(options: ServerBundleOptions): Promise<Serve
   let cleanedCode = code
     .replace(/['"]use client['"];?\n?/g, '')
     .replace(/['"]use strict['"];?\n?/g, '');
+
+  // Convert any CommonJS require() calls to ES module compatible code
+  cleanedCode = convertRequireToESModules(cleanedCode);
   
   // 5. Generate import shim
   const importShim = generateImportShim(requiredBundles);
@@ -346,34 +358,42 @@ export async function bundleAppCode(options: ServerBundleOptions): Promise<Serve
     
     // 7. Combine shim with transformed code
     const bundledCode = `
-// App: ${appId}
-// Generated: ${new Date().toISOString()}
-(function() {
-  'use strict';
-  
+    // App: ${appId}
+    // Generated: ${new Date().toISOString()}
+    (function() {
+      'use strict';
+
 ${importShim}
 
-// User App Code
+    // User App Code
 ${result.code}
 
-  // Render the app
-  try {
-    const appRoot = document.getElementById('root');
-    if (appRoot && typeof App !== 'undefined') {
-      const root = ReactDOM.createRoot(appRoot);
-      root.render(React.createElement(App));
-      window.SandboxAPI?._notifyReady?.();
-    } else if (typeof App === 'undefined') {
-      throw new Error('App component not found. Make sure to define a function called App.');
-    }
-  } catch (e) {
-    console.error('Failed to render app:', e);
-    window.SandboxAPI?._notifyError?.(e.message);
-    document.getElementById('root').innerHTML = '<div style="padding: 20px; color: #f87171;"><h2>Render Error</h2><pre>' + e.message + '</pre></div>';
-  }
-})();
+      // Render the app
+      try {
+        const appRoot = document.getElementById('root');
+        if (appRoot && typeof App !== 'undefined') {
+          const root = ReactDOM.createRoot(appRoot);
+          root.render(React.createElement(App));
+          window.SandboxAPI?._notifyReady?.();
+        } else if (typeof App === 'undefined') {
+          throw new Error('App component not found. Make sure to define a function called App.');
+        }
+      } catch (e) {
+        console.error('Failed to render app:', e);
+        window.SandboxAPI?._notifyError?.(e.message);
+        document.getElementById('root').innerHTML = '<div style="padding: 20px; color: #f87171;"><h2>Render Error</h2><pre>' + e.message + '</pre></div>';
+      }
+    })();
 `;
-    
+
+    // Debug logging for bundling result
+    if (bundledCode.includes('require(')) {
+      console.log('[DEBUG-BUNDLER] Bundled code still contains require() calls:', {
+        appId,
+        bundledSnippet: bundledCode.substring(0, 200)
+      });
+    }
+
     return {
       success: true,
       code: bundledCode,
@@ -388,34 +408,44 @@ ${result.code}
       },
     };
     
-  } catch (err) {
-    // Parse esbuild errors
-    if (err instanceof Error) {
-      try {
-        const esb = await getEsbuild();
-        const esbuildError = err as esb.TransformFailure;
+      } catch (err) {
+        // Parse esbuild errors
+        if (err instanceof Error) {
+          try {
+            const esb = await getEsbuild();
+            const esbuildError = err as esb.TransformFailure;
 
-        if (esbuildError.errors) {
-          for (const e of esbuildError.errors) {
+            console.log('[DEBUG-BUNDLER] Esbuild error details:', {
+              errorMessage: err.message,
+              hasErrors: !!esbuildError.errors,
+              errorCount: esbuildError.errors?.length || 0,
+              firstError: esbuildError.errors?.[0] ? {
+                text: esbuildError.errors[0].text,
+                location: esbuildError.errors[0].location
+              } : null
+            });
+
+            if (esbuildError.errors) {
+              for (const e of esbuildError.errors) {
+                errors.push({
+                  message: e.text,
+                  line: e.location?.line,
+                  column: e.location?.column,
+                  source: e.location?.lineText,
+                });
+              }
+            } else {
+              errors.push({
+                message: err.message,
+              });
+            }
+          } catch {
+            // If we can't get esbuild types, just use basic error
             errors.push({
-              message: e.text,
-              line: e.location?.line,
-              column: e.location?.column,
-              source: e.location?.lineText,
+              message: err.message,
             });
           }
-        } else {
-          errors.push({
-            message: err.message,
-          });
         }
-      } catch {
-        // If we can't get esbuild types, just use basic error
-        errors.push({
-          message: err.message,
-        });
-      }
-    }
     
     return {
       success: false,
@@ -430,6 +460,31 @@ ${result.code}
       },
     };
   }
+}
+
+/**
+ * Convert CommonJS require() calls to ES module syntax for better bundling
+ */
+function convertRequireToESModules(code: string): string {
+  // Pattern 1: Simple require: const/let/var name = require('module')
+  const simpleRequirePattern = /(?:const|let|var)\s+(\w+)\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)(?:;)?/g;
+
+  // Pattern 2: Destructured require: const { a, b } = require('module')
+  const destructuredRequirePattern = /(?:const|let|var)\s*{\s*([^}]+)\s*}\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)(?:;)?/g;
+
+  let newCode = code;
+
+  // Handle simple require calls
+  newCode = newCode.replace(simpleRequirePattern, (match, varName, moduleName) => {
+    return `import ${varName} from '${moduleName}';`;
+  });
+
+  // Handle destructured require calls
+  newCode = newCode.replace(destructuredRequirePattern, (match, destructuring, moduleName) => {
+    return `import { ${destructuring} } from '${moduleName}';`;
+  });
+
+  return newCode;
 }
 
 /**

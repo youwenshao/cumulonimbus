@@ -35,3 +35,11 @@ export {
   type ServerBundleOptions,
   type BundleError,
 } from './server-bundler';
+
+export {
+  RuntimeErrorMonitor,
+  runtimeErrorMonitor,
+  SANDBOX_ERROR_REPORTER_SCRIPT,
+  type SandboxErrorEvent,
+  type RuntimeErrorCallback,
+} from './runtime-error-monitor';

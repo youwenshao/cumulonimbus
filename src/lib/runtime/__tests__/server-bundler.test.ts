@@ -613,6 +613,44 @@ export default function Page() {
     expect(result).toBeDefined();
   });
 
+  it('should convert CommonJS require() calls to ES modules', async () => {
+    const codeWithRequire = `const React = require('react');
+const { useState, useEffect } = require('react');
+const { Heart } = require('lucide-react');
+
+function App() {
+  const [count, setCount] = useState(0);
+  return React.createElement('div', null, count);
+}`;
+
+    const result = await bundleAppCode({
+      code: codeWithRequire,
+      appId: 'require-test-1',
+    });
+
+    expect(result.success).toBe(true);
+    // The bundled code should not contain require() calls
+    expect(result.code).not.toContain('require(');
+  });
+
+  it('should handle destructured require calls', async () => {
+    const codeWithDestructuredRequire = `const { useState, useEffect } = require('react');
+const { LineChart, Line } = require('recharts');
+
+function App() {
+  const [count, setCount] = useState(0);
+  return <div>Count: {count}</div>;
+}`;
+
+    const result = await bundleAppCode({
+      code: codeWithDestructuredRequire,
+      appId: 'require-test-2',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.code).not.toContain('require(');
+  });
+
   it('should handle very large code files', async () => {
     const largeCode = `export default function Page() {
   const data = [\n${'    { id: 1, value: "test" },\n'.repeat(1000)}  ];

@@ -7,12 +7,14 @@ import {
   Wand2,
   Zap,
   Code2,
-  Loader2
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { Button, ChatInput, ChatMessage } from '@/components/ui';
 import { CodeStreamViewer } from './CodeStreamViewer';
 import { LivePreview } from './LivePreview';
-import { useCodeStream } from '@/hooks/useCodeStream';
+import { RetryProgressIndicator } from './RetryProgressIndicator';
+import { useCodeStream, type RetryAttempt } from '@/hooks/useCodeStream';
 import { cn } from '@/lib/utils';
 
 export interface FreeformCreatorProps {
@@ -40,15 +42,23 @@ export function FreeformCreator({ className = '' }: FreeformCreatorProps) {
     design,
     appId,
     error,
+    isRetrying,
+    currentRetryAttempt,
+    maxRetryAttempts,
+    retryAttempts,
+    allRetriesSuccessful,
     startGeneration,
     reset,
   } = useCodeStream({
     onComplete: (id) => {
       console.log('App generated:', id);
+      const successMessage = retryAttempts.length > 0
+        ? `App generation complete! Fixed ${retryAttempts.filter(a => a.status === 'success').length} error(s) during generation.`
+        : 'App generation complete! You can now preview your application below.';
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
         role: 'assistant',
-        content: 'App generation complete! You can now preview your application below.'
+        content: successMessage
       }]);
     },
     onError: (err) => {
@@ -58,6 +68,12 @@ export function FreeformCreator({ className = '' }: FreeformCreatorProps) {
         role: 'assistant',
         content: `Sorry, something went wrong: ${err}`
       }]);
+    },
+    onRetryStart: (attempt: RetryAttempt) => {
+      console.log('Retry started:', attempt);
+    },
+    onRetryComplete: (attempt: RetryAttempt) => {
+      console.log('Retry completed:', attempt);
     },
   });
 
@@ -110,8 +126,17 @@ export function FreeformCreator({ className = '' }: FreeformCreatorProps) {
                 <div className="animate-slide-up space-y-4">
                   <div className="flex items-center justify-between">
                      <div className="flex items-center gap-2 text-sm text-text-secondary">
-                        <Loader2 className="w-4 h-4 animate-spin text-accent-yellow" />
-                        <span>{statusMessage || 'Generating your app...'} ({progress}%)</span>
+                        {isRetrying ? (
+                          <RefreshCw className="w-4 h-4 animate-spin text-accent-yellow" />
+                        ) : (
+                          <Loader2 className="w-4 h-4 animate-spin text-accent-yellow" />
+                        )}
+                        <span>
+                          {isRetrying 
+                            ? `Fixing errors (attempt ${currentRetryAttempt}/${maxRetryAttempts})...`
+                            : statusMessage || 'Generating your app...'
+                          } ({progress}%)
+                        </span>
                      </div>
                      <Button 
                         onClick={() => setShowCode(!showCode)} 
@@ -122,6 +147,16 @@ export function FreeformCreator({ className = '' }: FreeformCreatorProps) {
                         {showCode ? 'Hide Code' : 'Show Code'}
                      </Button>
                   </div>
+
+                  {/* Retry Progress Indicator */}
+                  {(isRetrying || retryAttempts.length > 0) && (
+                    <RetryProgressIndicator
+                      attempts={retryAttempts}
+                      currentAttempt={currentRetryAttempt}
+                      maxAttempts={maxRetryAttempts}
+                      isRetrying={isRetrying}
+                    />
+                  )}
                   
                   {showCode && (
                     <CodeStreamViewer
@@ -139,6 +174,16 @@ export function FreeformCreator({ className = '' }: FreeformCreatorProps) {
               {/* Completion State */}
               {!isStreaming && appId && (
                 <div className="animate-slide-up space-y-6">
+                   {/* Show retry summary if there were retries */}
+                   {retryAttempts.length > 0 && (
+                     <RetryProgressIndicator
+                       attempts={retryAttempts}
+                       currentAttempt={currentRetryAttempt}
+                       maxAttempts={maxRetryAttempts}
+                       isRetrying={false}
+                     />
+                   )}
+
                    {/* Generated Code Review (Collapsed by default or small) */}
                    {!showCode && (
                      <Button 

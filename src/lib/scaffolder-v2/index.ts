@@ -75,3 +75,48 @@ export { proposalEngine, ProposalEngine } from './proposals';
 
 // Mockup system
 export { mockupGenerator, MockupGenerator } from './mockup';
+
+// Error handling and feedback loop
+export { 
+  FeedbackLoop,
+  type FeedbackSession,
+  type FeedbackIteration,
+  type TokenUsageStats,
+} from './feedback-loop';
+
+export { 
+  ErrorAnalyzer,
+  type AnalyzedError,
+  type ErrorCategory,
+} from './error-analyzer';
+
+export {
+  ErrorDetectionService,
+  errorDetectionService,
+  type DetectedError,
+  type ErrorDetectionResult,
+  type RuntimeErrorData,
+} from './error-detection-service';
+
+export {
+  SmartContextExtractor,
+  smartContextExtractor,
+  type SmartContext,
+} from './smart-context-extractor';
+
+export {
+  IncrementalFixGenerator,
+  incrementalFixGenerator,
+  type FixResult,
+  type FixHistoryEntry,
+} from './incremental-fix-generator';
+
+export {
+  FEEDBACK_CONFIG,
+  getRetryStrategy,
+  getContextWindowSize,
+  shouldRetry,
+  type ErrorStage,
+  type RetryStrategy,
+  type FeedbackConfig,
+} from './feedback-config';

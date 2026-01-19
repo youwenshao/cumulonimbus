@@ -91,6 +91,9 @@ CRITICAL SYNTAX RULES:
 - Use window.SandboxAPI.fetch() for API calls if needed beyond useAppData
 - AVOID backticks (\`) in Tailwind classes - they create syntax errors in template literals
 - Use standard Tailwind classes only, avoid arbitrary values with backticks like content-['text']
+- NEVER use malformed Fragment syntax like </<> or </> alone - use proper React.Fragment or <> </> pairs
+- All JSX tags must be properly closed: every <div> needs </div>, every <span> needs </span>
+- When using Fragments, use <> and </> as a matching pair, NEVER mix Fragment markers with regular tags like </<></div>
 
 IMPORT SYNTAX (when using imports):
 import { useState, useEffect } from 'react';
@@ -199,13 +202,31 @@ export class FreeformGenerator extends BaseAgent {
       const design = await this.designApp(message);
       
       // Step 2: Generate the code
-      const code = await this.generateCode(message, design);
+      let code = await this.generateCode(message, design);
+
+      // Validate and fix JSX syntax issues
+      code = this.validateAndFixJSX(code);
       
       // Step 3: Bundle and validate
+      console.log('[DEBUG-GENERATOR] Starting code bundling:', {
+        appId: state.id,
+        codeLength: code.length,
+        hasIncompleteJSX: /<\s*$/.test(code),
+        lastLines: code.slice(-200)
+      });
+
       const bundle = bundleCode({
         appId: state.id,
         appCode: code,
         schema: design.schema,
+      });
+
+      console.log('[DEBUG-GENERATOR] Bundling result:', {
+        success: bundle.success,
+        bundleSize: bundle.bundleSize,
+        filesCount: Object.keys(bundle.files).length,
+        hasErrors: bundle.errors.length > 0,
+        errors: bundle.errors.slice(0, 3) // Show first 3 errors
       });
 
       const validation = validateCode(bundle.bundledCode);
@@ -357,6 +378,17 @@ Generate ONLY the code, no markdown code blocks or explanations.`;
       .replace(/```$/g, '')
       .trim();
 
+    // Debug: Log the raw generated code for analysis
+    console.log('[DEBUG-GENERATOR] Raw generated code analysis:', {
+      length: fullCode.length,
+      cleanedLength: cleanedCode.length,
+      lastLines: cleanedCode.slice(-500),
+      hasIncompleteTags: /<\s*$/.test(cleanedCode),
+      openTags: (cleanedCode.match(/<\w+/g) || []).length,
+      closeTags: (cleanedCode.match(/<\/\w+/g) || []).length,
+      selfClosingTags: (cleanedCode.match(/<\w+[^>]*\/>/g) || []).length
+    });
+
     // Fix common syntax issues from LLM generation
     cleanedCode = cleanedCode
       // Remove backticks from Tailwind arbitrary values that cause syntax errors
@@ -370,7 +402,86 @@ Generate ONLY the code, no markdown code blocks or explanations.`;
         return match;
       });
 
+    // Validate and fix JSX syntax issues
+    cleanedCode = this.validateAndFixJSX(cleanedCode);
+
+    // Final cleanup
+    cleanedCode = cleanedCode
+      .replace(/>\s*</g, '><') // Remove whitespace between adjacent tags
+      .trim();
+
     yield { type: 'complete', content: cleanedCode };
+  }
+
+  /**
+   * Validate and fix JSX syntax issues
+   */
+  private validateAndFixJSX(code: string): string {
+    let fixedCode = code;
+
+    // Fix incomplete JSX tags at the end
+    if (fixedCode.match(/<\s*$/)) {
+      console.log('[DEBUG-GENERATOR] Found incomplete JSX tag at end, removing');
+      fixedCode = fixedCode.replace(/<\s*$/, '');
+    }
+
+    // Fix unclosed JSX tags by parsing the JSX structure
+    const lines = fixedCode.split('\n');
+    const fixedLines: string[] = [];
+    const openTagStack: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i];
+
+      // Find all JSX tags in this line
+      const tagRegex = /<\/?[\w-]+[^>]*>?/g;
+      let tagMatch;
+      const processedLine = [];
+      let lastIndex = 0;
+
+      while ((tagMatch = tagRegex.exec(line)) !== null) {
+        // Add text before the tag
+        processedLine.push(line.substring(lastIndex, tagMatch.index));
+        lastIndex = tagMatch.index + tagMatch[0].length;
+
+        const tag = tagMatch[0];
+
+        if (tag.startsWith('</')) {
+          // Closing tag
+          const tagName = tag.substring(2, tag.indexOf('>') !== -1 ? tag.indexOf('>') : tag.length);
+          // Remove from stack if it matches the top
+          if (openTagStack.length > 0 && openTagStack[openTagStack.length - 1] === tagName) {
+            openTagStack.pop();
+          }
+        } else if (tag.endsWith('/>') || tag.includes('area') || tag.includes('base') || tag.includes('br') ||
+                   tag.includes('col') || tag.includes('embed') || tag.includes('hr') || tag.includes('img') ||
+                   tag.includes('input') || tag.includes('link') || tag.includes('meta') || tag.includes('source') ||
+                   tag.includes('track') || tag.includes('wbr')) {
+          // Self-closing tag or void element - don't add to stack
+        } else {
+          // Opening tag
+          const tagName = tag.substring(1, tag.indexOf(' ') !== -1 ? tag.indexOf(' ') : tag.indexOf('>'));
+          if (tagName && !tagName.includes('/')) {
+            openTagStack.push(tagName);
+          }
+        }
+
+        processedLine.push(tag);
+      }
+
+      // Add remaining text
+      processedLine.push(line.substring(lastIndex));
+
+      fixedLines.push(processedLine.join(''));
+    }
+
+    // Close any remaining unclosed tags
+    while (openTagStack.length > 0) {
+      const tagName = openTagStack.pop()!;
+      fixedLines.push(`</${tagName}>`);
+    }
+
+    return fixedLines.join('\n');
   }
 
   /**

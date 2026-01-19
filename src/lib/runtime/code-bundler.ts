@@ -292,6 +292,10 @@ function cleanCode(code: string): string {
   code = code.replace(/'use client';?\n?/g, '');
   code = code.replace(/"use client";?\n?/g, '');
 
+  // Handle CommonJS require() calls by converting them to ES module imports
+  // This handles cases where the LLM generates CommonJS code
+  code = convertRequireToImport(code);
+
   // Remove imports (we provide React globally)
   code = code.replace(/import\s+.*?from\s+['"][^'"]+['"];?\n?/g, '');
   code = code.replace(/import\s+{[^}]+}\s+from\s+['"][^'"]+['"];?\n?/g, '');
@@ -301,6 +305,111 @@ function cleanCode(code: string): string {
   code = code.replace(/export\s+/g, '');
 
   return code.trim();
+}
+
+/**
+ * Convert CommonJS require() calls to ES module imports
+ * This handles cases where the LLM generates CommonJS code instead of ES modules
+ */
+function convertRequireToImport(code: string): string {
+  // Pattern 1: Simple require: const/let/var name = require('module');
+  const simpleRequirePattern = /(?:const|let|var)\s+(\w+)\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)\s*;/g;
+
+  // Pattern 2: Destructured require: const { a, b } = require('module');
+  const destructuredRequirePattern = /(?:const|let|var)\s*{\s*([^}]+)\s*}\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)\s*;/g;
+
+  let match;
+  const replacements: Array<{ start: number; end: number; replacement: string }> = [];
+
+  // Handle simple require calls
+  while ((match = simpleRequirePattern.exec(code)) !== null) {
+    const fullMatch = match[0];
+    const varName = match[1];
+    const moduleName = match[2];
+    const start = match.index;
+    const end = start + fullMatch.length;
+
+    const replacement = getRequireReplacement(varName, moduleName);
+    replacements.push({ start, end, replacement });
+  }
+
+  // Reset regex
+  simpleRequirePattern.lastIndex = 0;
+
+  // Handle destructured require calls
+  while ((match = destructuredRequirePattern.exec(code)) !== null) {
+    const fullMatch = match[0];
+    const destructuredVars = match[1];
+    const moduleName = match[2];
+    const start = match.index;
+    const end = start + fullMatch.length;
+
+    // Get the module object
+    const moduleReplacement = getModuleObject(moduleName);
+
+    // Create destructuring assignment
+    const replacement = `const { ${destructuredVars} } = ${moduleReplacement};`;
+    replacements.push({ start, end, replacement });
+  }
+
+  // Apply replacements in reverse order to maintain indices
+  replacements.reverse().forEach(({ start, end, replacement }) => {
+    code = code.substring(0, start) + replacement + code.substring(end);
+  });
+
+  return code;
+}
+
+/**
+ * Get replacement code for a require() call
+ */
+function getRequireReplacement(varName: string, moduleName: string): string {
+  const moduleObj = getModuleObject(moduleName);
+  return `const ${varName} = ${moduleObj};`;
+}
+
+/**
+ * Get the module object expression for a given module name
+ */
+function getModuleObject(moduleName: string): string {
+  // Handle React (most common case)
+  if (moduleName === 'react') {
+    return 'React';
+  }
+
+  // Handle other supported modules via window.AppDependencies
+  if (moduleName.startsWith('lucide-react')) {
+    return 'window.AppDependencies?.icons || {}';
+  } else if (moduleName === 'date-fns') {
+    return 'window.AppDependencies?.utils || {}';
+  } else if (moduleName === 'zod') {
+    return 'window.AppDependencies?.forms?.z || { object: () => ({}), string: () => ({}), number: () => ({}) }';
+  } else if (moduleName === 'recharts') {
+    return 'window.AppDependencies?.charts || {}';
+  } else if (moduleName === 'framer-motion') {
+    return 'window.AppDependencies?.animations || { motion: { div: "div", span: "span", button: "button" }, AnimatePresence: ({ children }) => children }';
+  } else if (moduleName === 'react-hook-form') {
+    return 'window.AppDependencies?.forms || {}';
+  } else if (moduleName === '@tanstack/react-table') {
+    return 'window.AppDependencies?.tables || {}';
+  } else if (moduleName === 'zustand') {
+    return 'window.AppDependencies?.state || { create: () => () => ({}) }';
+  } else if (moduleName === 'jotai') {
+    return 'window.AppDependencies?.state || {}';
+  } else if (moduleName === 'lodash-es') {
+    return 'window.AppDependencies?.utils || {}';
+  } else if (moduleName === 'nanoid') {
+    return 'window.AppDependencies?.utils || { nanoid: () => Math.random().toString(36).slice(2) }';
+  } else if (moduleName === 'dayjs') {
+    return 'window.AppDependencies?.utils?.dayjs || ((d) => new Date(d))';
+  } else if (moduleName === 'react-hot-toast' || moduleName === 'sonner') {
+    return 'window.AppDependencies?.misc || { toast: console.log, Toaster: () => null }';
+  } else if (moduleName === 'react-confetti') {
+    return 'window.AppDependencies?.misc || {}';
+  } else {
+    // For unknown modules, create an empty object to prevent errors
+    return `{}`; // Module '${moduleName}' not available in sandbox
+  }
 }
 
 /**
@@ -315,6 +424,7 @@ export function bundleCode(options: BundleOptions): BundleResult {
     schema,
   } = options;
 
+
   // Start with wrapper template
   let bundledCode = WRAPPER_TEMPLATE;
 
@@ -328,6 +438,7 @@ export function bundleCode(options: BundleOptions): BundleResult {
   // Add the main app code or generate default
   if (appCode && appCode.trim()) {
     const cleanedAppCode = cleanCode(appCode);
+
 
     // Extract the main component name from the cleaned code
     let mainComponentName = 'App'; // default fallback

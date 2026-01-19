@@ -453,3 +453,66 @@ describe('Freeform Generator - Edge Cases', () => {
     ).rejects.toThrow();
   });
 });
+
+describe('Freeform Generator - JSX Validation', () => {
+  let generator: FreeformGenerator;
+
+  beforeEach(() => {
+    generator = new FreeformGenerator();
+  });
+
+  it('should fix incomplete JSX tags at end of file', () => {
+    const codeWithIncompleteTag = `
+function App() {
+  return (
+    <div>
+      <h1>Hello World</h1>
+      <p>This is incomplete
+  );
+}`;
+
+    // Access the private method for testing
+    const fixedCode = (generator as any).validateAndFixJSX(codeWithIncompleteTag);
+
+    expect(fixedCode).not.toMatch(/<\s*$/);
+    expect(fixedCode).toContain('</div>');
+    expect(fixedCode).toContain('</p>');
+  });
+
+  it('should handle nested unclosed tags', () => {
+    const codeWithNestedUnclosed = `
+function App() {
+  return (
+    <div>
+      <header>
+        <h1>Title</header>
+      <main>
+        <p>Content</main>
+    </div>
+  );
+}`;
+
+    const fixedCode = (generator as any).validateAndFixJSX(codeWithNestedUnclosed);
+
+    // Should close header and main tags
+    expect(fixedCode).toContain('</header>');
+    expect(fixedCode).toContain('</main>');
+  });
+
+  it('should handle self-closing tags correctly', () => {
+    const codeWithSelfClosing = `
+function App() {
+  return (
+    <div>
+      <input type="text" />
+      <img src="test.jpg" alt="test"
+  );
+}`;
+
+    const fixedCode = (generator as any).validateAndFixJSX(codeWithSelfClosing);
+
+    expect(fixedCode).toContain('<input type="text" />');
+    // img is a void element, should be treated as self-closing
+    expect(fixedCode).toMatch(/<img[^>]*\/?>/);
+  });
+});
