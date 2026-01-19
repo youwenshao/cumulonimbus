@@ -221,14 +221,14 @@ async function start() {
             console.error('Nebula Render Error:', err);
             fetch('http://127.0.0.1:7243/ingest/abdc0eda-3bc5-4723-acde-13a524455249',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'browser-shell',message:'Render error',data:{appId:APP_PROPS.appId,error:err.message,stack:err.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'subdomain-fix',hypothesisId:'H4'})}).catch(()=>{});
 
-            document.getElementById('root').innerHTML = `
+            document.getElementById('root').innerHTML = \`
                 <div class="p-10 text-red-500 max-w-3xl mx-auto">
                     <h1 class="text-3xl font-bold mb-6">Runtime Error</h1>
                     <div class="bg-gray-900 p-6 rounded-xl border border-red-500/30">
-                        <pre class="text-sm font-mono whitespace-pre-wrap">${err.stack || err.message}</pre>
+                        <pre class="text-sm font-mono whitespace-pre-wrap">\${err.stack || err.message}</pre>
                     </div>
                 </div>
-            `;
+            \`;
         }
     </script>
 </body>
@@ -241,6 +241,9 @@ async function start() {
     requestHandler = defaultHandler;
 
     const nebulaRequire = (moduleName: string) => {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'worker.ts:nebulaRequire',message:'nebulaRequire called',data:{moduleName},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'H7'})}).catch(()=>{});
+      // #endregion
       if (moduleName === 'nebula') {
         return {
           registerHandler: (handler: any) => { 
@@ -252,18 +255,57 @@ async function start() {
       }
       if (moduleName.startsWith('@/')) {
         const relativePath = moduleName.replace('@/', 'src/');
-        const fullPath = path.resolve(process.cwd(), relativePath);
-        return require(fullPath);
+        let fullPath = path.resolve(process.cwd(), relativePath);
+        
+        try {
+          const fs = require('fs');
+          const tsPath = fullPath + '.ts';
+          const jsPath = fullPath + '.js';
+          const indexPath = path.join(fullPath, 'index.ts');
+          if (fs.existsSync(tsPath)) fullPath = tsPath;
+          else if (fs.existsSync(jsPath)) fullPath = jsPath;
+          else if (fs.existsSync(indexPath)) fullPath = indexPath;
+        } catch (e) {}
+
+        try {
+          const result = require(fullPath);
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'worker.ts:nebulaRequire',message:'require(@/) succeeded',data:{moduleName,fullPath},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'H7'})}).catch(()=>{});
+          // #endregion
+          return result;
+        } catch (err: any) {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'worker.ts:nebulaRequire',message:'require(@/) failed',data:{moduleName,fullPath,error:err.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'H7'})}).catch(()=>{});
+          // #endregion
+          throw err;
+        }
       }
-      return require(moduleName);
+      try {
+        const result = require(moduleName);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'worker.ts:nebulaRequire',message:'require(module) succeeded',data:{moduleName},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'H7'})}).catch(()=>{});
+        // #endregion
+        return result;
+      } catch (err: any) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'worker.ts:nebulaRequire',message:'require(module) failed',data:{moduleName,error:err.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'H7'})}).catch(()=>{});
+        // #endregion
+        throw err;
+      }
     };
 
     if (nodeResult) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'worker.ts:start',message:'Executing nodeResult',data:{codeSnippet:nodeResult.code.substring(0, 500)},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'H7'})}).catch(()=>{});
+      // #endregion
       try {
         const execFn = new Function('context', 'require', 'module', 'exports', nodeResult.code);
         const mod = { exports: {} };
         execFn(context, nebulaRequire, mod, mod.exports);
       } catch (err: any) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'worker.ts:start',message:'execFn failed',data:{error:err.message,stack:err.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'H7'})}).catch(()=>{});
+        // #endregion
         console.warn(`[Worker ${appId}] Server-side execution skipped:`, err.message);
       }
     }
