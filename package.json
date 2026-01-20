@@ -16,8 +16,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
-    "build:demo": "cd demo-site && npm install && npm run build && cd .. && rm -rf public/demo-static && mkdir -p public/demo-static && cp -r demo-site/dist/client/* public/demo-static/"
-  },
+    "build:demo": "cd demo-site && npm install --include=dev && npm run build && cd .. && rm -rf public/demo-static && mkdir -p public/demo-static && cp -r demo-site/dist/client/* public/demo-static/"  },
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "@tanstack/react-table": "^8.20.5",
