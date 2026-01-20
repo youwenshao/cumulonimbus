@@ -314,6 +314,13 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
   const eventSourceRef = useRef<EventSource | null>(null);
   const currentStreamIdRef = useRef<string | null>(null); // Track current stream ID
 
+  const showFinalize = (state?.phase === 'picture' || state?.phase === 'plan') && state?.allQuestionsAnswered;
+  // Get plan from state or from message metadata
+  const currentPlan = state?.plan || messages.find(m => m.metadata?.plan)?.metadata?.plan;
+
+  // Check if we are in simulation mode (Agent Stream active)
+  const isAgentStreaming = simulationEvents.length > 0;
+
   // Connect to SSE for status updates - returns promise that resolves when connected
   // Includes retry logic with exponential backoff
   const connectToStatusStream = React.useCallback((convId: string, maxRetries = 3): Promise<void> => {
@@ -807,13 +814,6 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
   const lastMessage = messages[messages.length - 1];
   const showOptions = lastMessage?.metadata?.options && !isLoading;
   // Show finalize when in picture or plan phase with all questions answered
-  const showFinalize = (state?.phase === 'picture' || state?.phase === 'plan') && state?.allQuestionsAnswered;
-  // Get plan from state or from message metadata
-  const currentPlan = state?.plan || messages.find(m => m.metadata?.plan)?.metadata?.plan;
-
-  // Check if we are in simulation mode (Agent Stream active)
-  const isAgentStreaming = simulationEvents.length > 0;
-
   // Auto-trigger finalize when in agent streaming mode and buildPhase becomes generating
   React.useEffect(() => {
     console.log('🔍 useEffect check:', { isAgentStreaming, buildPhase, isLoading, conversationId });
