@@ -314,73 +314,6 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
   const eventSourceRef = useRef<EventSource | null>(null);
   const currentStreamIdRef = useRef<string | null>(null); // Track current stream ID
 
-  // Load existing conversation if appId is present
-  useEffect(() => {
-    if (appId && !conversationId) {
-      const loadConversation = async () => {
-        setIsLoading(true);
-        try {
-          // Attempt to load conversation for this app
-          const response = await fetch('/api/scaffolder', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'load',
-              appId,
-            }),
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.conversationId) {
-              setConversationId(data.conversationId);
-              setMessages(data.messages || []);
-              setState(data.state);
-              
-              if (data.state?.phase === 'plan' || data.state?.phase === 'complete') {
-                setCurrentPhase('plan');
-              }
-              
-              // Reconnect SSE
-              connectToStatusStream(data.conversationId);
-            }
-          }
-        } catch (error) {
-          console.error('Failed to load conversation:', error);
-          toast.error('Failed to load previous session');
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      
-      loadConversation();
-    }
-  }, [appId, conversationId]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  // Reconnect SSE when conversation ID changes
-  useEffect(() => {
-    if (conversationId && conversationId !== currentStreamIdRef.current) {
-      console.log(`🔄 Conversation ID changed, reconnecting SSE to: ${conversationId}`);
-      connectToStatusStream(conversationId).catch(error => {
-        console.error('Failed to reconnect SSE:', error);
-      });
-    }
-  }, [conversationId]);
-
-  // Cleanup SSE connection on unmount
-  useEffect(() => {
-    return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-    };
-  }, []);
-
   // Connect to SSE for status updates - returns promise that resolves when connected
   // Includes retry logic with exponential backoff
   const connectToStatusStream = React.useCallback((convId: string, maxRetries = 3): Promise<void> => {
@@ -498,7 +431,74 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
 
       attemptConnection();
     });
-  };
+  }, []);
+
+  // Load existing conversation if appId is present
+  useEffect(() => {
+    if (appId && !conversationId) {
+      const loadConversation = async () => {
+        setIsLoading(true);
+        try {
+          // Attempt to load conversation for this app
+          const response = await fetch('/api/scaffolder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'load',
+              appId,
+            }),
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.conversationId) {
+              setConversationId(data.conversationId);
+              setMessages(data.messages || []);
+              setState(data.state);
+              
+              if (data.state?.phase === 'plan' || data.state?.phase === 'complete') {
+                setCurrentPhase('plan');
+              }
+              
+              // Reconnect SSE
+              connectToStatusStream(data.conversationId);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load conversation:', error);
+          toast.error('Failed to load previous session');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      
+      loadConversation();
+    }
+  }, [appId, conversationId, connectToStatusStream]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Reconnect SSE when conversation ID changes
+  useEffect(() => {
+    if (conversationId && conversationId !== currentStreamIdRef.current) {
+      console.log(`🔄 Conversation ID changed, reconnecting SSE to: ${conversationId}`);
+      connectToStatusStream(conversationId).catch(error => {
+        console.error('Failed to reconnect SSE:', error);
+      });
+    }
+  }, [conversationId, connectToStatusStream]);
+
+  // Cleanup SSE connection on unmount
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, []);
 
   const handleSubmit = async (message: string) => {
     setIsLoading(true);
@@ -663,7 +663,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
     }
   };
 
-  const handleFinalize = async () => {
+  const handleFinalize = React.useCallback(async () => {
     console.log('🎯 handleFinalize called', { conversationId, isLoading, isAgentStreaming, buildPhase });
 
     if (!conversationId || isLoading) return;
@@ -734,7 +734,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
       setIsLoading(false);
 
     }
-  };
+  }, [conversationId, isLoading, isAgentStreaming, buildPhase, connectToStatusStream]);
 
   const handleCodeGenComplete = (code: GeneratedCode) => {
     console.log('Code generation complete:', code.pageComponent.length, 'chars');
