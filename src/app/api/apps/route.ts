@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth';
 import prisma, { withDBErrorHandling, DBErrorType } from '@/lib/db';
+import { generateSubdomain } from '@/lib/utils';
 
 // GET /api/apps - List all apps for the current user
 export async function GET() {
@@ -22,10 +23,28 @@ export async function GET() {
           status: true,
           createdAt: true,
           updatedAt: true,
+          subdomain: true,
         },
       }),
       { retryAttempts: 2, retryDelayMs: 500 }
     );
+
+    if (apps) {
+      // Lazy migration: Ensure all apps have subdomains
+      const missingSubdomains = apps.filter(app => !app.subdomain);
+      if (missingSubdomains.length > 0) {
+        await Promise.all(
+          missingSubdomains.map(async (app) => {
+            const subdomain = generateSubdomain(app.name);
+            await prisma.app.update({
+              where: { id: app.id },
+              data: { subdomain },
+            });
+            app.subdomain = subdomain;
+          })
+        );
+      }
+    }
 
     if (dbError) {
       console.error('Database error fetching apps:', dbError);
@@ -92,6 +111,7 @@ export async function POST(request: NextRequest) {
         data: {
           userId: session.user.id,
           name,
+          subdomain: generateSubdomain(name),
           description: description || '',
           spec,
           config,

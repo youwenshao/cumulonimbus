@@ -34,3 +34,24 @@ export function truncate(str: string, length: number): string {
   if (str.length <= length) return str;
   return str.slice(0, length) + '...';
 }
+
+/**
+ * Generates a URL-friendly slug from a string
+ */
+export function slugify(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '') // Remove non-word characters
+    .replace(/[\s_]+/g, '-') // Replace spaces and underscores with -
+    .replace(/^-+|-+$/g, '') // Trim leading/trailing -
+    .substring(0, 50); // Limit length
+}
+
+/**
+ * Generates a unique subdomain for an app
+ */
+export function generateSubdomain(name: string): string {
+  const slug = slugify(name) || 'app';
+  const shortId = Math.random().toString(36).substring(2, 6);
+  return `${slug}-${shortId}`;
+}

@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth';
 import prisma from '@/lib/db';
-import { generateId } from '@/lib/utils';
+import { generateId, generateSubdomain } from '@/lib/utils';
 import type { UserLLMSettings, LLMProvider } from '@/lib/llm';
 import { 
   orchestratorAgent, 
@@ -311,10 +311,12 @@ async function handleFinalize(
   overallScore = componentCount > 0 ? overallScore / componentCount : 0;
 
   // Save app to database
+  const name = state.suggestedAppName || state.schemas[0].label;
   const app = await prisma.app.create({
     data: {
       userId,
-      name: state.suggestedAppName || state.schemas[0].label,
+      name,
+      subdomain: generateSubdomain(name),
       description: state.schemas[0].description || '',
       spec: {
         schema: state.schemas[0],

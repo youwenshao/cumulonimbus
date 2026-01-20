@@ -26,8 +26,10 @@ export async function middleware(request: NextRequest) {
   if (isSubdomain && !pathname.startsWith('/api/nebula/serve') && !pathname.startsWith('/api/auth') && !pathname.startsWith('/_next')) {
     const subdomain = host.split('.')[0];
     
-    // Construct the rewrite URL to the main domain
-    const url = new URL(`/api/nebula/serve`, `http://${domain}`);
+    // Construct the rewrite URL - use the request's own URL but change the path
+    // This is more reliable for both local and production environments
+    const url = request.nextUrl.clone();
+    url.pathname = '/api/nebula/serve';
     url.searchParams.set('appId', subdomain);
     url.searchParams.set('originalPath', pathname);
     
