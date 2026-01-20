@@ -223,6 +223,11 @@ export function DashboardContent({ apps: initialApps, userEmail, userPlan }: Das
     }
   };
 
+  const handleCopyId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    toast.success('App ID copied to clipboard');
+  };
+
   return (
     <div className="flex-1 flex flex-col min-w-0">
       {/* Header */}
