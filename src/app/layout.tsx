@@ -22,6 +22,7 @@ const sourceSerifPro = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://cumulonimbus.app'),
   title: 'Cumulonimbus - Solving Problems at the Speed of Thought',
   description: 'A powerful, intelligent atmosphere where creation happens naturally. Build apps through natural conversation.',
 };
