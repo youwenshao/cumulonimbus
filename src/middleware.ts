@@ -20,18 +20,28 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  // --- Nebula Subdomain Routing ---
+  // --- Nebula Routing (Subdomain or Path-based fallback for Vercel) ---
   const isSubdomain = host !== domain && host.endsWith(`.${domain}`);
+  const isPathRouting = host === domain && pathname.startsWith('/s/');
   
-  if (isSubdomain && !pathname.startsWith('/api/nebula/serve') && !pathname.startsWith('/api/auth') && !pathname.startsWith('/_next')) {
-    const subdomain = host.split('.')[0];
+  if ((isSubdomain || isPathRouting) && !pathname.startsWith('/api/nebula/serve') && !pathname.startsWith('/api/auth') && !pathname.startsWith('/_next')) {
+    let subdomain = '';
+    let originalPath = pathname;
+
+    if (isSubdomain) {
+      subdomain = host.split('.')[0];
+    } else {
+      // Path format: /s/my-app/some-page -> subdomain: my-app, originalPath: /some-page
+      const parts = pathname.split('/');
+      subdomain = parts[2];
+      originalPath = '/' + parts.slice(3).join('/') || '/';
+    }
     
-    // Construct the rewrite URL - use the request's own URL but change the path
-    // This is more reliable for both local and production environments
+    // Construct the rewrite URL
     const url = request.nextUrl.clone();
     url.pathname = '/api/nebula/serve';
     url.searchParams.set('appId', subdomain);
-    url.searchParams.set('originalPath', pathname);
+    url.searchParams.set('originalPath', originalPath);
     
     return NextResponse.rewrite(url);
   }

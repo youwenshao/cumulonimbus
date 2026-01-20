@@ -486,8 +486,15 @@ function AppCard({
   const isPro = userPlan === 'PRO' || userPlan === 'PLUS';
   const domain = process.env.NEXT_PUBLIC_DOMAIN || 'localhost:3000';
   const protocol = domain.includes('localhost') ? 'http' : 'https';
+  
+  // Vercel .vercel.app domains don't support wildcard subdomains (SSL limitation)
+  // Use path-based routing (/s/app-id) for those, and true subdomains for everything else.
+  const usePathRouting = domain.endsWith('.vercel.app');
+  
   const liveUrl = app.subdomain 
-    ? `${protocol}://${app.subdomain}.${domain}`
+    ? (usePathRouting 
+        ? `${protocol}://${domain}/s/${app.subdomain}`
+        : `${protocol}://${app.subdomain}.${domain}`)
     : null;
 
   return (
