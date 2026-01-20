@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm run build:demo && next build",
+    "build": "prisma db push && npm run build:demo && next build",
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
