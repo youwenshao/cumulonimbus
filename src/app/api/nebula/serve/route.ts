@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { nebulaSupervisor } from '@/lib/nebula/supervisor';
 import prisma from '@/lib/db';
+import { getSubdomain } from '@/lib/utils';
 
 export async function GET(
   request: NextRequest,
@@ -9,13 +10,12 @@ export async function GET(
   // This route is called after middleware rewrites it
   const url = new URL(request.url);
   const host = request.headers.get('host') || '';
-  const domain = process.env.NEXT_PUBLIC_DOMAIN || 'localhost:3000';
   
   let appId = url.searchParams.get('appId');
 
   // Fallback: If appId is missing but we're on a subdomain, use the subdomain
-  if (!appId && host !== domain && host.endsWith(`.${domain}`)) {
-    appId = host.split('.')[0];
+  if (!appId) {
+    appId = getSubdomain(host);
   }
 
   if (!appId) {

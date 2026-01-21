@@ -38,7 +38,12 @@ export default function Home() {
   const router = useRouter();
   const [inputValue, setInputValue] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [host, setHost] = useState<string>('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    setHost(window.location.host);
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,7 +199,7 @@ export default function Home() {
                 </div>
                 <div className="flex-1 flex items-center justify-center">
                   <div className="flex items-center gap-2 px-4 py-1.5 bg-surface-base/50 rounded-lg text-sm text-text-tertiary">
-                    <span>chachaanteng-laoban.cumulonimbus.app</span>
+                    <span>demo.{host || 'cumulonimbus.app'}</span>
                   </div>
                 </div>
                 <Link 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { getBaseDomain, getSubdomain } from '@/lib/utils';
 
 /**
  * Middleware for centralized authentication and route protection
@@ -9,10 +10,12 @@ import { getToken } from 'next-auth/jwt';
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const host = request.headers.get('host') || '';
-  const domain = process.env.NEXT_PUBLIC_DOMAIN || 'localhost:3000';
+  const domain = getBaseDomain(host);
 
   // --- Demo Subdomain Routing ---
-  const isDemoSubdomain = host === `demo.${domain}` || host.startsWith('demo.');
+  const subdomain = getSubdomain(host);
+  const isDemoSubdomain = subdomain === 'demo';
+  
   if (isDemoSubdomain && !pathname.startsWith('/api') && !pathname.startsWith('/_next')) {
     // For the demo subdomain, we serve the static site from public/demo-static
     // We rewrite to the index.html or the specific path (including assets)
@@ -21,26 +24,27 @@ export async function middleware(request: NextRequest) {
   }
 
   // --- Nebula Routing (Subdomain or Path-based fallback for Vercel) ---
-  const isSubdomain = host !== domain && host.endsWith(`.${domain}`);
+  // Subdomain is any subdomain that isn't 'www' or 'demo'
+  const isAppSubdomain = subdomain && subdomain !== 'www' && subdomain !== 'demo';
   const isPathRouting = host === domain && pathname.startsWith('/s/');
   
-  if ((isSubdomain || isPathRouting) && !pathname.startsWith('/api/nebula/serve') && !pathname.startsWith('/api/auth') && !pathname.startsWith('/_next')) {
-    let subdomain = '';
+  if ((isAppSubdomain || isPathRouting) && !pathname.startsWith('/api/nebula/serve') && !pathname.startsWith('/api/auth') && !pathname.startsWith('/_next')) {
+    let appId = '';
     let originalPath = pathname;
 
-    if (isSubdomain) {
-      subdomain = host.split('.')[0];
+    if (isAppSubdomain) {
+      appId = subdomain;
     } else {
-      // Path format: /s/my-app/some-page -> subdomain: my-app, originalPath: /some-page
+      // Path format: /s/my-app/some-page -> appId: my-app, originalPath: /some-page
       const parts = pathname.split('/');
-      subdomain = parts[2];
+      appId = parts[2];
       originalPath = '/' + parts.slice(3).join('/') || '/';
     }
     
     // Construct the rewrite URL
     const url = request.nextUrl.clone();
     url.pathname = '/api/nebula/serve';
-    url.searchParams.set('appId', subdomain);
+    url.searchParams.set('appId', appId);
     url.searchParams.set('originalPath', originalPath);
     
     return NextResponse.rewrite(url);

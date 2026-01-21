@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { Plus, ExternalLink, Settings, Search, ArrowUpDown, LogOut, MoreVertical, Pencil, Copy, Archive, Trash, ArchiveRestore } from 'lucide-react';
 import { Button, Card, DropdownMenu, DropdownItem, DropdownSeparator, Modal } from '@/components/ui';
-import { formatDate } from '@/lib/utils';
+import { formatDate, getBaseDomain } from '@/lib/utils';
 import { toast } from 'sonner';
 
 type App = {
@@ -484,14 +484,22 @@ function AppCard({
   };
 
   const isPro = userPlan === 'PRO' || userPlan === 'PLUS';
-  const domain = process.env.NEXT_PUBLIC_DOMAIN || 'localhost:3000';
+  
+  // Dynamically determine host and protocol
+  const [host, setHost] = useState<string>('');
+  
+  useEffect(() => {
+    setHost(window.location.host);
+  }, []);
+
+  const domain = host ? getBaseDomain(host) : (process.env.NEXT_PUBLIC_DOMAIN || 'localhost:3000');
   const protocol = domain.includes('localhost') ? 'http' : 'https';
   
   // Vercel .vercel.app domains don't support wildcard subdomains (SSL limitation)
   // Use path-based routing (/s/app-id) for those, and true subdomains for everything else.
   const usePathRouting = domain.endsWith('.vercel.app');
   
-  const liveUrl = app.subdomain 
+  const liveUrl = app.subdomain && host
     ? (usePathRouting 
         ? `${protocol}://${domain}/s/${app.subdomain}`
         : `${protocol}://${app.subdomain}.${domain}`)
