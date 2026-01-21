@@ -60,6 +60,9 @@ class NebulaSupervisor {
    * Spawn a new worker thread for an app
    */
   private async spawnWorker(appId: string): Promise<Worker> {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'supervisor.ts:63',message:'spawnWorker start',data:{appId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'3'})}).catch(()=>{});
+    // #endregion
     // Look up by ID first, then by subdomain
     const app = await prisma.app.findFirst({
       where: {
@@ -79,6 +82,10 @@ class NebulaSupervisor {
         data: true
       }
     });
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'supervisor.ts:83',message:'app found?',data:{found:!!app,subdomain:app?.subdomain},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'3'})}).catch(()=>{});
+    // #endregion
 
     if (!app || !app.subdomain) {
       throw new Error(`App ${appId} not found or missing subdomain`);

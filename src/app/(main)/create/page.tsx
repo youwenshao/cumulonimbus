@@ -10,7 +10,7 @@ import { AgentStream } from '@/components/scaffolder/agent/AgentStream';
 import { SimulationEvent } from '@/lib/demo/seed-data';
 import type { ProjectSpec, ImplementationPlan as ImplementationPlanType } from '@/lib/scaffolder/types';
 import type { GeneratedCode } from '@/lib/scaffolder/code-generator';
-import { cn } from '@/lib/utils';
+import { cn, getBaseDomain } from '@/lib/utils';
 // V2 Components
 import { ConversationalScaffolderV2 } from '@/components/scaffolder-v2';
 import { Sparkles, Target, Rocket, Zap, Monitor, Cpu, GitBranch, Terminal, Layers } from 'lucide-react';
@@ -72,7 +72,10 @@ function CreateContent() {
       <FreeformCreator 
         onComplete={(id, subdomain) => {
           if (subdomain) {
-            window.location.href = `http://${subdomain}.localhost:3000`;
+            const host = window.location.host;
+            const domain = getBaseDomain(host);
+            const protocol = host.includes('localhost') ? 'http' : 'https';
+            window.location.href = `${protocol}://${subdomain}.${domain}`;
           } else {
             router.push(`/apps/${id}`);
           }
@@ -804,7 +807,10 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
       }
       
       if (generatedSubdomain) {
-        window.location.href = `http://${generatedSubdomain}.localhost:3000`;
+        const host = window.location.host;
+        const domain = getBaseDomain(host);
+        const protocol = host.includes('localhost') ? 'http' : 'https';
+        window.location.href = `${protocol}://${generatedSubdomain}.${domain}`;
       } else {
         router.push(`/apps/${generatedAppId}`);
       }

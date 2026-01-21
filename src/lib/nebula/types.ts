@@ -1,3 +1,5 @@
+import path from 'path';
+
 /**
  * Nebula Hosting System Types
  */
@@ -35,9 +37,20 @@ export interface NebulaConfig {
   storagePath: string;
 }
 
+// Use a more robust check for Vercel environment
+const isVercel = process.env.VERCEL === '1' || 
+                 !!process.env.NEXT_PUBLIC_VERCEL_URL || 
+                 !!process.env.VERCEL_URL || 
+                 process.env.NODE_ENV === 'production' ||
+                 process.cwd().includes('/var/task'); 
+
+const storagePath = isVercel 
+  ? '/tmp/.nebula/apps' 
+  : path.resolve(process.cwd(), '.nebula/apps');
+
 export const DEFAULT_CONFIG: NebulaConfig = {
   maxMemoryMB: 128,
   idleTimeoutMS: 5 * 60 * 1000, // 5 minutes
   checkIntervalMS: 30 * 1000,   // 30 seconds
-  storagePath: './.nebula/apps',
+  storagePath,
 };

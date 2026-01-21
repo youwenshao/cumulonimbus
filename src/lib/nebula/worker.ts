@@ -123,7 +123,7 @@ async function start() {
     const defaultHandler = async (req: any) => {
       // Check if it's an API request
       const path = req.path || req.url || '/';
-      const url = new URL(path, `http://${subdomain}.localhost:3000`);
+      const url = new URL(path, `http://${subdomain}.nebula.internal`);
       
       if (url.pathname === '/api/nebula/data') {
         const method = req.method || 'GET';

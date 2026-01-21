@@ -18,6 +18,10 @@ export async function GET(
     appId = getSubdomain(host);
   }
 
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'serve/route.ts:21',message:'appId extracted',data:{appId,host},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'3'})}).catch(()=>{});
+  // #endregion
+
   if (!appId) {
     return NextResponse.json({ error: 'App ID required' }, { status: 400 });
   }

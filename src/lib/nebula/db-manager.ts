@@ -8,7 +8,18 @@ class NebulaDbManager {
   private connections: Map<string, any> = new Map();
 
   private constructor() {
-    fs.ensureDirSync(DEFAULT_CONFIG.storagePath);
+    const isVercel = process.env.VERCEL === '1' || !!process.env.NEXT_PUBLIC_VERCEL_URL || !!process.env.VERCEL_URL;
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'db-manager.ts:11',message:'Initializing NebulaDbManager',data:{storagePath:DEFAULT_CONFIG.storagePath,cwd:process.cwd(),isVercel,envVercel:process.env.VERCEL},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'2'})}).catch(()=>{});
+    // #endregion
+    try {
+      fs.ensureDirSync(DEFAULT_CONFIG.storagePath);
+    } catch (err: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'db-manager.ts:16',message:'mkdir failed',data:{error:err.message,code:err.code,path:err.path},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'2'})}).catch(()=>{});
+      // #endregion
+      console.error('Failed to create nebula storage directory:', err);
+    }
   }
 
   public static getInstance(): NebulaDbManager {

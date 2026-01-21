@@ -72,6 +72,9 @@ export function getBaseDomain(host: string): string {
     .filter(d => host === d || host.endsWith(`.${d}`))
     .sort((a, b) => b.length - a.length);
     
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'utils.ts:76',message:'getBaseDomain',data:{host,domain:matches[0],env:process.env.NEXT_PUBLIC_DOMAIN},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
   return matches[0] || process.env.NEXT_PUBLIC_DOMAIN || 'localhost:3000';
 }
 
