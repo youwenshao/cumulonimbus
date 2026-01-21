@@ -66,16 +66,27 @@ export function getBaseDomain(host: string): string {
     'cumulonimbus-silk.vercel.app',
     'localhost:3000'
   ];
+
+  // Add Vercel deployment URL if present
+  if (process.env.VERCEL_URL) {
+    domains.push(process.env.VERCEL_URL);
+  }
+  if (process.env.NEXT_PUBLIC_VERCEL_URL) {
+    domains.push(process.env.NEXT_PUBLIC_VERCEL_URL);
+  }
   
   // Find the longest matching domain to handle www vs naked domain correctly
   const matches = domains
-    .filter(d => host === d || host.endsWith(`.${d}`))
+    .filter(d => d && (host === d || host.endsWith(`.${d}`)))
     .sort((a, b) => b.length - a.length);
     
+  const result = matches[0] || process.env.NEXT_PUBLIC_DOMAIN || 'localhost:3000';
+
   // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'utils.ts:76',message:'getBaseDomain',data:{host,domain:matches[0],env:process.env.NEXT_PUBLIC_DOMAIN},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+  fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'utils.ts:84',message:'getBaseDomain detailed',data:{host,result,matches,VERCEL_URL:process.env.VERCEL_URL,NEXT_PUBLIC_VERCEL_URL:process.env.NEXT_PUBLIC_VERCEL_URL},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'1'})}).catch(()=>{});
   // #endregion
-  return matches[0] || process.env.NEXT_PUBLIC_DOMAIN || 'localhost:3000';
+
+  return result;
 }
 
 /**
@@ -85,6 +96,9 @@ export function getSubdomain(host: string): string | null {
   const baseDomain = getBaseDomain(host);
   
   if (host === baseDomain) return null;
+  
+  // Only extract subdomain if the host actually ends with the base domain
+  if (!host.endsWith(`.${baseDomain}`)) return null;
   
   const subdomain = host.replace(`.${baseDomain}`, '');
   
