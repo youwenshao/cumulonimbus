@@ -122,17 +122,13 @@ export function getBaseDomain(host: string): string {
 /**
  * Checks if a domain supports wildcard subdomains.
  * Used to determine whether to use subdomain-based or path-based app routing.
+ * 
+ * NOTE: Currently disabled to avoid DNS and SSL wildcard certificate issues.
+ * All domains now use path-based routing (/s/app-id) instead of subdomains.
  */
 export function supportsWildcardSubdomains(domain: string): boolean {
-  const normalizedDomain = domain.split(':')[0];
-
-  // Localhost always supports subdomains for development
-  if (normalizedDomain === 'localhost' || normalizedDomain === '127.0.0.1') {
-    return true;
-  }
-
-  // Check against known wildcard-supporting domains
-  return WILDCARD_SUPPORTED_DOMAINS.some(d => normalizedDomain === d || normalizedDomain.endsWith(`.${d}`));
+  // Always return false to use path-based routing for all domains
+  return false;
 }
 
 /**
@@ -166,15 +162,14 @@ export function getSubdomain(host: string): string | null {
 
 /**
  * Generates the correct URL for an app based on the current environment.
- * Uses subdomain routing where supported, falls back to path-based routing otherwise.
- * Always ensures the domain is stripped of 'www.' to avoid double subdomains.
+ * Always uses path-based routing (/s/app-id) to avoid DNS and SSL wildcard issues.
  */
 export function getAppUrl(subdomain: string, host: string): string {
   const normalizedHost = host.split(':')[0];
   let domain = getBaseDomain(normalizedHost);
   const protocol = normalizedHost === 'localhost' || normalizedHost === '127.0.0.1' ? 'http' : 'https';
   
-  // Ensure we use the naked domain for constructing the app URL
+  // Ensure we use the naked domain
   if (domain.startsWith('www.')) {
     domain = domain.slice(4);
   }
@@ -182,13 +177,8 @@ export function getAppUrl(subdomain: string, host: string): string {
   // Keep the port if we are on localhost
   const domainWithPort = normalizedHost === 'localhost' || normalizedHost === '127.0.0.1' ? host : domain;
 
-  if (supportsWildcardSubdomains(domain)) {
-    // Use subdomain-based routing: https://my-app.cumulonimbus.app
-    return `${protocol}://${subdomain}.${domainWithPort}`;
-  } else {
-    // Use path-based routing: https://cumulonimbus-silk.vercel.app/s/my-app
-    return `${protocol}://${domainWithPort}/s/${subdomain}`;
-  }
+  // Always use path-based routing: https://domain.com/s/my-app
+  return `${protocol}://${domainWithPort}/s/${subdomain}`;
 }
 
 /**
