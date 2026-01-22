@@ -5,53 +5,61 @@ import { getBaseDomain, getSubdomain } from '@/lib/utils';
 
 /**
  * Middleware for centralized authentication and route protection
- * and Nebula subdomain routing.
+ * and Nebula subdomain/path-based app routing.
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const host = request.headers.get('host') || '';
   const domain = getBaseDomain(host);
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'middleware.ts:15',message:'Middleware start',data:{host,pathname,domain},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
+  // Skip middleware for internal Next.js routes and API routes that handle their own logic
+  if (pathname.startsWith('/_next') || pathname.startsWith('/api/nebula/serve')) {
+    return NextResponse.next();
+  }
 
   // --- Demo Subdomain Routing ---
   const subdomain = getSubdomain(host);
   const isDemoSubdomain = subdomain === 'demo';
   
-  if (isDemoSubdomain && !pathname.startsWith('/api') && !pathname.startsWith('/_next')) {
+  if (isDemoSubdomain && !pathname.startsWith('/api')) {
     // For the demo subdomain, we serve the static site from public/demo-static
     // We rewrite to the index.html or the specific path (including assets)
     const url = new URL(`/demo-static${pathname === '/' ? '/index.html' : pathname}`, request.url);
     return NextResponse.rewrite(url);
   }
 
-  // --- Nebula Routing (Subdomain or Path-based fallback for Vercel) ---
-  // Subdomain is any subdomain that isn't 'www' or 'demo'
-  const isAppSubdomain = subdomain && subdomain !== 'www' && subdomain !== 'demo';
-  const isPathRouting = host === domain && pathname.startsWith('/s/');
+  // --- Nebula App Routing ---
+  // Two modes:
+  // 1. Subdomain routing: my-app.cumulonimbus.app (for domains that support wildcards)
+  // 2. Path routing: /s/my-app (fallback for Vercel preview deployments)
   
-  if ((isAppSubdomain || isPathRouting) && !pathname.startsWith('/api/nebula/serve') && !pathname.startsWith('/api/auth') && !pathname.startsWith('/_next')) {
+  const isAppSubdomain = subdomain && subdomain !== 'www' && subdomain !== 'demo';
+  const isPathRouting = pathname.startsWith('/s/') && pathname.length > 3;
+  
+  // Route to Nebula serve if this is an app request
+  if ((isAppSubdomain || isPathRouting) && !pathname.startsWith('/api/auth')) {
     let appId = '';
     let originalPath = pathname;
 
     if (isAppSubdomain) {
+      // Subdomain mode: extract app ID from subdomain
       appId = subdomain;
-    } else {
-      // Path format: /s/my-app/some-page -> appId: my-app, originalPath: /some-page
+    } else if (isPathRouting) {
+      // Path mode: /s/my-app/some-page -> appId: my-app, originalPath: /some-page
       const parts = pathname.split('/');
-      appId = parts[2];
+      appId = parts[2] || '';
       originalPath = '/' + parts.slice(3).join('/') || '/';
     }
     
-    // Construct the rewrite URL
-    const url = request.nextUrl.clone();
-    url.pathname = '/api/nebula/serve';
-    url.searchParams.set('appId', appId);
-    url.searchParams.set('originalPath', originalPath);
-    
-    return NextResponse.rewrite(url);
+    // Only rewrite if we have a valid appId
+    if (appId) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/api/nebula/serve';
+      url.searchParams.set('appId', appId);
+      url.searchParams.set('originalPath', originalPath);
+      
+      return NextResponse.rewrite(url);
+    }
   }
 
   // Public routes that don't require authentication
@@ -63,6 +71,15 @@ export async function middleware(request: NextRequest) {
     '/api/auth',
     '/api/nebula/serve', // Allow Nebula serving to be accessible (internally it handles its own security)
     '/demo-static', // Allow access to static demo assets
+    '/about',
+    '/blog',
+    '/careers',
+    '/changelog',
+    '/contact',
+    '/docs',
+    '/pricing',
+    '/privacy',
+    '/terms',
   ];
 
   // Check if the path is public

@@ -1,26 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { nebulaSupervisor } from '@/lib/nebula/supervisor';
-import prisma from '@/lib/db';
 import { getSubdomain } from '@/lib/utils';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { appId?: string } }
 ) {
-  // This route is called after middleware rewrites it
+  // This route is called after middleware rewrites it with appId and originalPath in searchParams
   const url = new URL(request.url);
   const host = request.headers.get('host') || '';
   
+  // Primary: Get appId from searchParams (set by middleware rewrite)
   let appId = url.searchParams.get('appId');
 
-  // Fallback: If appId is missing but we're on a subdomain, use the subdomain
+  // Fallback: If appId is missing but we're on a subdomain, extract from host
+  // This handles direct access to the API route without middleware rewrite
   if (!appId) {
     appId = getSubdomain(host);
   }
-
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'serve/route.ts:21',message:'appId extracted',data:{appId,host},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'3'})}).catch(()=>{});
-  // #endregion
 
   if (!appId) {
     return NextResponse.json({ error: 'App ID required' }, { status: 400 });

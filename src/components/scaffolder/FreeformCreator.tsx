@@ -10,7 +10,7 @@ import { Button, StatusPanel, ThemeToggle, Logo, ChatInput, ChatMessage } from '
 import { WelcomeScreen } from './WelcomeScreen';
 import { Sparkles, Terminal, Rocket, CheckCircle, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn, getBaseDomain } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface FreeformCreatorProps {
   onComplete?: (appId: string, subdomain?: string) => void;

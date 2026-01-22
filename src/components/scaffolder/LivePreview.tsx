@@ -14,7 +14,7 @@ import {
   Maximize2,
   Minimize2
 } from 'lucide-react';
-import { cn, getBaseDomain } from '@/lib/utils';
+import { cn, getAppUrl } from '@/lib/utils';
 
 type DeviceView = 'mobile' | 'tablet' | 'desktop';
 
@@ -67,21 +67,16 @@ export function LivePreview({
 
   const handleOpenInNewTab = () => {
     const host = window.location.host;
-    const domain = getBaseDomain(host);
-    const protocol = host.includes('localhost') ? 'http' : 'https';
-    
     const url = subdomain 
-      ? `${protocol}://${subdomain}.${domain}` 
+      ? getAppUrl(subdomain, host)
       : `/apps/${appId}`;
     window.open(url, '_blank');
   };
 
+  // Generate preview URL using the robust getAppUrl helper
   const host = typeof window !== 'undefined' ? window.location.host : '';
-  const domain = host ? getBaseDomain(host) : '';
-  const protocol = host.includes('localhost') ? 'http' : 'https';
-
-  const previewUrl = subdomain 
-    ? `${protocol}://${subdomain}.${domain}`
+  const previewUrl = subdomain && host
+    ? getAppUrl(subdomain, host)
     : `/apps/${appId}?preview=true`;
   const currentDevice = DEVICE_DIMENSIONS[deviceView];
 

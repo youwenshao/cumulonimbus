@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { 
   ArrowRight, 
   Sparkles, 
@@ -36,6 +37,7 @@ const IDEA_SUGGESTIONS = [
 
 export default function Home() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [inputValue, setInputValue] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [host, setHost] = useState<string>('');
@@ -84,15 +86,23 @@ export default function Home() {
         <Logo size="md" />
         <div className="flex items-center gap-4">
           <ThemeToggle />
-          <Link 
-            href="/auth/signin" 
-            className="text-text-secondary hover:text-text-primary transition-colors text-sm font-medium"
-          >
-            Sign in
-          </Link>
-          <Button asChild size="sm">
-            <Link href="/auth/signup">Create account</Link>
-          </Button>
+          {session ? (
+            <Button asChild size="sm" variant="secondary">
+              <Link href="/dashboard">Dashboard</Link>
+            </Button>
+          ) : (
+            <>
+              <Link 
+                href="/auth/signin" 
+                className="text-text-secondary hover:text-text-primary transition-colors text-sm font-medium"
+              >
+                Sign in
+              </Link>
+              <Button asChild size="sm">
+                <Link href="/auth/signup">Create account</Link>
+              </Button>
+            </>
+          )}
         </div>
       </nav>
 
@@ -319,15 +329,26 @@ export default function Home() {
             Join creators who build apps at the <span className="text-text-primary font-medium">speed of thought</span>.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button size="lg" asChild className="px-8">
-              <Link href="/create" className="group">
-                Start building for free
-                <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="secondary" asChild>
-              <Link href="/auth/signin">Sign in</Link>
-            </Button>
+            {session ? (
+              <Button size="lg" asChild className="px-8 bg-accent-yellow hover:bg-accent-yellow/90 text-surface-base border-none">
+                <Link href="/dashboard" className="group">
+                  Continue to Dashboard
+                  <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </Button>
+            ) : (
+              <>
+                <Button size="lg" asChild className="px-8">
+                  <Link href="/create" className="group">
+                    Start building for free
+                    <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                </Button>
+                <Button size="lg" variant="secondary" asChild>
+                  <Link href="/auth/signin">Sign in</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </section>

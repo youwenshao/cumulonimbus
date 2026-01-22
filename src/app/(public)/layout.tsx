@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import { Logo, Button, ThemeToggle, ParticleBackground } from '@/components/ui';
 import { Twitter, Github, Linkedin } from 'lucide-react';
 
@@ -9,6 +10,7 @@ export default function PublicLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const { data: session } = useSession();
   return (
     <div className="min-h-screen bg-surface-base text-text-primary overflow-hidden">
       {/* Particle Background */}
@@ -21,15 +23,23 @@ export default function PublicLayout({
         </Link>
         <div className="flex items-center gap-4">
           <ThemeToggle />
-          <Link 
-            href="/auth/signin" 
-            className="text-text-secondary hover:text-text-primary transition-colors text-sm font-medium"
-          >
-            Sign in
-          </Link>
-          <Button asChild size="sm">
-            <Link href="/auth/signup">Create account</Link>
-          </Button>
+          {session ? (
+            <Button asChild size="sm" variant="secondary">
+              <Link href="/dashboard">Dashboard</Link>
+            </Button>
+          ) : (
+            <>
+              <Link 
+                href="/auth/signin" 
+                className="text-text-secondary hover:text-text-primary transition-colors text-sm font-medium"
+              >
+                Sign in
+              </Link>
+              <Button asChild size="sm">
+                <Link href="/auth/signup">Create account</Link>
+              </Button>
+            </>
+          )}
         </div>
       </nav>
 

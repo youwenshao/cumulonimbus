@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Check, CreditCard, Sparkles, Zap, Shield, Crown, ArrowRight, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui';
 
@@ -80,6 +81,7 @@ const FAQ = [
 
 export default function PricingPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [isYearly, setIsYearly] = useState(false);
 
   const calculatePrice = (basePrice: number) => {
@@ -90,8 +92,13 @@ export default function PricingPage() {
   };
 
   const handleSelectPlan = (plan: Plan) => {
-    // Redirect to signup with selected plan for new users
-    // or to profile settings for existing users
+    // If user is not logged in, redirect to signin with callback to pricing
+    if (!session) {
+      router.push(`/auth/signin?callbackUrl=${encodeURIComponent(`/pricing?plan=${plan}&billing=${isYearly ? 'yearly' : 'monthly'}`)}`);
+      return;
+    }
+
+    // If logged in, redirect to signup (or profile/settings) with selected plan
     router.push(`/auth/signup?plan=${plan}&billing=${isYearly ? 'yearly' : 'monthly'}`);
   };
 

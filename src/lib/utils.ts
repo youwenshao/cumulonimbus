@@ -57,36 +57,74 @@ export function generateSubdomain(name: string): string {
 }
 
 /**
- * Gets the base domain from a host string
+ * Known base domains that the app can be served from.
+ * These are domains where we host the main application.
+ */
+const KNOWN_BASE_DOMAINS = [
+  'cumulonimbus.app',
+  'www.cumulonimbus.app',
+  'cumulonimbus-silk.vercel.app',
+];
+
+/**
+ * Domains that support wildcard subdomains for app hosting.
+ * Vercel preview deployments (.vercel.app) don't support wildcards due to SSL limitations.
+ */
+const WILDCARD_SUPPORTED_DOMAINS = [
+  'cumulonimbus.app',
+  'www.cumulonimbus.app',
+];
+
+/**
+ * Gets the base domain from a host string.
+ * Handles localhost, known production domains, and Vercel deployments.
  */
 export function getBaseDomain(host: string): string {
-  const domains = [
-    'cumulonimbus.app',
-    'www.cumulonimbus.app',
-    'cumulonimbus-silk.vercel.app',
-    'localhost:3000'
-  ];
+  // Handle localhost variants (localhost, localhost:3000, 127.0.0.1:3000, etc.)
+  if (host.startsWith('localhost') || host.startsWith('127.0.0.1')) {
+    return host;
+  }
 
-  // Add Vercel deployment URL if present
+  // Build complete list of domains to check
+  const domains = [...KNOWN_BASE_DOMAINS];
+
+  // Add Vercel deployment URLs if present
   if (process.env.VERCEL_URL) {
     domains.push(process.env.VERCEL_URL);
   }
   if (process.env.NEXT_PUBLIC_VERCEL_URL) {
     domains.push(process.env.NEXT_PUBLIC_VERCEL_URL);
   }
+  if (process.env.NEXT_PUBLIC_DOMAIN) {
+    domains.push(process.env.NEXT_PUBLIC_DOMAIN);
+  }
   
   // Find the longest matching domain to handle www vs naked domain correctly
+  // This ensures app.www.cumulonimbus.app matches www.cumulonimbus.app (not cumulonimbus.app)
   const matches = domains
     .filter(d => d && (host === d || host.endsWith(`.${d}`)))
     .sort((a, b) => b.length - a.length);
     
-  const result = matches[0] || process.env.NEXT_PUBLIC_DOMAIN || 'localhost:3000';
+  if (matches.length > 0) {
+    return matches[0];
+  }
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/acc56320-b9cc-4e4e-9d28-472a8b4e9a94',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'utils.ts:84',message:'getBaseDomain detailed',data:{host,result,matches,VERCEL_URL:process.env.VERCEL_URL,NEXT_PUBLIC_VERCEL_URL:process.env.NEXT_PUBLIC_VERCEL_URL},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'1'})}).catch(()=>{});
-  // #endregion
+  // Default fallback
+  return process.env.NEXT_PUBLIC_DOMAIN || host;
+}
 
-  return result;
+/**
+ * Checks if a domain supports wildcard subdomains.
+ * Used to determine whether to use subdomain-based or path-based app routing.
+ */
+export function supportsWildcardSubdomains(domain: string): boolean {
+  // Localhost always supports subdomains for development
+  if (domain.startsWith('localhost') || domain.startsWith('127.0.0.1')) {
+    return true;
+  }
+
+  // Check against known wildcard-supporting domains
+  return WILDCARD_SUPPORTED_DOMAINS.some(d => domain === d || domain.endsWith(`.${d}`));
 }
 
 /**
@@ -106,4 +144,28 @@ export function getSubdomain(host: string): string | null {
   if (subdomain === 'www') return null;
   
   return subdomain;
+}
+
+/**
+ * Generates the correct URL for an app based on the current environment.
+ * Uses subdomain routing where supported, falls back to path-based routing otherwise.
+ */
+export function getAppUrl(subdomain: string, host: string): string {
+  const domain = getBaseDomain(host);
+  const protocol = domain.startsWith('localhost') || domain.startsWith('127.0.0.1') ? 'http' : 'https';
+  
+  if (supportsWildcardSubdomains(domain)) {
+    // Use subdomain-based routing: https://my-app.cumulonimbus.app
+    return `${protocol}://${subdomain}.${domain}`;
+  } else {
+    // Use path-based routing: https://cumulonimbus-silk.vercel.app/s/my-app
+    return `${protocol}://${domain}/s/${subdomain}`;
+  }
+}
+
+/**
+ * Gets the protocol for a given host (http for localhost, https otherwise)
+ */
+export function getProtocol(host: string): string {
+  return host.startsWith('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https';
 }

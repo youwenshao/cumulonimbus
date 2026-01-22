@@ -10,7 +10,7 @@ import { AgentStream } from '@/components/scaffolder/agent/AgentStream';
 import { SimulationEvent } from '@/lib/demo/seed-data';
 import type { ProjectSpec, ImplementationPlan as ImplementationPlanType } from '@/lib/scaffolder/types';
 import type { GeneratedCode } from '@/lib/scaffolder/code-generator';
-import { cn, getBaseDomain } from '@/lib/utils';
+import { cn, getAppUrl } from '@/lib/utils';
 // V2 Components
 import { ConversationalScaffolderV2 } from '@/components/scaffolder-v2';
 import { Sparkles, Target, Rocket, Zap, Monitor, Cpu, GitBranch, Terminal, Layers } from 'lucide-react';
@@ -41,6 +41,13 @@ function CreateContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<CreateMode | null>(null);
+
+  const handleModeSelect = (selectedMode: CreateMode) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('mode', selectedMode);
+    // Using window.location.href to force a full page refresh with the new query param
+    window.location.href = `${window.location.pathname}?${params.toString()}`;
+  };
   
   // Check for mode via query param
   const queryMode = searchParams.get('mode');
@@ -64,7 +71,7 @@ function CreateContent() {
   
   // Show mode selector if no mode is set
   if (!mode) {
-    return <ModeSelector onSelect={setMode} />;
+    return <ModeSelector onSelect={handleModeSelect} />;
   }
 
   if (mode === 'demo') {
@@ -73,9 +80,7 @@ function CreateContent() {
         onComplete={(id, subdomain) => {
           if (subdomain) {
             const host = window.location.host;
-            const domain = getBaseDomain(host);
-            const protocol = host.includes('localhost') ? 'http' : 'https';
-            window.location.href = `${protocol}://${subdomain}.${domain}`;
+            window.location.href = getAppUrl(subdomain, host);
           } else {
             router.push(`/apps/${id}`);
           }
@@ -808,9 +813,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
       
       if (generatedSubdomain) {
         const host = window.location.host;
-        const domain = getBaseDomain(host);
-        const protocol = host.includes('localhost') ? 'http' : 'https';
-        window.location.href = `${protocol}://${generatedSubdomain}.${domain}`;
+        window.location.href = getAppUrl(generatedSubdomain, host);
       } else {
         router.push(`/apps/${generatedAppId}`);
       }
