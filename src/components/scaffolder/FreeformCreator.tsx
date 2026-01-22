@@ -224,7 +224,7 @@ export function FreeformCreator({ onComplete, onCancel }: FreeformCreatorProps) 
             <WelcomeScreen 
               onSelect={(text) => startDemo(text)} 
               isDemo={true} 
-            />
+              />
           ) : (
             <>
               {/* Chat Messages */}
