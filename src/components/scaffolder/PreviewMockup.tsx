@@ -86,7 +86,7 @@ export function PreviewMockup({
               </div>
               <div className="flex-1 mx-4">
                 <div className="bg-gray-700 rounded px-3 py-1 text-xs text-gray-400 text-center">
-                  localhost:3000/apps/preview
+                  localhost:1000/apps/preview
                 </div>
               </div>
             </div>

@@ -202,6 +202,32 @@
     animation: confident 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
+  /* Thin scrollbar for code viewers */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-gray-700 rounded-full;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-600;
+  }
+
+  .scrollbar-thumb-gray-700::-webkit-scrollbar-thumb {
+    @apply bg-gray-700;
+  }
+
+  .scrollbar-track-transparent::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
   .animate-pulse-yellow {
     animation: pulseYellow 2s infinite;
   }

@@ -31,7 +31,7 @@ function createOpenAIClient(): OpenAI {
     apiKey: config.apiKey,
     baseURL: config.apiUrl,
     defaultHeaders: {
-      'HTTP-Referer': process.env.NEXTAUTH_URL || 'http://localhost:3000',
+      'HTTP-Referer': process.env.NEXTAUTH_URL || 'http://localhost:1000',
       'X-Title': 'Cumulonimbus',
     },
   });

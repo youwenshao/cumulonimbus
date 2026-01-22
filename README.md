@@ -150,7 +150,7 @@ Cumulonimbus is an intent-to-application platform that allows non-technical user
    npm run dev
    ```
 
-7. Open [http://localhost:3000](http://localhost:3000)
+7. Open [http://localhost:1000](http://localhost:1000)
 
 ### Enabling V2 Features (Optional)
 
@@ -289,7 +289,7 @@ DATABASE_URL="postgresql://user:password@localhost:5432/cumulonimbus"
 
 # Authentication
 NEXTAUTH_SECRET="your-secret-key"  # Generate with: openssl rand -base64 32
-NEXTAUTH_URL="http://localhost:3000"  # Your app URL
+NEXTAUTH_URL="http://localhost:1000"  # Your app URL
 
 # AI/LLM Configuration - Choose your provider(s)
 LLM_PROVIDER="deepseek"  # "auto", "ollama", "openrouter", "lmstudio", or "deepseek"

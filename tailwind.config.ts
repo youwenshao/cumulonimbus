@@ -64,6 +64,7 @@ const config: Config = {
         'pulse-soft': 'pulseSoft 2s infinite',
         'pulse-yellow': 'pulseYellow 2s infinite',
         'confident': 'confident 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        'gradient': 'gradient 2s linear infinite',
       },
       keyframes: {
         fadeIn: {
@@ -97,6 +98,11 @@ const config: Config = {
         confident: {
           '0%': { opacity: '0', transform: 'scale(0.98)' },
           '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        gradient: {
+          '0%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+          '100%': { backgroundPosition: '0% 50%' },
         },
       },
     },

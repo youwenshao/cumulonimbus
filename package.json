@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "PORT=1000 next dev",
     "build": "prisma db push && npm run build:demo && next build",
     "start": "next start",
     "lint": "next lint",

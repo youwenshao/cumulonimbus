@@ -14,13 +14,43 @@ export async function GET(
   const url = new URL(request.url);
   const host = request.headers.get('host') || '';
   
-  // Primary: Get appId from searchParams (set by middleware rewrite)
-  let appId = url.searchParams.get('appId');
+  // Try multiple sources for appId (in order of priority):
+  // 1. request.nextUrl.searchParams - Next.js rewrite URL
+  // 2. url.searchParams - standard URL
+  // 3. Subdomain extraction from host
+  let appId = request.nextUrl.searchParams.get('appId') 
+           || url.searchParams.get('appId');
 
   // Fallback: If appId is missing but we're on a subdomain, extract from host
   // This handles direct access to the API route without middleware rewrite
   if (!appId) {
     appId = getSubdomain(host);
+  }
+
+  // Fallback: Extract from path for /s/[appId] routing if middleware rewrite params are lost
+  if (!appId && url.pathname.startsWith('/s/')) {
+    const parts = url.pathname.split('/');
+    if (parts.length >= 3) {
+      appId = parts[2];
+      // Also attempt to recover originalPath
+      // /s/appId/foo -> /foo
+      const originalPath = '/' + parts.slice(3).join('/') || '/';
+      // If originalPath wasn't passed via params, we might want to set it here, 
+      // though the payload construction later uses url.searchParams.get('originalPath') || url.pathname
+      // We might need to fix that too.
+    }
+  }
+
+  // Debug logging in development
+  if (process.env.NODE_ENV === 'development' && !appId) {
+    console.log(`🔍 Nebula Serve Debug:`, {
+      requestUrl: request.url,
+      nextUrl: request.nextUrl.toString(),
+      nextUrlSearchParams: Object.fromEntries(request.nextUrl.searchParams.entries()),
+      urlSearchParams: Object.fromEntries(url.searchParams.entries()),
+      host,
+      subdomain: getSubdomain(host),
+    });
   }
 
   if (!appId) {
@@ -37,7 +67,7 @@ export async function GET(
       }
     }
 
-    const path = url.searchParams.get('originalPath') || url.pathname;
+    const path = url.searchParams.get('originalPath') || (url.pathname.startsWith('/s/') ? '/' + url.pathname.split('/').slice(3).join('/') : url.pathname) || '/';
 
     const payload = {
       method: request.method,
@@ -56,7 +86,7 @@ export async function GET(
     // Determine Content-Type based on path
     let contentType = response.headers?.['Content-Type'] || response.headers?.['content-type'];
     if (!contentType) {
-      const originalPath = url.searchParams.get('originalPath') || url.pathname;
+      const originalPath = url.searchParams.get('originalPath') || (url.pathname.startsWith('/s/') ? '/' + url.pathname.split('/').slice(3).join('/') : url.pathname) || '/';
       if (originalPath.endsWith('.js')) contentType = 'application/javascript';
       else if (originalPath.endsWith('.css')) contentType = 'text/css';
       else if (originalPath.endsWith('.png')) contentType = 'image/png';

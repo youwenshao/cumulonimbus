@@ -73,5 +73,5 @@ console.log('\x1b[1m📋 Next Steps:\x1b[0m');
 console.log('1. Open \x1b[34m.env\x1b[0m and verify \x1b[32mDATABASE_URL\x1b[0m');
 console.log('2. Add AI provider API keys if not using local models');
 console.log('3. Run \x1b[35mnpm run dev\x1b[0m to start the platform');
-console.log('4. Access at \x1b[34mhttp://localhost:3000\x1b[0m');
+console.log('4. Access at \x1b[34mhttp://localhost:1000\x1b[0m');
 console.log('--------------------------------------------------\n');

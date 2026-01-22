@@ -163,3 +163,25 @@ export function emitCodeComplete(
     progress: 100
   });
 }
+
+/**
+ * Wait for a code stream connection to be established
+ * Returns true if connected within timeout, false otherwise
+ */
+export async function waitForCodeStreamConnection(
+  conversationId: string,
+  timeoutMs = 3000
+): Promise<boolean> {
+  const startTime = Date.now();
+  
+  while (Date.now() - startTime < timeoutMs) {
+    if (isControllerHealthy(conversationId)) {
+      console.log(`📡 Code Stream: Connection ready for ${conversationId}`);
+      return true;
+    }
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  
+  console.log(`⚠️ Code Stream: Timeout waiting for connection: ${conversationId}`);
+  return false;
+}

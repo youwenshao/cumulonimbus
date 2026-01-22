@@ -17,7 +17,7 @@ import { generateAppCode, generateFallbackCode, type GeneratedCode } from '@/lib
 import type { BlueprintState, Message, ProjectSpec } from '@/lib/scaffolder/types';
 import { generateId, sleep } from '@/lib/utils';
 import { emitStatus, waitForConnection, getConnectionStats, emitEvent } from '@/lib/scaffolder/status/emitter';
-import { emitCodeChunk, emitCodeComplete, emitCodeError } from '@/lib/scaffolder/code-stream/emitter';
+import { emitCodeChunk, emitCodeComplete, emitCodeError, waitForCodeStreamConnection } from '@/lib/scaffolder/code-stream/emitter';
 import { 
   ScaffolderError, 
   wrapError, 
@@ -720,6 +720,12 @@ async function handleFinalize(userId: string, conversationId: string) {
     technicalDetails: 'Calling LLM for component code generation',
     progress: 30,
   });
+
+  // Wait for the CodeViewer SSE connection before emitting code chunks
+  // This gives the UI time to render and connect
+  console.log(`⏳ Waiting for code stream connection: ${conversationId}`);
+  const codeStreamReady = await waitForCodeStreamConnection(conversationId, 3000);
+  console.log(`📡 Code stream connection ready: ${codeStreamReady}`);
 
   // Generate code with streaming
   let generatedCode: GeneratedCode = {
