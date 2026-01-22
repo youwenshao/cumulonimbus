@@ -1,0 +1,9 @@
+<svg width="305" height="80" viewBox="0 0 295 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <text x="10" y="55" font-family="Inter, system-ui, sans-serif" font-size="40" font-weight="700" fill="#0F172A">
+    Cumulon<tspan fill="none">i</tspan>mbus
+  </text>
+  <!-- Dotless i representation using a rectangle for the stem -->
+  <rect x="179.3" y="34" width="6" height="21" fill="#0F172A" />
+  <!-- Stylized yellow dot (tittle) -->
+  <circle cx="182.5" cy="25" r="5" fill="#FCA000" />
+</svg>
