@@ -54,6 +54,14 @@ export async function middleware(request: NextRequest) {
     
     // Only rewrite if we have a valid appId
     if (appId) {
+      // If we are on a double subdomain (e.g. app.www.domain.com), redirect to single subdomain
+      if (normalizedHost.includes('.www.')) {
+        const singleSubdomainHost = normalizedHost.replace('.www.', '.');
+        const url = new URL(request.url);
+        url.hostname = singleSubdomainHost;
+        return NextResponse.redirect(url);
+      }
+
       const url = request.nextUrl.clone();
       url.pathname = '/api/nebula/serve';
       url.searchParams.set('appId', appId);

@@ -62,7 +62,6 @@ export function generateSubdomain(name: string): string {
  */
 const KNOWN_BASE_DOMAINS = [
   'cumulonimbus.app',
-  'www.cumulonimbus.app',
   'cumulonimbus-silk.vercel.app',
 ];
 
@@ -72,16 +71,19 @@ const KNOWN_BASE_DOMAINS = [
  */
 const WILDCARD_SUPPORTED_DOMAINS = [
   'cumulonimbus.app',
-  'www.cumulonimbus.app',
 ];
 
 /**
  * Gets the base domain from a host string.
  * Handles localhost, known production domains, and Vercel deployments.
+ * Always returns the naked apex domain (strips www).
  */
 export function getBaseDomain(host: string): string {
-  // Normalize host by removing port if present
-  const normalizedHost = host.split(':')[0];
+  // Normalize host by removing port and stripping www. prefix
+  let normalizedHost = host.split(':')[0];
+  if (normalizedHost.startsWith('www.')) {
+    normalizedHost = normalizedHost.slice(4);
+  }
 
   // Handle localhost variants
   if (normalizedHost === 'localhost' || normalizedHost === '127.0.0.1') {
@@ -91,18 +93,20 @@ export function getBaseDomain(host: string): string {
   // Build complete list of domains to check
   const domains = [...KNOWN_BASE_DOMAINS];
 
-  // Add Vercel deployment URLs if present
-  if (process.env.VERCEL_URL) {
-    domains.push(process.env.VERCEL_URL.split(':')[0]);
-  }
-  if (process.env.NEXT_PUBLIC_VERCEL_URL) {
-    domains.push(process.env.NEXT_PUBLIC_VERCEL_URL.split(':')[0]);
-  }
-  if (process.env.NEXT_PUBLIC_DOMAIN) {
-    domains.push(process.env.NEXT_PUBLIC_DOMAIN.split(':')[0]);
+  // Add Vercel deployment URLs if present (also stripped of www if they had it)
+  const vercelUrl = (process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || '').split(':')[0];
+  if (vercelUrl) {
+    const strippedVercel = vercelUrl.startsWith('www.') ? vercelUrl.slice(4) : vercelUrl;
+    domains.push(strippedVercel);
   }
   
-  // Find the longest matching domain to handle www vs naked domain correctly
+  const publicDomain = (process.env.NEXT_PUBLIC_DOMAIN || '').split(':')[0];
+  if (publicDomain) {
+    const strippedPublic = publicDomain.startsWith('www.') ? publicDomain.slice(4) : publicDomain;
+    domains.push(strippedPublic);
+  }
+  
+  // Find the longest matching domain
   const matches = domains
     .filter(d => d && (normalizedHost === d || normalizedHost.endsWith(`.${d}`)))
     .sort((a, b) => b.length - a.length);
@@ -112,7 +116,7 @@ export function getBaseDomain(host: string): string {
   }
 
   // Default fallback
-  return (process.env.NEXT_PUBLIC_DOMAIN || normalizedHost).split(':')[0];
+  return normalizedHost;
 }
 
 /**
@@ -138,28 +142,43 @@ export function getSubdomain(host: string): string | null {
   const normalizedHost = host.split(':')[0];
   const baseDomain = getBaseDomain(normalizedHost);
   
-  if (normalizedHost === baseDomain) return null;
+  // If the host is exactly the base domain (or www.base domain), there's no app subdomain
+  if (normalizedHost === baseDomain || normalizedHost === `www.${baseDomain}`) return null;
   
   // Only extract subdomain if the host actually ends with the base domain
   if (!normalizedHost.endsWith(`.${baseDomain}`)) return null;
   
-  const subdomain = normalizedHost.slice(0, -(baseDomain.length + 1));
+  // Extract everything before the base domain (including the dot)
+  // e.g., app.www.cumulonimbus.app -> app.www
+  const prefix = normalizedHost.slice(0, -(baseDomain.length + 1));
   
-  // Ignore 'www' if it's treated as a subdomain but we want it as a base domain
-  if (subdomain === 'www') return null;
+  // If the prefix ends with .www, strip it
+  // e.g., app.www -> app
+  if (prefix.endsWith('.www')) {
+    return prefix.slice(0, -4);
+  }
   
-  return subdomain;
+  // If the prefix is just www, it's not an app subdomain
+  if (prefix === 'www') return null;
+  
+  return prefix;
 }
 
 /**
  * Generates the correct URL for an app based on the current environment.
  * Uses subdomain routing where supported, falls back to path-based routing otherwise.
+ * Always ensures the domain is stripped of 'www.' to avoid double subdomains.
  */
 export function getAppUrl(subdomain: string, host: string): string {
   const normalizedHost = host.split(':')[0];
-  const domain = getBaseDomain(normalizedHost);
+  let domain = getBaseDomain(normalizedHost);
   const protocol = normalizedHost === 'localhost' || normalizedHost === '127.0.0.1' ? 'http' : 'https';
   
+  // Ensure we use the naked domain for constructing the app URL
+  if (domain.startsWith('www.')) {
+    domain = domain.slice(4);
+  }
+
   // Keep the port if we are on localhost
   const domainWithPort = normalizedHost === 'localhost' || normalizedHost === '127.0.0.1' ? host : domain;
 
