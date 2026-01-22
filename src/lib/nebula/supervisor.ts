@@ -3,6 +3,13 @@ import path from 'path';
 import { NebulaWorkerInfo, WorkerMessage, SupervisorMessage, DEFAULT_CONFIG } from './types';
 import prisma from '@/lib/db';
 import { nebulaDbManager } from './db-manager';
+import { executeRequest, loadAppContext, type NebulaRequest } from './runner';
+
+// Check if we're running on Vercel (serverless environment)
+const isVercel = process.env.VERCEL === '1' || 
+                 !!process.env.NEXT_PUBLIC_VERCEL_URL || 
+                 !!process.env.VERCEL_URL || 
+                 process.cwd().includes('/var/task');
 
 class NebulaSupervisor {
   private static instance: NebulaSupervisor;
@@ -11,7 +18,10 @@ class NebulaSupervisor {
   private spawningWorkers: Map<string, Promise<Worker>> = new Map();
 
   private constructor() {
-    this.startWatchdog();
+    // Only start watchdog in non-serverless environments
+    if (!isVercel) {
+      this.startWatchdog();
+    }
   }
 
   public static getInstance(): NebulaSupervisor {
@@ -19,6 +29,52 @@ class NebulaSupervisor {
       NebulaSupervisor.instance = new NebulaSupervisor();
     }
     return NebulaSupervisor.instance;
+  }
+
+  /**
+   * Proxy a request to a worker (or execute directly on Vercel)
+   */
+  public async request(appId: string, payload: any): Promise<any> {
+    // On Vercel, use direct execution instead of worker threads
+    if (isVercel) {
+      return this.executeDirectly(appId, payload);
+    }
+
+    // On non-serverless environments, use worker threads
+    const worker = await this.getWorker(appId);
+    const correlationId = Math.random().toString(36).substring(7);
+
+    return new Promise((resolve) => {
+      this.pendingRequests.set(correlationId, resolve);
+      worker.postMessage({
+        type: 'request',
+        appId,
+        correlationId,
+        payload
+      } as SupervisorMessage);
+    });
+  }
+
+  /**
+   * Execute a request directly without worker threads (for serverless)
+   */
+  private async executeDirectly(appId: string, payload: any): Promise<any> {
+    const context = await loadAppContext(appId);
+    
+    if (!context) {
+      return { error: `App ${appId} not found or missing subdomain` };
+    }
+
+    const request: NebulaRequest = {
+      method: payload.method || 'GET',
+      path: payload.path || '/',
+      query: payload.query || {},
+      headers: payload.headers || {},
+      body: payload.body || null
+    };
+
+    const response = await executeRequest(context, request);
+    return response;
   }
 
   /**
@@ -196,12 +252,6 @@ class NebulaSupervisor {
 
         // 2. Check memory usage
         try {
-          // We can't easily get memory usage per worker thread from Node.js itself
-          // without using additional APIs or heap snapshots.
-          // For now, we'll use a simplified check based on cumulative worker heap.
-          // A more robust implementation would use process.memoryUsage() if we used processes,
-          // or v8.getHeapStatistics() for worker-specific heap if available.
-          
           // Simplified placeholder: Kill if the worker has been alive too long and not always-on
           if (!app?.isAlwaysOn && (now - info.lastActivity) > DEFAULT_CONFIG.idleTimeoutMS) {
              console.log(`Watchdog: Stopping worker for app ${appId} (idle)`);
@@ -213,24 +263,6 @@ class NebulaSupervisor {
         }
       }
     }, DEFAULT_CONFIG.checkIntervalMS);
-  }
-
-  /**
-   * Proxy a request to a worker
-   */
-  public async request(appId: string, payload: any): Promise<any> {
-    const worker = await this.getWorker(appId);
-    const correlationId = Math.random().toString(36).substring(7);
-
-    return new Promise((resolve) => {
-      this.pendingRequests.set(correlationId, resolve);
-      worker.postMessage({
-        type: 'request',
-        appId,
-        correlationId,
-        payload
-      } as SupervisorMessage);
-    });
   }
 }
 

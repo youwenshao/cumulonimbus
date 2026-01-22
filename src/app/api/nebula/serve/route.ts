@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { nebulaSupervisor } from '@/lib/nebula/supervisor';
 import { getSubdomain } from '@/lib/utils';
 
+// Use Node.js runtime for esbuild compatibility
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { appId?: string } }
@@ -73,7 +77,17 @@ export async function GET(
     });
   } catch (error: any) {
     console.error(`Nebula Serve Error [${appId}]:`, error);
-    return NextResponse.json({ error: 'Nebula Service Unavailable' }, { status: 503 });
+    
+    // Provide more detailed error in development
+    const isDev = process.env.NODE_ENV === 'development';
+    const errorMessage = isDev 
+      ? `Nebula Service Error: ${error.message}` 
+      : 'Nebula Service Unavailable';
+    
+    return NextResponse.json({ 
+      error: errorMessage,
+      ...(isDev && { stack: error.stack })
+    }, { status: 503 });
   }
 }
 
