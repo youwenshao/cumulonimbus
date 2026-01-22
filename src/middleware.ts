@@ -37,31 +37,26 @@ export async function middleware(request: NextRequest) {
   const isAppSubdomain = subdomain && subdomain !== 'www' && subdomain !== 'demo';
   const isPathRouting = pathname.startsWith('/s/') && pathname.length > 3;
   
+  // Redirect any app subdomain to path-based routing to avoid DNS issues
+  if (isAppSubdomain && !pathname.startsWith('/api')) {
+    const url = new URL(request.url);
+    url.hostname = domain;
+    url.pathname = `/s/${subdomain}${pathname === '/' ? '' : pathname}`;
+    return NextResponse.redirect(url);
+  }
+
   // Route to Nebula serve if this is an app request
-  if ((isAppSubdomain || isPathRouting) && !pathname.startsWith('/api/auth')) {
+  if (isPathRouting && !pathname.startsWith('/api/auth')) {
     let appId = '';
     let originalPath = pathname;
 
-    if (isAppSubdomain) {
-      // Subdomain mode: extract app ID from subdomain
-      appId = subdomain;
-    } else if (isPathRouting) {
-      // Path mode: /s/my-app/some-page -> appId: my-app, originalPath: /some-page
-      const parts = pathname.split('/');
-      appId = parts[2] || '';
-      originalPath = '/' + parts.slice(3).join('/') || '/';
-    }
+    // Path mode: /s/my-app/some-page -> appId: my-app, originalPath: /some-page
+    const parts = pathname.split('/');
+    appId = parts[2] || '';
+    originalPath = '/' + parts.slice(3).join('/') || '/';
     
     // Only rewrite if we have a valid appId
     if (appId) {
-      // If we are on a double subdomain (e.g. app.www.domain.com), redirect to single subdomain
-      if (normalizedHost.includes('.www.')) {
-        const singleSubdomainHost = normalizedHost.replace('.www.', '.');
-        const url = new URL(request.url);
-        url.hostname = singleSubdomainHost;
-        return NextResponse.redirect(url);
-      }
-
       const url = request.nextUrl.clone();
       url.pathname = '/api/nebula/serve';
       url.searchParams.set('appId', appId);

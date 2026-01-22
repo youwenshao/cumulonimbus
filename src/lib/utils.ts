@@ -166,18 +166,14 @@ export function getSubdomain(host: string): string | null {
  */
 export function getAppUrl(subdomain: string, host: string): string {
   const normalizedHost = host.split(':')[0];
-  let domain = getBaseDomain(normalizedHost);
+  const domain = getBaseDomain(normalizedHost);
   const protocol = normalizedHost === 'localhost' || normalizedHost === '127.0.0.1' ? 'http' : 'https';
   
-  // Ensure we use the naked domain
-  if (domain.startsWith('www.')) {
-    domain = domain.slice(4);
-  }
-
   // Keep the port if we are on localhost
-  const domainWithPort = normalizedHost === 'localhost' || normalizedHost === '127.0.0.1' ? host : domain;
+  const domainWithPort = (normalizedHost === 'localhost' || normalizedHost === '127.0.0.1') ? host : domain;
 
   // Always use path-based routing: https://domain.com/s/my-app
+  // We use the base domain (domainWithPort) to ensure we don't stay on a subdomain
   return `${protocol}://${domainWithPort}/s/${subdomain}`;
 }
 
