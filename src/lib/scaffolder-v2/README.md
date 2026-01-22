@@ -9,7 +9,7 @@ The V2 system uses a multi-agent architecture where specialized agents handle di
 ```
 User Message
     ↓
-Orchestrator Agent (coordinates flow)
+Architect Agent (coordinates flow)
     ↓
 ┌──────────────────┬─────────────────┬──────────────────┐
 │ Schema Designer  │  UI Designer    │  Code Generator  │
@@ -49,7 +49,7 @@ Generated App
 src/lib/scaffolder-v2/
 ├── agents/
 │   ├── base-agent.ts      # Base class for all agents
-│   ├── orchestrator.ts    # Coordinates agent flow
+│   ├── architect.ts    # Coordinates agent flow
 │   ├── schema-designer.ts # Generates data schemas
 │   ├── ui-designer.ts     # Creates layouts
 │   └── code-generator.ts  # Generates React components
@@ -102,7 +102,7 @@ MULTI_ENTITY_ENABLED=true
 
 ## Agent Flow
 
-### 1. Orchestrator Agent
+### 1. Architect Agent
 Classifies user intent and routes to appropriate agent:
 - `INITIAL_REQUEST` → Schema Designer
 - `REFINEMENT` → Responsible agent (schema/ui/code)

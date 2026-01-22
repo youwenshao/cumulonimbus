@@ -3,7 +3,7 @@
  * Main entry point for the v2 scaffolding system
  * 
  * Features:
- * - Adaptive orchestrator with parallel agent execution
+ * - Adaptive architect with parallel agent execution
  * - Multi-proposal system with visual mockups
  * - Smart defaults and proactive suggestions
  * - Context-aware intent engine with reference understanding
@@ -15,10 +15,10 @@ export * from './types';
 
 // Agents
 export { 
-  orchestratorAgent, 
-  OrchestratorAgent,
-  adaptiveOrchestrator,
-  AdaptiveOrchestrator,
+  architectAgent, 
+  ArchitectAgent,
+  adaptiveArchitect,
+  AdaptiveArchitect,
   intentEngine,
   IntentEngine,
   workflowAgent,

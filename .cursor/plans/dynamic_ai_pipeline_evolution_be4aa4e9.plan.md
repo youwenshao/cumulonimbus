@@ -299,11 +299,11 @@ Tasks (within each project)
 
 ---
 
-## 5. Adaptive Orchestrator with Decision Graph
+## 5. Adaptive Architect with Decision Graph
 
 ### Problem
 
-Current orchestrator does simple routing. It doesn't coordinate parallel work or handle complex scenarios.
+Current architect does simple routing. It doesn't coordinate parallel work or handle complex scenarios.
 
 ### Solution: Smart Coordination Layer
 
@@ -325,7 +325,7 @@ interface OrchestrationDecision {
 ```
 User: "Make the form simpler and add a chart"
 
-Orchestrator analyzes:
+Architect analyzes:
 - "simpler form" → UI Agent can handle independently
 - "add chart" → Requires Schema Agent (need numeric field) + UI Agent
 
@@ -616,14 +616,14 @@ Add labels and annotations.
 
 **Files to modify**:
 
-- [`src/lib/scaffolder-v2/agents/orchestrator.ts`](src/lib/scaffolder-v2/agents/orchestrator.ts) - Add parallel execution, decision graph
+- [`src/lib/scaffolder-v2/agents/architect.ts`](src/lib/scaffolder-v2/agents/architect.ts) - Add parallel execution, decision graph
 - [`src/lib/scaffolder-v2/types.ts`](src/lib/scaffolder-v2/types.ts) - Add new types for parallel actions, proposals
 - [`src/app/api/scaffolder-v2/route.ts`](src/app/api/scaffolder-v2/route.ts) - Support parallel agent execution
 
 **Changes**:
 
 1. Replace `ConversationPhase` enum with `readiness: { schema: number; ui: number; workflow: number }`
-2. Add `parallelActions` to `OrchestratorDecision`
+2. Add `parallelActions` to `ArchitectDecision`
 3. Support executing multiple agents simultaneously
 4. Merge results from parallel execution
 
@@ -755,9 +755,9 @@ graph TB
     ContextBuilder --> History[Conversation History]
     ContextBuilder --> Domain[Domain Knowledge]
     
-    ContextBuilder --> Orchestrator[Adaptive Orchestrator]
+    ContextBuilder --> Architect[Adaptive Architect]
     
-    Orchestrator --> ParallelExecution[Parallel Execution Engine]
+    Architect --> ParallelExecution[Parallel Execution Engine]
     
     ParallelExecution --> SchemaAgent[Schema Agent]
     ParallelExecution --> UIAgent[UI Agent]
@@ -871,7 +871,7 @@ Generates 3 options:
 
 **Immediate (High ROI)**:
 
-1. Enhanced orchestrator with parallel execution
+1. Enhanced architect with parallel execution
 2. Multi-proposal system with visual mockups
 3. Smart defaults (reduce questions by 70%)
 

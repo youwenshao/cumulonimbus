@@ -4,8 +4,8 @@
  */
 
 export { BaseAgent, type AgentConfig } from './base-agent';
-export { OrchestratorAgent, orchestratorAgent } from './orchestrator';
-export { AdaptiveOrchestrator, adaptiveOrchestrator } from './adaptive-orchestrator';
+export { ArchitectAgent, architectAgent } from './architect';
+export { AdaptiveArchitect, adaptiveArchitect } from './adaptive-architect';
 export { IntentEngine, intentEngine } from './intent-engine';
 export { WorkflowAgent, workflowAgent } from './workflow-agent';
 export { SchemaDesignerAgent, schemaDesignerAgent } from './schema-designer';

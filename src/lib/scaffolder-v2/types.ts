@@ -150,7 +150,7 @@ export interface LayoutProposal {
 
 export type ConversationPhase = 'intent' | 'schema' | 'ui' | 'code' | 'refinement' | 'preview' | 'complete';
 
-export type AgentType = 'orchestrator' | 'schema' | 'ui' | 'code' | 'workflow' | 'intent';
+export type AgentType = 'architect' | 'schema' | 'ui' | 'code' | 'workflow' | 'intent';
 
 export type IntentType = 
   | 'INITIAL_REQUEST'
@@ -244,7 +244,7 @@ export interface AgentAction {
   context?: Record<string, unknown>;
 }
 
-export interface OrchestratorDecision {
+export interface ArchitectDecision {
   nextAction: AgentAction;
   reasoning: string;
   phaseTransition?: ConversationPhase;
@@ -423,7 +423,7 @@ export interface ParallelAction {
 /**
  * Enhanced orchestration decision with parallel support
  */
-export interface EnhancedOrchestratorDecision {
+export interface EnhancedArchitectDecision {
   // Parallel actions to execute simultaneously
   parallelActions: ParallelAction[];
   

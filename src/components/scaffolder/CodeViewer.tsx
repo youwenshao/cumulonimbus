@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Code, Terminal, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Code, Terminal, CheckCircle, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface CodeChunk {
@@ -27,8 +27,11 @@ interface CodeViewerProps {
   className?: string;
 }
 
-type ConnectionStatus = 'connecting' | 'connected' | 'error' | 'complete';
+type ConnectionStatus = 'connecting' | 'connected' | 'error' | 'complete' | 'reconnecting';
 type ActiveTab = 'page' | 'types';
+
+const MAX_RECONNECT_ATTEMPTS = 3;
+const RECONNECT_DELAY_MS = 2000;
 
 export function CodeViewer({ conversationId, onComplete, onError, className }: CodeViewerProps) {
   const [code, setCode] = useState<Record<string, string>>({ page: '', types: '' });
@@ -36,8 +39,10 @@ export function CodeViewer({ conversationId, onComplete, onError, className }: C
   const [progress, setProgress] = useState(0);
   const [activeTab, setActiveTab] = useState<ActiveTab>('page');
   const [error, setError] = useState<string | null>(null);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const codeContainerRef = useRef<HTMLPreElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Refs to access latest state/props inside useEffect without re-triggering
   const codeRef = useRef(code);
@@ -52,20 +57,51 @@ export function CodeViewer({ conversationId, onComplete, onError, className }: C
   const statusRef = useRef(status);
   useEffect(() => { statusRef.current = status; }, [status]);
 
-  useEffect(() => {
+  const reconnectAttemptRef = useRef(reconnectAttempt);
+  useEffect(() => { reconnectAttemptRef.current = reconnectAttempt; }, [reconnectAttempt]);
+
+  // Cleanup function for event source
+  const cleanupEventSource = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Connect to the code stream
+  const connectToStream = useCallback(() => {
     if (!conversationId) return;
 
-    console.log(`📡 CodeViewer: Connecting to code stream ${conversationId}`);
+    cleanupEventSource();
+
+    console.log(`📡 CodeViewer: Connecting to code stream ${conversationId} (attempt ${reconnectAttemptRef.current + 1})`);
+    setStatus(reconnectAttemptRef.current > 0 ? 'reconnecting' : 'connecting');
+    setError(null);
+
     const eventSource = new EventSource(`/api/scaffolder/code-stream/${conversationId}`);
     eventSourceRef.current = eventSource;
 
+    // Set a connection timeout
+    const connectionTimeout = setTimeout(() => {
+      if (statusRef.current === 'connecting' || statusRef.current === 'reconnecting') {
+        console.log('📡 CodeViewer: Connection timeout, attempting reconnect...');
+        handleReconnect();
+      }
+    }, 10000);
+
     eventSource.onmessage = (event) => {
+      clearTimeout(connectionTimeout);
       try {
         const data = JSON.parse(event.data);
 
         if (data.type === 'connected') {
           console.log('📡 CodeViewer: Connected to code stream');
           setStatus('connected');
+          setReconnectAttempt(0); // Reset reconnect counter on successful connection
           return;
         }
 
@@ -114,19 +150,55 @@ export function CodeViewer({ conversationId, onComplete, onError, className }: C
     };
 
     eventSource.onerror = (err) => {
+      clearTimeout(connectionTimeout);
       console.error('📡 CodeViewer: Connection error:', err);
-      // Only set error if we haven't completed
+      
+      // Only attempt reconnect if we haven't completed
       if (statusRef.current !== 'complete') {
-        setStatus('error');
-        setError('Connection lost. Code generation may still be in progress.');
+        handleReconnect();
       }
     };
 
     return () => {
-      eventSource.close();
-      eventSourceRef.current = null;
+      clearTimeout(connectionTimeout);
     };
-  }, [conversationId]);
+  }, [conversationId, cleanupEventSource]);
+
+  // Handle reconnection with exponential backoff
+  const handleReconnect = useCallback(() => {
+    const currentAttempt = reconnectAttemptRef.current;
+    
+    if (currentAttempt >= MAX_RECONNECT_ATTEMPTS) {
+      console.log('📡 CodeViewer: Max reconnect attempts reached');
+      setStatus('error');
+      setError('Connection lost. Code generation may still be in progress. Try refreshing.');
+      return;
+    }
+
+    const delay = RECONNECT_DELAY_MS * Math.pow(2, currentAttempt);
+    console.log(`📡 CodeViewer: Scheduling reconnect in ${delay}ms (attempt ${currentAttempt + 1}/${MAX_RECONNECT_ATTEMPTS})`);
+    
+    setStatus('reconnecting');
+    setReconnectAttempt(prev => prev + 1);
+
+    cleanupEventSource();
+    
+    reconnectTimeoutRef.current = setTimeout(() => {
+      connectToStream();
+    }, delay);
+  }, [cleanupEventSource, connectToStream]);
+
+  // Manual retry handler
+  const handleManualRetry = useCallback(() => {
+    setReconnectAttempt(0);
+    setError(null);
+    connectToStream();
+  }, [connectToStream]);
+
+  useEffect(() => {
+    connectToStream();
+    return cleanupEventSource;
+  }, [conversationId, connectToStream, cleanupEventSource]);
 
   // Simple syntax highlighting for TypeScript/TSX
   const highlightCode = (codeString: string): string => {
@@ -197,6 +269,12 @@ export function CodeViewer({ conversationId, onComplete, onError, className }: C
               Connecting...
             </span>
           )}
+          {status === 'reconnecting' && (
+            <span className="flex items-center gap-1 text-sm text-yellow-400">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Reconnecting... ({reconnectAttempt}/{MAX_RECONNECT_ATTEMPTS})
+            </span>
+          )}
           {status === 'connected' && (
             <span className="flex items-center gap-1 text-sm text-yellow-400">
               <Terminal className="w-4 h-4" />
@@ -210,10 +288,13 @@ export function CodeViewer({ conversationId, onComplete, onError, className }: C
             </span>
           )}
           {status === 'error' && (
-            <span className="flex items-center gap-1 text-sm text-red-400">
+            <button 
+              onClick={handleManualRetry}
+              className="flex items-center gap-1 text-sm text-red-400 hover:text-red-300 transition-colors"
+            >
               <AlertCircle className="w-4 h-4" />
-              Error
-            </span>
+              Error - Click to retry
+            </button>
           )}
         </div>
       </div>
@@ -222,8 +303,13 @@ export function CodeViewer({ conversationId, onComplete, onError, className }: C
       {status !== 'complete' && status !== 'error' && (
         <div className="h-1 bg-surface-light">
           <div 
-            className="h-full bg-accent-yellow transition-all duration-300 ease-out"
-            style={{ width: `${progress}%` }}
+            className={cn(
+              "h-full transition-all duration-300 ease-out",
+              status === 'reconnecting' 
+                ? "bg-yellow-500 animate-pulse" 
+                : "bg-accent-yellow"
+            )}
+            style={{ width: status === 'reconnecting' ? '100%' : `${progress}%` }}
           />
         </div>
       )}
@@ -255,9 +341,17 @@ export function CodeViewer({ conversationId, onComplete, onError, className }: C
         className="p-4 h-96 overflow-auto font-mono text-sm bg-black/50"
       >
         {error ? (
-          <div className="text-red-400">
+          <div className="text-red-400 flex flex-col items-center justify-center h-full">
+            <AlertCircle className="w-8 h-8 mb-3 opacity-80" />
             <p className="font-semibold mb-2">Error during code generation:</p>
-            <p>{error}</p>
+            <p className="text-sm mb-4 text-center max-w-md">{error}</p>
+            <button
+              onClick={handleManualRetry}
+              className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-lg text-sm transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Try Again
+            </button>
           </div>
         ) : code[activeTab] ? (
           <code

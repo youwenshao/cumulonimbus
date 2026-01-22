@@ -1,5 +1,5 @@
 /**
- * Adaptive Orchestrator
+ * Adaptive Architect
  * Coordinates parallel agent execution with decision graphs and readiness tracking
  */
 
@@ -10,7 +10,7 @@ import type {
   ConversationState,
   DynamicConversationState,
   AgentResponse,
-  EnhancedOrchestratorDecision,
+  EnhancedArchitectDecision,
   ParallelAction,
   ReadinessScores,
   EnhancedIntent,
@@ -72,7 +72,7 @@ const INTENT_EXTRACTION_SCHEMA = `{
   "suggestedEnhancements": ["string"]
 }`;
 
-const ORCHESTRATOR_SYSTEM_PROMPT = `You are the adaptive orchestrator for an AI app builder. Your job is to:
+const ARCHITECT_SYSTEM_PROMPT = `You are the adaptive architect for an AI app builder. Your job is to:
 
 1. DEEPLY UNDERSTAND user requests - extract entities, detect references, understand workflows
 2. COORDINATE agents in parallel when possible - don't run sequentially unless necessary
@@ -97,10 +97,10 @@ For readiness scoring:
 - 60-90: Well-defined, minor tweaks needed
 - 90-100: Ready for code generation`;
 
-export class AdaptiveOrchestrator extends BaseAgent {
+export class AdaptiveArchitect extends BaseAgent {
   constructor() {
     super({
-      name: 'AdaptiveOrchestrator',
+      name: 'AdaptiveArchitect',
       description: 'Coordinates parallel agent execution with smart decision making',
       temperature: 0.2,
     });
@@ -110,7 +110,7 @@ export class AdaptiveOrchestrator extends BaseAgent {
     const dynamicState = state as DynamicConversationState;
     const readiness = dynamicState.readiness || { schema: 0, ui: 0, workflow: 0, overall: 0 };
     
-    return `${ORCHESTRATOR_SYSTEM_PROMPT}
+    return `${ARCHITECT_SYSTEM_PROMPT}
 
 Current readiness:
 - Schema: ${readiness.schema}%
@@ -132,7 +132,7 @@ ${(dynamicState.workflows?.length || 0) > 0 ? `${dynamicState.workflows.length} 
     userSettings?: UserLLMSettings
   ): Promise<AgentResponse> {
     const dynamicState = this.ensureDynamicState(state);
-    this.log('Processing with adaptive orchestrator', { message: message.substring(0, 100) });
+    this.log('Processing with adaptive architect', { message: message.substring(0, 100) });
 
     // Step 1: Analyze the request and determine actions
     const decision = await this.analyzeAndDecide(message, dynamicState, userSettings);
@@ -157,7 +157,7 @@ ${(dynamicState.workflows?.length || 0) > 0 ? `${dynamicState.workflows.length} 
     message: string,
     state: DynamicConversationState,
     userSettings?: UserLLMSettings
-  ): Promise<EnhancedOrchestratorDecision> {
+  ): Promise<EnhancedArchitectDecision> {
     const systemPrompt = this.buildSystemPrompt(state);
     
     const analysisPrompt = `Analyze this user message and determine the optimal execution plan:
@@ -739,7 +739,7 @@ Provide a comprehensive analysis as JSON.`;
     message: string,
     state: DynamicConversationState,
     userSettings?: UserLLMSettings
-  ): EnhancedOrchestratorDecision {
+  ): EnhancedArchitectDecision {
     const hasSchema = state.schemas.length > 0;
     const hasLayout = state.layout !== undefined;
     
@@ -913,7 +913,7 @@ Provide a comprehensive analysis as JSON.`;
    */
   private generateSuggestedActions(
     state: DynamicConversationState,
-    decision: EnhancedOrchestratorDecision
+    decision: EnhancedArchitectDecision
   ): string[] {
     const suggestions: string[] = [];
     const readiness = state.readiness;
@@ -941,4 +941,4 @@ Provide a comprehensive analysis as JSON.`;
 }
 
 // Export singleton instance
-export const adaptiveOrchestrator = new AdaptiveOrchestrator();
+export const adaptiveArchitect = new AdaptiveArchitect();

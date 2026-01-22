@@ -111,7 +111,12 @@ async function handleLoad(userId: string, appId: string) {
 async function runSimulation(conversationId: string, demoScenario: DemoScenario) {
   console.log(`🎮 Running simulation with conversation ID: ${conversationId}`);
 
-  await sleep(2000); // Give SSE connection more time to establish in demo mode
+  // Wait for SSE connection to be fully established before starting simulation
+  const connectionReady = await waitForConnection(conversationId, 5000);
+  console.log(`📡 Simulation SSE connection ready: ${connectionReady}`);
+  
+  // Additional delay to ensure frontend is ready to receive events
+  await sleep(1000);
 
   for (let i = 0; i < demoScenario.timeline.length; i++) {
     const event = demoScenario.timeline[i];
@@ -155,7 +160,9 @@ async function handleDemo(userId: string, tempConversationId?: string) {
   console.log(`\n🎮 === handleDemo ===`);
   console.log(`🔑 StatusId: ${statusId}`);
 
-  await waitForConnection(statusId, 2000);
+  // Wait longer for SSE connection to ensure reliable status delivery
+  const connectionReady = await waitForConnection(statusId, 5000);
+  console.log(`📡 SSE connection ready for demo: ${connectionReady}`);
 
   emitStatus(statusId, 'parse', 'Initializing demo simulation...', {
     severity: 'info',
@@ -223,9 +230,9 @@ async function handleStart(userId: string, userMessage: string, tempConversation
   console.log(`🔑 TempConversationId provided: ${tempConversationId || 'none'}`);
   console.log(`📊 Connection stats:`, getConnectionStats());
 
-  // Wait for SSE connection to be ready (with timeout)
+  // Wait for SSE connection to be ready (with increased timeout for reliability)
   // This ensures status messages are delivered reliably
-  const connectionReady = await waitForConnection(statusId, 2000);
+  const connectionReady = await waitForConnection(statusId, 5000);
   console.log(`📡 SSE connection ready: ${connectionReady}`);
 
   // Emit: Starting to parse (will be buffered if connection not ready)

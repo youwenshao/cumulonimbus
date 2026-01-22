@@ -5,8 +5,8 @@ todos:
   - id: intent-engine
     content: Build Intent Engine with multi-entity, reference, and workflow detection
     status: completed
-  - id: adaptive-orchestrator
-    content: Create Adaptive Orchestrator with decision graph and parallel agent coordination
+  - id: adaptive-architect
+    content: Create Adaptive Architect with decision graph and parallel agent coordination
     status: completed
   - id: context-builder
     content: Implement Context Builder with semantic context graph
@@ -59,12 +59,12 @@ Transform the current sequential pipeline into a **truly adaptive system** where
 graph TB
     User[User Input] --> IntentEngine[Intent Engine]
     IntentEngine --> ContextBuilder[Context Builder]
-    ContextBuilder --> Orchestrator[Adaptive Orchestrator]
+    ContextBuilder --> Architect[Adaptive Architect]
     
-    Orchestrator --> SchemaAgent[Schema Agent]
-    Orchestrator --> UIAgent[UI Agent]
-    Orchestrator --> WorkflowAgent[Workflow Agent]
-    Orchestrator --> ReferenceAgent[Reference Agent]
+    Architect --> SchemaAgent[Schema Agent]
+    Architect --> UIAgent[UI Agent]
+    Architect --> WorkflowAgent[Workflow Agent]
+    Architect --> ReferenceAgent[Reference Agent]
     
     SchemaAgent --> ProposalEngine[Proposal Engine]
     UIAgent --> ProposalEngine
@@ -152,7 +152,7 @@ interface WorkflowIntent {
   - Layout hint: Kanban board
   - Additional feature: Time tracking integration
 
-### 2. Adaptive Orchestrator
+### 2. Adaptive Architect
 
 **Purpose**: Coordinate agents without fixed phases
 
@@ -170,10 +170,10 @@ stateDiagram-v2
     Finalizing --> [*]
 ```
 
-**Implementation** ([src/lib/scaffolder-v2/agents/adaptive-orchestrator.ts](src/lib/scaffolder-v2/agents/adaptive-orchestrator.ts)):
+**Implementation** ([src/lib/scaffolder-v2/agents/adaptive-architect.ts](src/lib/scaffolder-v2/agents/adaptive-architect.ts)):
 
 ```typescript
-interface OrchestratorState {
+interface ArchitectState {
   // Current focus
   currentFocus: 'understanding' | 'proposing' | 'refining' | 'finalizing';
   
@@ -682,9 +682,9 @@ class ProposalEngine {
    - Add reference app parsing
    - Detect workflow requirements
 
-2. **Adaptive Orchestrator**
+2. **Adaptive Architect**
 
-   - File: [src/lib/scaffolder-v2/agents/adaptive-orchestrator.ts](src/lib/scaffolder-v2/agents/adaptive-orchestrator.ts)
+   - File: [src/lib/scaffolder-v2/agents/adaptive-architect.ts](src/lib/scaffolder-v2/agents/adaptive-architect.ts)
    - Replace phase-based logic with decision graph
    - Implement parallel agent coordination
    - Add proposal ranking system
@@ -794,7 +794,7 @@ class ProposalEngine {
 src/lib/scaffolder-v2/
 ├── agents/
 │   ├── intent-engine.ts (NEW)
-│   ├── adaptive-orchestrator.ts (NEW)
+│   ├── adaptive-architect.ts (NEW)
 │   ├── workflow-agent.ts (NEW)
 │   └── reference-agent.ts (NEW)
 ├── context/
@@ -828,7 +828,7 @@ src/components/primitives/advanced/
 ```
 src/lib/scaffolder-v2/
 ├── agents/
-│   ├── orchestrator.ts (MODIFY → adaptive-orchestrator.ts)
+│   ├── architect.ts (MODIFY → adaptive-architect.ts)
 │   ├── schema-designer.ts (EXTEND for multi-entity)
 │   ├── ui-designer.ts (EXTEND for advanced layouts)
 │   └── code-generator.ts (EXTEND for workflows)

@@ -321,6 +321,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const currentStreamIdRef = useRef<string | null>(null); // Track current stream ID
+  const finalizingRef = useRef<boolean>(false); // Track if finalize is in progress to prevent duplicate calls
 
   const showFinalize = (state?.phase === 'picture' || state?.phase === 'plan') && state?.allQuestionsAnswered;
   // Get plan from state or from message metadata
@@ -331,7 +332,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
 
   // Connect to SSE for status updates - returns promise that resolves when connected
   // Includes retry logic with exponential backoff
-  const connectToStatusStream = React.useCallback((convId: string, maxRetries = 3): Promise<void> => {
+  const connectToStatusStream = React.useCallback((convId: string, maxRetries = 5): Promise<boolean> => {
     return new Promise((resolve) => {
       let retryCount = 0;
       let resolved = false;
@@ -342,7 +343,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
           console.log(`📡 SSE already connected to ${convId}`);
           if (!resolved) {
             resolved = true;
-            resolve();
+            resolve(true);
           }
           return;
         }
@@ -358,7 +359,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
         const eventSource = new EventSource(`/api/scaffolder/status/${convId}`);
         eventSourceRef.current = eventSource;
 
-        // Set timeout for this connection attempt
+        // Set timeout for this connection attempt (increased to 5s for reliability)
         const connectionTimeout = setTimeout(() => {
           if (resolved) return;
           
@@ -368,7 +369,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
           // Retry with exponential backoff
           if (retryCount < maxRetries - 1) {
             retryCount++;
-            const delay = 100 * Math.pow(2, retryCount);
+            const delay = 200 * Math.pow(2, retryCount);
             console.log(`🔄 Retrying SSE connection in ${delay}ms...`);
             setTimeout(attemptConnection, delay);
           } else {
@@ -376,9 +377,9 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
             eventSourceRef.current = null;
             currentStreamIdRef.current = null;
             resolved = true;
-            resolve();
+            resolve(false);
           }
-        }, 2000);
+        }, 5000);
 
         eventSource.onmessage = (event) => {
           try {
@@ -390,7 +391,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
               clearTimeout(connectionTimeout);
               if (!resolved) {
                 resolved = true;
-                resolve();
+                resolve(true);
               }
               return;
             }
@@ -401,8 +402,10 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
 
                setSimulationEvents(prev => [...prev, event]);
 
-               // If code generation starts, switch view (finalize will be auto-triggered by useEffect)
+               // If code generation starts, switch view but DON'T auto-trigger finalize
+               // The finalize should be triggered by the simulation completing, not by receiving this event
                if (event.type === 'code_generation') {
+                 console.log('📥 Code generation event received - switching to generating view');
                  setBuildPhase('generating');
                  // Don't clear events, we want to keep history
                }
@@ -429,7 +432,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
           // Retry on error if we haven't resolved yet
           if (!resolved && retryCount < maxRetries - 1) {
             retryCount++;
-            const delay = 100 * Math.pow(2, retryCount);
+            const delay = 200 * Math.pow(2, retryCount);
             console.log(`🔄 Retrying SSE connection after error in ${delay}ms...`);
             eventSourceRef.current = null;
             currentStreamIdRef.current = null;
@@ -439,7 +442,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
             eventSourceRef.current = null;
             currentStreamIdRef.current = null;
             resolved = true;
-            resolve();
+            resolve(false);
           }
         };
       };
@@ -475,8 +478,9 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
                 setCurrentPhase('plan');
               }
               
-              // Reconnect SSE
-              connectToStatusStream(data.conversationId);
+              // Reconnect SSE with proper await
+              const sseReady = await connectToStatusStream(data.conversationId);
+              console.log(`📡 Loaded conversation SSE ready: ${sseReady}`);
             }
           }
         } catch (error) {
@@ -499,7 +503,9 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
   useEffect(() => {
     if (conversationId && conversationId !== currentStreamIdRef.current) {
       console.log(`🔄 Conversation ID changed, reconnecting SSE to: ${conversationId}`);
-      connectToStatusStream(conversationId).catch(error => {
+      connectToStatusStream(conversationId).then(ready => {
+        console.log(`📡 SSE reconnection result: ${ready}`);
+      }).catch(error => {
         console.error('Failed to reconnect SSE:', error);
       });
     }
@@ -520,6 +526,8 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
     setStatusMessages([]);
     setSimulationEvents([]); // Clear previous stream
     setCurrentPhase('parse');
+    setBuildPhase('idle'); // Reset build phase for new conversation
+    finalizingRef.current = false; // Reset finalizing flag for new conversation
 
     // Add user message to UI
     const userMessage: Message = {
@@ -535,8 +543,8 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
     try {
       // Connect to SSE and WAIT for connection to be ready
       console.log(`🚀 Starting app creation with tempId: ${tempId}`);
-      await connectToStatusStream(tempId);
-      console.log(`📤 SSE ready, sending POST request`);
+      const sseReady = await connectToStatusStream(tempId);
+      console.log(`📤 SSE ready: ${sseReady}, sending POST request`);
 
       const response = await fetch('/api/scaffolder', {
         method: 'POST',
@@ -555,9 +563,10 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
         setConversationId(newConversationId);
         setState(data.state);
 
-        // Reconnect SSE to the real conversation ID
+        // Reconnect SSE to the real conversation ID with proper wait
         console.log(`🔄 Switching SSE from temp ID to conversation ID: ${newConversationId}`);
-        await connectToStatusStream(newConversationId);
+        const newSseReady = await connectToStatusStream(newConversationId);
+        console.log(`📡 New conversation SSE ready: ${newSseReady}`);
 
         // Add assistant messages
         const assistantMessages = data.messages.filter((m: Message) => m.role !== 'system');
@@ -679,9 +688,28 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
   };
 
   const handleFinalize = React.useCallback(async () => {
-    console.log('🎯 handleFinalize called', { conversationId, isLoading, isAgentStreaming, buildPhase });
+    console.log('🎯 handleFinalize called', { conversationId, isLoading, isAgentStreaming, buildPhase, finalizing: finalizingRef.current });
 
-    if (!conversationId || isLoading) return;
+    // Prevent duplicate finalize calls using ref to catch rapid calls
+    if (finalizingRef.current) {
+      console.log('⚠️ handleFinalize skipped: already finalizing (ref check)');
+      return;
+    }
+
+    // Prevent duplicate finalize calls
+    if (!conversationId || isLoading) {
+      console.log('⚠️ handleFinalize skipped: no conversationId or already loading');
+      return;
+    }
+
+    // Don't call finalize if we're already in preview/complete state
+    if (buildPhase === 'preview' || buildPhase === 'complete') {
+      console.log('⚠️ handleFinalize skipped: already in preview/complete state');
+      return;
+    }
+
+    // Set the ref immediately to prevent race conditions
+    finalizingRef.current = true;
 
     setIsLoading(true);
     setCurrentPhase('build');
@@ -690,7 +718,8 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
 
     // Ensure we're connected to the right conversation for status updates
     console.log(`🏗️ Finalizing app, connecting to conversation: ${conversationId}`);
-    await connectToStatusStream(conversationId);
+    const sseReady = await connectToStatusStream(conversationId);
+    console.log(`📡 Finalize SSE ready: ${sseReady}`);
 
     // Add execution message
     setMessages(prev => [...prev, {
@@ -734,6 +763,7 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
 
       } else {
         setBuildPhase('idle');
+        finalizingRef.current = false; // Reset on error
         setMessages(prev => [...prev.slice(0, -1), {
           id: Date.now().toString(),
           role: 'assistant',
@@ -744,10 +774,13 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
     } catch (error) {
       console.error('Error:', error);
       setBuildPhase('idle');
+      finalizingRef.current = false; // Reset on error
 
     } finally {
       setIsLoading(false);
-
+      // Note: Don't reset finalizingRef here on success, as we want to prevent
+      // duplicate calls even after loading is done. It will be reset when
+      // buildPhase goes back to 'idle' (e.g., when starting a new conversation)
     }
   }, [conversationId, isLoading, isAgentStreaming, buildPhase, connectToStatusStream]);
 
@@ -824,12 +857,23 @@ function CreatePageV1({ onModeChange, appId }: { onModeChange?: () => void; appI
   const showOptions = lastMessage?.metadata?.options && !isLoading;
   // Show finalize when in picture or plan phase with all questions answered
   // Auto-trigger finalize when in agent streaming mode and buildPhase becomes generating
+  // This effect handles the transition from simulation events to actual code generation
   React.useEffect(() => {
-    console.log('🔍 useEffect check:', { isAgentStreaming, buildPhase, isLoading, conversationId });
+    console.log('🔍 useEffect check:', { 
+      isAgentStreaming, 
+      buildPhase, 
+      isLoading, 
+      conversationId,
+      finalizing: finalizingRef.current 
+    });
 
-    if (isAgentStreaming && buildPhase === 'generating') {
+    // Only auto-trigger if:
+    // 1. We're in agent streaming mode (simulation events exist)
+    // 2. Build phase just became 'generating' (code_generation event received)
+    // 3. We haven't already started finalizing
+    // 4. We have a valid conversation ID
+    if (isAgentStreaming && buildPhase === 'generating' && !finalizingRef.current && conversationId) {
       console.log('🎯 Auto-triggering finalize for agent streaming mode');
-
       handleFinalize();
     }
   }, [isAgentStreaming, buildPhase, conversationId, handleFinalize, isLoading]);

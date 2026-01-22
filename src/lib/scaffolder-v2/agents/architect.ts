@@ -1,5 +1,5 @@
 /**
- * Orchestrator Agent
+ * Architect Agent
  * Coordinates other agents, maintains conversation context, decides next steps
  */
 
@@ -9,7 +9,7 @@ import type { UserLLMSettings } from '@/lib/llm';
 import type {
   ConversationState,
   AgentResponse,
-  OrchestratorDecision,
+  ArchitectDecision,
   AgentAction,
   ParsedIntent,
   IntentType,
@@ -26,7 +26,7 @@ const INTENT_CLASSIFICATION_SCHEMA = `{
   "reasoning": "string"
 }`;
 
-const ORCHESTRATOR_SYSTEM_PROMPT = `You are an orchestrator for an AI app builder. Your job is to:
+const ARCHITECT_SYSTEM_PROMPT = `You are the Architect for an AI app builder. Your job is to:
 1. Understand what the user wants
 2. Classify their intent (new request, refinement, approval, question, etc.)
 3. Determine which specialist agent should handle the request
@@ -49,10 +49,10 @@ For subject classification:
 
 Be helpful and conversational. Guide users through the app building process.`;
 
-export class OrchestratorAgent extends BaseAgent {
+export class ArchitectAgent extends BaseAgent {
   constructor() {
     super({
-      name: 'Orchestrator',
+      name: 'Architect',
       description: 'Coordinates agents and manages conversation flow',
       temperature: 0.2, // Lower temperature for more consistent classification
     });
@@ -60,7 +60,7 @@ export class OrchestratorAgent extends BaseAgent {
 
   protected buildSystemPrompt(state: ConversationState): string {
     const phaseContext = this.getPhaseContext(state);
-    return `${ORCHESTRATOR_SYSTEM_PROMPT}\n\nCurrent phase: ${state.phase}\n${phaseContext}`;
+    return `${ARCHITECT_SYSTEM_PROMPT}\n\nCurrent phase: ${state.phase}\n${phaseContext}`;
   }
 
   /**
@@ -207,7 +207,7 @@ Respond with JSON only.`;
   determineNextAction(
     intent: ParsedIntent,
     state: ConversationState
-  ): OrchestratorDecision {
+  ): ArchitectDecision {
     switch (intent.type) {
       case 'INITIAL_REQUEST':
         return {
@@ -261,7 +261,7 @@ Respond with JSON only.`;
       case 'UNDO':
         return {
           nextAction: {
-            agent: 'orchestrator',
+            agent: 'architect',
             action: 'refine',
             context: { action: 'undo' },
           },
@@ -281,7 +281,7 @@ Respond with JSON only.`;
       default:
         return {
           nextAction: {
-            agent: 'orchestrator',
+            agent: 'architect',
             action: 'clarify',
             context: { question: 'What would you like to do?' },
           },
@@ -293,7 +293,7 @@ Respond with JSON only.`;
   /**
    * Handle approval intent - move to next phase
    */
-  private handleApproval(state: ConversationState): OrchestratorDecision {
+  private handleApproval(state: ConversationState): ArchitectDecision {
     switch (state.phase) {
       case 'intent':
         return {
@@ -326,7 +326,7 @@ Respond with JSON only.`;
 
       default:
         return {
-          nextAction: { agent: 'orchestrator', action: 'clarify' },
+          nextAction: { agent: 'architect', action: 'clarify' },
           reasoning: 'Unexpected state. Asking for clarification.',
         };
     }
@@ -338,7 +338,7 @@ Respond with JSON only.`;
   private getAgentForSubject(
     subject: 'schema' | 'ui' | 'code' | 'general',
     state: ConversationState
-  ): 'orchestrator' | 'schema' | 'ui' | 'code' {
+  ): 'architect' | 'schema' | 'ui' | 'code' {
     switch (subject) {
       case 'schema': return 'schema';
       case 'ui': return 'ui';
@@ -350,21 +350,21 @@ Respond with JSON only.`;
   /**
    * Get the current active agent based on phase
    */
-  private getCurrentAgent(state: ConversationState): 'orchestrator' | 'schema' | 'ui' | 'code' {
+  private getCurrentAgent(state: ConversationState): 'architect' | 'schema' | 'ui' | 'code' {
     switch (state.phase) {
-      case 'intent': return 'orchestrator';
+      case 'intent': return 'architect';
       case 'schema': return 'schema';
       case 'ui': return 'ui';
       case 'code':
       case 'preview': return 'code';
-      default: return 'orchestrator';
+      default: return 'architect';
     }
   }
 
   /**
    * Check if the decision requires user input
    */
-  private requiresUserInput(decision: OrchestratorDecision): boolean {
+  private requiresUserInput(decision: ArchitectDecision): boolean {
     return decision.nextAction.action === 'clarify' || 
            decision.nextAction.action === 'propose';
   }
@@ -374,7 +374,7 @@ Respond with JSON only.`;
    */
   private getSuggestedActions(
     state: ConversationState,
-    decision: OrchestratorDecision
+    decision: ArchitectDecision
   ): string[] {
     const suggestions: string[] = [];
 
@@ -490,4 +490,4 @@ Respond with JSON only.`;
 }
 
 // Export singleton instance
-export const orchestratorAgent = new OrchestratorAgent();
+export const architectAgent = new ArchitectAgent();

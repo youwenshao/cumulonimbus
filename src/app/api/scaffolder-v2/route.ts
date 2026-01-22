@@ -5,8 +5,8 @@ import prisma from '@/lib/db';
 import { generateId, generateSubdomain } from '@/lib/utils';
 import type { UserLLMSettings, LLMProvider } from '@/lib/llm';
 import { 
-  orchestratorAgent, 
-  adaptiveOrchestrator,
+  architectAgent, 
+  adaptiveArchitect,
   intentEngine,
   schemaDesignerAgent,
   uiDesignerAgent,
@@ -42,8 +42,8 @@ import type {
   DynamicConversationState,
   V2ChatRequest, 
   V2ChatResponse,
-  OrchestratorDecision,
-  EnhancedOrchestratorDecision,
+  ArchitectDecision,
+  EnhancedArchitectDecision,
   Schema,
   LayoutNode,
   EnhancedIntent,
@@ -165,7 +165,7 @@ async function handleChat(
     state = createCheckpoint(state, `Before: ${message.substring(0, 30)}...`);
   }
 
-  // Use adaptive orchestrator for dynamic pipeline
+  // Use adaptive architect for dynamic pipeline
   if (IS_DEMO_MODE) {
     // Add assistant message to state
     state = addMessageToState(state, 'assistant', 'Demo Mode: The Advanced Scaffolder (V2) is connected to live AI services which are disabled in this demo environment. Please use the "Guided" mode for a simulated experience.', {
@@ -189,10 +189,10 @@ async function handleChat(
     });
   }
 
-  const orchestratorResponse = await adaptiveOrchestrator.process(message, state, userSettings);
-  const decision = orchestratorResponse.data as EnhancedOrchestratorDecision;
+  const architectResponse = await adaptiveArchitect.process(message, state, userSettings);
+  const decision = architectResponse.data as EnhancedArchitectDecision;
 
-  console.log(`🧠 Orchestrator decision:`, {
+  console.log(`🧠 Architect decision:`, {
     parallelActions: decision.parallelActions.length,
     generateProposals: decision.generateProposals,
   });
@@ -251,7 +251,7 @@ async function handleChat(
       suggestions: state.suggestions,
     },
     requiresUserInput: true,
-    suggestedActions: orchestratorResponse.suggestedActions,
+    suggestedActions: architectResponse.suggestedActions,
   });
 }
 
@@ -657,7 +657,7 @@ async function handleResolveFeedback(
  * Helper to execute pipeline actions in parallel
  */
 async function executeParallelPipeline(
-  decision: EnhancedOrchestratorDecision,
+  decision: EnhancedArchitectDecision,
   state: DynamicConversationState,
   userMessage: string
 ) {

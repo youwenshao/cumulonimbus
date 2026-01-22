@@ -1,4 +1,9 @@
-# Cumulonimbus
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/branding/logo-full-dark.svg">
+    <img alt="Cumulonimbus Logo" src="public/branding/logo-full-light.svg" width="400">
+  </picture>
+</p>
 
 Transform natural language descriptions into working web applications through AI-powered conversational scaffolding.
 
@@ -34,7 +39,7 @@ Cumulonimbus is an intent-to-application platform that allows non-technical user
 
 ### Advanced Features
 
-- **Scaffolder V2**: Agent-based architecture with orchestrator pattern (Available)
+- **Scaffolder V2**: Agent-based architecture with architect pattern (Available)
   - **Multi-Agent System**: Specialized agents for schema design, UI layout, and code generation
   - **Dynamic Schema Generation**: AI generates custom data schemas from natural language
   - **Flexible Layout System**: Layout DSL with responsive templates (dashboard, sidebar, kanban)
@@ -219,7 +224,7 @@ cumulonimbus/
 │       │   ├── code-generator.ts     # Code generation
 │       │   └── validators/           # Validation logic
 │       ├── scaffolder-v2/            # V2 agent-based scaffolder
-│       │   ├── agents/               # AI agents (orchestrator, schema-designer, etc.)
+│       │   ├── agents/               # AI agents (architect, schema-designer, etc.)
 │       │   ├── state.ts              # State management
 │       │   └── types.ts              # Type definitions
 │       ├── primitives/               # Primitive type definitions
