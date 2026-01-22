@@ -31,6 +31,9 @@ async function start() {
   try {
     console.log(`[Worker ${appId}] Starting (ESM)...`);
     
+    // Send a "starting" status before we do heavy work
+    parentPort.postMessage({ type: 'status', appId, payload: { status: 'starting' } } as WorkerMessage);
+    
     // 1. Transpile for Node environment (CJS) - for server-side logic if any
     let nodeResult;
     try {
@@ -506,7 +509,8 @@ async function start() {
     payload: { error: err.message }
   } as WorkerMessage);
   process.exit(1);
-}
+  }
 }
 
-setTimeout(start, 50);
+// Start immediately, no artificial delay
+start();

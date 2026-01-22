@@ -125,8 +125,9 @@ class NebulaSupervisor {
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
+        worker.off('message', onReady);
         reject(new Error(`Worker start timeout for app ${app.id}`));
-      }, 15000);
+      }, 30000);
       
       const onReady = (msg: WorkerMessage) => {
         if (msg.type === 'ready') {

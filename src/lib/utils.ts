@@ -80,9 +80,12 @@ const WILDCARD_SUPPORTED_DOMAINS = [
  * Handles localhost, known production domains, and Vercel deployments.
  */
 export function getBaseDomain(host: string): string {
-  // Handle localhost variants (localhost, localhost:3000, 127.0.0.1:3000, etc.)
-  if (host.startsWith('localhost') || host.startsWith('127.0.0.1')) {
-    return host;
+  // Normalize host by removing port if present
+  const normalizedHost = host.split(':')[0];
+
+  // Handle localhost variants
+  if (normalizedHost === 'localhost' || normalizedHost === '127.0.0.1') {
+    return normalizedHost;
   }
 
   // Build complete list of domains to check
@@ -90,19 +93,18 @@ export function getBaseDomain(host: string): string {
 
   // Add Vercel deployment URLs if present
   if (process.env.VERCEL_URL) {
-    domains.push(process.env.VERCEL_URL);
+    domains.push(process.env.VERCEL_URL.split(':')[0]);
   }
   if (process.env.NEXT_PUBLIC_VERCEL_URL) {
-    domains.push(process.env.NEXT_PUBLIC_VERCEL_URL);
+    domains.push(process.env.NEXT_PUBLIC_VERCEL_URL.split(':')[0]);
   }
   if (process.env.NEXT_PUBLIC_DOMAIN) {
-    domains.push(process.env.NEXT_PUBLIC_DOMAIN);
+    domains.push(process.env.NEXT_PUBLIC_DOMAIN.split(':')[0]);
   }
   
   // Find the longest matching domain to handle www vs naked domain correctly
-  // This ensures app.www.cumulonimbus.app matches www.cumulonimbus.app (not cumulonimbus.app)
   const matches = domains
-    .filter(d => d && (host === d || host.endsWith(`.${d}`)))
+    .filter(d => d && (normalizedHost === d || normalizedHost.endsWith(`.${d}`)))
     .sort((a, b) => b.length - a.length);
     
   if (matches.length > 0) {
@@ -110,7 +112,7 @@ export function getBaseDomain(host: string): string {
   }
 
   // Default fallback
-  return process.env.NEXT_PUBLIC_DOMAIN || host;
+  return (process.env.NEXT_PUBLIC_DOMAIN || normalizedHost).split(':')[0];
 }
 
 /**
@@ -118,27 +120,30 @@ export function getBaseDomain(host: string): string {
  * Used to determine whether to use subdomain-based or path-based app routing.
  */
 export function supportsWildcardSubdomains(domain: string): boolean {
+  const normalizedDomain = domain.split(':')[0];
+
   // Localhost always supports subdomains for development
-  if (domain.startsWith('localhost') || domain.startsWith('127.0.0.1')) {
+  if (normalizedDomain === 'localhost' || normalizedDomain === '127.0.0.1') {
     return true;
   }
 
   // Check against known wildcard-supporting domains
-  return WILDCARD_SUPPORTED_DOMAINS.some(d => domain === d || domain.endsWith(`.${d}`));
+  return WILDCARD_SUPPORTED_DOMAINS.some(d => normalizedDomain === d || normalizedDomain.endsWith(`.${d}`));
 }
 
 /**
  * Extracts the subdomain from a host string based on known base domains
  */
 export function getSubdomain(host: string): string | null {
-  const baseDomain = getBaseDomain(host);
+  const normalizedHost = host.split(':')[0];
+  const baseDomain = getBaseDomain(normalizedHost);
   
-  if (host === baseDomain) return null;
+  if (normalizedHost === baseDomain) return null;
   
   // Only extract subdomain if the host actually ends with the base domain
-  if (!host.endsWith(`.${baseDomain}`)) return null;
+  if (!normalizedHost.endsWith(`.${baseDomain}`)) return null;
   
-  const subdomain = host.replace(`.${baseDomain}`, '');
+  const subdomain = normalizedHost.slice(0, -(baseDomain.length + 1));
   
   // Ignore 'www' if it's treated as a subdomain but we want it as a base domain
   if (subdomain === 'www') return null;
@@ -151,15 +156,19 @@ export function getSubdomain(host: string): string | null {
  * Uses subdomain routing where supported, falls back to path-based routing otherwise.
  */
 export function getAppUrl(subdomain: string, host: string): string {
-  const domain = getBaseDomain(host);
-  const protocol = domain.startsWith('localhost') || domain.startsWith('127.0.0.1') ? 'http' : 'https';
+  const normalizedHost = host.split(':')[0];
+  const domain = getBaseDomain(normalizedHost);
+  const protocol = normalizedHost === 'localhost' || normalizedHost === '127.0.0.1' ? 'http' : 'https';
   
+  // Keep the port if we are on localhost
+  const domainWithPort = normalizedHost === 'localhost' || normalizedHost === '127.0.0.1' ? host : domain;
+
   if (supportsWildcardSubdomains(domain)) {
     // Use subdomain-based routing: https://my-app.cumulonimbus.app
-    return `${protocol}://${subdomain}.${domain}`;
+    return `${protocol}://${subdomain}.${domainWithPort}`;
   } else {
     // Use path-based routing: https://cumulonimbus-silk.vercel.app/s/my-app
-    return `${protocol}://${domain}/s/${subdomain}`;
+    return `${protocol}://${domainWithPort}/s/${subdomain}`;
   }
 }
 
@@ -167,5 +176,6 @@ export function getAppUrl(subdomain: string, host: string): string {
  * Gets the protocol for a given host (http for localhost, https otherwise)
  */
 export function getProtocol(host: string): string {
-  return host.startsWith('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https';
+  const normalizedHost = host.split(':')[0];
+  return normalizedHost === 'localhost' || normalizedHost === '127.0.0.1' ? 'http' : 'https';
 }

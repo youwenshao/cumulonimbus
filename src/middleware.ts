@@ -10,7 +10,8 @@ import { getBaseDomain, getSubdomain } from '@/lib/utils';
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const host = request.headers.get('host') || '';
-  const domain = getBaseDomain(host);
+  const normalizedHost = host.split(':')[0];
+  const domain = getBaseDomain(normalizedHost);
 
   // Skip middleware for internal Next.js routes and API routes that handle their own logic
   if (pathname.startsWith('/_next') || pathname.startsWith('/api/nebula/serve')) {
