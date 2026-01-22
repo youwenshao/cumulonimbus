@@ -9,6 +9,8 @@ import { executeRequest, loadAppContext, type NebulaRequest } from './runner';
 const isVercel = process.env.VERCEL === '1' || 
                  !!process.env.NEXT_PUBLIC_VERCEL_URL || 
                  !!process.env.VERCEL_URL || 
+                 !!process.env.VERCEL_REGION ||
+                 !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
                  process.cwd().includes('/var/task');
 
 class NebulaSupervisor {
@@ -116,6 +118,10 @@ class NebulaSupervisor {
    * Spawn a new worker thread for an app
    */
   private async spawnWorker(appId: string): Promise<Worker> {
+    if (isVercel) {
+      throw new Error(`Cannot spawn worker threads in serverless environment (appId: ${appId})`);
+    }
+
     // Look up by ID first, then by subdomain
     const app = await prisma.app.findFirst({
       where: {
