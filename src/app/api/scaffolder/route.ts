@@ -92,17 +92,23 @@ async function handleLoad(userId: string, appId: string) {
     return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
   }
 
-  const state = conversation.spec as unknown as BlueprintState;
+  const messages = typeof conversation.messages === 'string' 
+    ? JSON.parse(conversation.messages) 
+    : conversation.messages;
+    
+  const state = (typeof conversation.spec === 'string' 
+    ? JSON.parse(conversation.spec) 
+    : conversation.spec) as unknown as BlueprintState;
   
   return NextResponse.json({
     conversationId: conversation.id,
-    messages: conversation.messages,
+    messages,
     state: {
       phase: state.phase,
       spec: state.spec,
       plan: state.plan,
       questions: state.questions,
-      allQuestionsAnswered: state.questions ? !state.questions.some(q => !q.answered) : true,
+      allQuestionsAnswered: state.questions ? !state.questions.some((q: any) => !q.answered) : true,
     },
   });
 }
@@ -192,9 +198,9 @@ async function handleDemo(userId: string, tempConversationId?: string) {
   const conversation = await prisma.conversation.create({
     data: {
       userId,
-      messages: messages as unknown as object[],
+      messages: JSON.stringify(messages),
       phase: 'PICTURE',
-      spec: state as unknown as object,
+      spec: JSON.stringify(state),
     },
   });
 
@@ -345,9 +351,9 @@ async function handleStart(userId: string, userMessage: string, tempConversation
   const conversation = await prisma.conversation.create({
     data: {
       userId,
-      messages: messages as unknown as object[],
+      messages: JSON.stringify(messages),
       phase: 'PROBE',
-      spec: state as unknown as object,
+      spec: JSON.stringify(state),
     },
   });
 
@@ -398,7 +404,9 @@ async function handleAnswer(
   }
 
   // Reconstruct state from stored spec
-  let state = conversation.spec as unknown as BlueprintState;
+  let state = (typeof conversation.spec === 'string' 
+    ? JSON.parse(conversation.spec) 
+    : conversation.spec) as unknown as BlueprintState;
   
   console.log(`📊 Current answers before recording:`, JSON.stringify(state.answers || {}));
   console.log(`📊 Current questions:`, state.questions?.map(q => `${q.id}(${q.answered ? 'answered' : 'pending'})`).join(', '));
@@ -417,7 +425,9 @@ async function handleAnswer(
   
   console.log(`📊 Answers after recording:`, JSON.stringify(state.answers));
 
-  const messages = conversation.messages as unknown as Message[];
+  const messages = (typeof conversation.messages === 'string' 
+    ? JSON.parse(conversation.messages) 
+    : conversation.messages) as unknown as Message[];
   
   // Add user's answer as a message
   const answerText = Array.isArray(answer) ? answer.join(', ') : answer;
@@ -544,9 +554,9 @@ async function handleAnswer(
   await prisma.conversation.update({
     where: { id: conversationId },
     data: {
-      messages: messages as unknown as object[],
+      messages: JSON.stringify(messages),
       phase: dbPhase,
-      spec: state as unknown as object,
+      spec: JSON.stringify(state),
     },
   });
 
@@ -558,7 +568,7 @@ async function handleAnswer(
       spec: state.spec,
       plan: state.plan,
       questions: state.questions,
-      allQuestionsAnswered: !state.questions.some(q => !q.answered),
+      allQuestionsAnswered: !state.questions.some((q: any) => !q.answered),
     },
     preview: (state.phase === 'picture' || state.phase === 'plan') && state.spec 
       ? generatePreviewHTML(state.spec as ProjectSpec) 
@@ -612,7 +622,9 @@ async function handleFinalize(userId: string, conversationId: string) {
     throw error;
   }
 
-  const state = conversation.spec as unknown as BlueprintState;
+  const state = (typeof conversation.spec === 'string' 
+    ? JSON.parse(conversation.spec) 
+    : conversation.spec) as unknown as BlueprintState;
 
   if (!state.spec) {
     const error = new ValidationError(['No specification found - please complete all questions first'], [], 'build');
@@ -694,9 +706,9 @@ async function handleFinalize(userId: string, conversationId: string) {
         userId,
         name: spec.name,
         description: spec.description,
-        spec: spec as unknown as object,
-        config: appConfig as unknown as object,
-        data: [],
+        spec: JSON.stringify(spec),
+        config: JSON.stringify(appConfig),
+        data: JSON.stringify([]),
         status: 'GENERATING',
         buildStatus: 'GENERATING',
         subdomain,
@@ -845,8 +857,8 @@ async function handleFinalize(userId: string, conversationId: string) {
     await prisma.app.update({
       where: { id: app.id },
       data: {
-        generatedCode: generatedCode as unknown as object,
-        generationLog: generationLog as unknown as object,
+        generatedCode: JSON.stringify(generatedCode),
+        generationLog: JSON.stringify(generationLog),
         status: 'ACTIVE',
         buildStatus: 'COMPLETED',
       },
@@ -867,7 +879,9 @@ async function handleFinalize(userId: string, conversationId: string) {
   });
 
   // Update conversation
-  const messages = conversation.messages as unknown as Message[];
+  const messages = (typeof conversation.messages === 'string' 
+    ? JSON.parse(conversation.messages) 
+    : conversation.messages) as unknown as Message[];
   messages.push({
     id: generateId(),
     role: 'assistant',
@@ -880,7 +894,7 @@ async function handleFinalize(userId: string, conversationId: string) {
     await prisma.conversation.update({
       where: { id: conversationId },
       data: {
-        messages: messages as unknown as object[],
+        messages: JSON.stringify(messages),
         phase: 'COMPLETE',
         appId: app.id,
       },

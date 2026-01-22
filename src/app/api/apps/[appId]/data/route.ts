@@ -30,7 +30,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'App not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ data: app.data || [] });
+    const data = typeof app.data === 'string' ? JSON.parse(app.data) : (app.data || []);
+    return NextResponse.json({ data });
   } catch (error) {
     console.error('Error fetching app data:', error);
     return NextResponse.json(
@@ -71,12 +72,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       ...body,
     };
 
-    const currentData = (app.data || []) as DataRecord[];
+    const currentData = (typeof app.data === 'string' ? JSON.parse(app.data) : (app.data || [])) as DataRecord[];
     const updatedData = [...currentData, newRecord];
 
     await prisma.app.update({
       where: { id: appId },
-      data: { data: updatedData as unknown as object[] },
+      data: { data: JSON.stringify(updatedData) },
     });
 
     return NextResponse.json({ record: newRecord }, { status: 201 });
@@ -117,7 +118,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Record ID is required' }, { status: 400 });
     }
 
-    const currentData = (app.data || []) as DataRecord[];
+    const currentData = (typeof app.data === 'string' ? JSON.parse(app.data) : (app.data || [])) as DataRecord[];
     const recordIndex = currentData.findIndex(r => r.id === recordId);
 
     if (recordIndex === -1) {
@@ -135,7 +136,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     await prisma.app.update({
       where: { id: appId },
-      data: { data: updatedData as unknown as object[] },
+      data: { data: JSON.stringify(updatedData) },
     });
 
     return NextResponse.json({ record: updatedRecord });
@@ -176,7 +177,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'App not found' }, { status: 404 });
     }
 
-    const currentData = (app.data || []) as DataRecord[];
+    const currentData = (typeof app.data === 'string' ? JSON.parse(app.data) : (app.data || [])) as DataRecord[];
     const updatedData = currentData.filter(r => r.id !== recordId);
 
     if (updatedData.length === currentData.length) {
@@ -185,7 +186,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     await prisma.app.update({
       where: { id: appId },
-      data: { data: updatedData as unknown as object[] },
+      data: { data: JSON.stringify(updatedData) },
     });
 
     return NextResponse.json({ success: true });

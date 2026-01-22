@@ -148,7 +148,9 @@ class NebulaSupervisor {
 
     const workerPath = path.resolve(process.cwd(), 'src/lib/nebula/worker.ts');
     
-    const code = (app.componentFiles as any)?.['App.tsx'] || (app.generatedCode as any)?.pageComponent || '';
+    const componentFiles = typeof app.componentFiles === 'string' ? JSON.parse(app.componentFiles) : app.componentFiles;
+    const generatedCode = typeof app.generatedCode === 'string' ? JSON.parse(app.generatedCode) : app.generatedCode;
+    const code = componentFiles?.['App.tsx'] || generatedCode?.pageComponent || '';
 
     const worker = new Worker(workerPath, {
       workerData: {
@@ -157,7 +159,7 @@ class NebulaSupervisor {
         code,
         appName: app.name,
         appDescription: app.description,
-        initialData: app.data
+        initialData: typeof app.data === 'string' ? JSON.parse(app.data) : (app.data || [])
       }
     });
 

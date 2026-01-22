@@ -145,12 +145,17 @@ Cumulonimbus is an intent-to-application platform that allows non-technical user
    npx prisma generate
    ```
 
-6. Start the development server:
+6. Build the demo app (required for the home page interactive demo):
+   ```bash
+   npm run build:demo
+   ```
+
+7. Start the development server:
    ```bash
    npm run dev
    ```
 
-7. Open [http://localhost:1000](http://localhost:1000)
+8. Open [http://localhost:1000](http://localhost:1000)
 
 ### Enabling V2 Features (Optional)
 
@@ -189,6 +194,7 @@ This will:
 - Copy `.env.example` to `.env` (if it doesn't exist)
 - Set up the database and generate the Prisma client
 - Check for AI providers (Ollama) and runtime dependencies (Docker)
+- Build the demo app for the home page
 - Provide next steps for configuration
 
 **Note**: The setup script provides a guided experience to get you up and running quickly. After running it, follow the printed instructions to finalize your AI and database configuration.
@@ -436,6 +442,40 @@ LM Studio provides an OpenAI-compatible API server that runs on `http://localhos
 - **Models not loading**: Ensure you have sufficient RAM/VRAM for the selected model
 - **Connection errors**: Verify LM Studio server is running and accessible
 - **Performance issues**: Try smaller models or adjust context length
+
+### Database Troubleshooting
+
+If you see `PrismaClientInitializationError: Can't reach database server at localhost:5432`, you have two options:
+
+#### Option 1: Use SQLite (Easiest for Local Development)
+
+If you don't want to manage a PostgreSQL server, you can switch to SQLite:
+
+1. Update your `.env` file:
+   ```env
+   DATABASE_URL="file:./dev.db"
+   ```
+2. Update `prisma/schema.prisma`:
+   - Change `provider = "postgresql"` to `provider = "sqlite"`
+   - Note: SQLite does not support enums. The `npm run setup` script handles this conversion automatically if it detects SQLite in your `.env`.
+
+#### Option 2: Fix PostgreSQL
+
+If you prefer PostgreSQL, ensure that:
+
+1. **PostgreSQL is running**:
+   - macOS: `brew services start postgresql@14`
+   - Linux: `sudo systemctl start postgresql`
+   - Docker: `docker run --name cumulonimbus-db -e POSTGRES_PASSWORD=password -p 5432:5432 -d postgres`
+
+2. **DATABASE_URL is correct**:
+   Check your `.env` file:
+   ```env
+   DATABASE_URL="postgresql://postgres:password@localhost:5432/cumulonimbus?schema=public"
+   ```
+
+3. **Database exists**:
+   If the database doesn't exist, Prisma will try to create it during `npm run db:push`.
 
 ### AI Provider Configuration
 

@@ -34,11 +34,18 @@ export default async function AppPage({ params }: PageProps) {
 
   // For v2 apps, use Schema type; for v1 apps, use ProjectSpec
   const spec = app.version === 'v2'
-    ? (app.spec as unknown as Schema)
-    : (app.spec as unknown as ProjectSpec);
-  const data = (app.data || []) as DataRecord[];
-  const generatedCode = app.generatedCode as unknown as GeneratedCode | null;
-  const componentFiles = app.componentFiles as Record<string, string> | null;
+    ? (typeof app.spec === 'string' ? JSON.parse(app.spec) : app.spec) as unknown as Schema
+    : (typeof app.spec === 'string' ? JSON.parse(app.spec) : app.spec) as unknown as ProjectSpec;
+  
+  const data = (typeof app.data === 'string' ? JSON.parse(app.data) : (app.data || [])) as DataRecord[];
+  
+  const generatedCode = (typeof app.generatedCode === 'string' 
+    ? JSON.parse(app.generatedCode) 
+    : app.generatedCode) as unknown as GeneratedCode | null;
+    
+  const componentFiles = (typeof app.componentFiles === 'string'
+    ? JSON.parse(app.componentFiles)
+    : app.componentFiles) as Record<string, string> | null;
 
   // Check if this is a V2 app (schema-based)
   if (app.version === 'v2') {
@@ -48,7 +55,7 @@ export default async function AppPage({ params }: PageProps) {
         name={app.name}
         description={app.description}
         schema={spec as Schema}
-        layout={app.layoutDefinition as any}
+        layout={typeof app.layoutDefinition === 'string' ? JSON.parse(app.layoutDefinition) : app.layoutDefinition as any}
         componentFiles={componentFiles as any}
         initialData={data}
       />

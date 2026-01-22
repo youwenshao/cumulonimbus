@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -22,7 +22,7 @@ model User {
   preferredLLMProvider String?        @default("auto")
   
   // Subscription fields
-  plan                 Plan           @default(FREE)
+  plan                 String           @default("FREE")
   subscriptionStatus   String?        @default("ACTIVE")
   subscriptionPeriod   String?        @default("MONTHLY")
   stripeCustomerId     String?
@@ -37,18 +37,18 @@ model App {
   userId             String
   name               String
   description        String
-  spec               Json
-  config             Json
-  data               Json        @default("[]")
-  status             AppStatus   @default(DRAFT)
-  generatedCode      Json?
-  generationLog      Json?
-  buildStatus        BuildStatus @default(PENDING)
+  spec               String
+  config             String
+  data               String        @default("[]")
+  status             String   @default("DRAFT")
+  generatedCode      String?
+  generationLog      String?
+  buildStatus        String @default("PENDING")
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
   version            String?     @default("v1")
-  componentFiles     Json?
-  layoutDefinition   Json?
+  componentFiles     String?
+  layoutDefinition   String?
   
   // Nebula Hosting fields
   subdomain          String?     @unique
@@ -64,46 +64,26 @@ model Conversation {
   id                String            @id @default(cuid())
   userId            String
   appId             String?
-  messages          Json              @default("[]")
-  phase             ConversationPhase @default(PARSE)
-  spec              Json?
+  messages          String              @default("[]")
+  phase             String @default("PARSE")
+  spec              String?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   version           String?           @default("v1")
-  agentState        Json?
-  schemaDesigns     Json?             @default("[]")
-  layoutDesigns     Json?             @default("[]")
-  refinementHistory Json?             @default("[]")
+  agentState        String?
+  schemaDesigns     String?             @default("[]")
+  layoutDesigns     String?             @default("[]")
+  refinementHistory String?             @default("[]")
   user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([appId])
 }
 
-enum AppStatus {
-  DRAFT
-  GENERATING
-  ACTIVE
-  ARCHIVED
-}
+// Enum String converted to String
 
-enum BuildStatus {
-  PENDING
-  GENERATING
-  COMPLETED
-  FAILED
-}
+// Enum String converted to String
 
-enum ConversationPhase {
-  PARSE
-  PROBE
-  PICTURE
-  PLAN
-  COMPLETE
-}
+// Enum String converted to String
 
-enum Plan {
-  FREE
-  PLUS
-  PRO
-}
+// Enum String converted to String

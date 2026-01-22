@@ -52,7 +52,7 @@ export async function executeRequest(
       select: { data: true, name: true, description: true }
     });
 
-    const currentData = appRecord?.data || initialData || [];
+    const currentData = typeof appRecord?.data === 'string' ? JSON.parse(appRecord.data) : (appRecord?.data || initialData || []);
     const currentName = appRecord?.name || appName || subdomain;
     const currentDesc = appRecord?.description || appDescription || '';
 
@@ -106,9 +106,10 @@ async function handleDataRequest(
         where: { id: appId },
         select: { data: true }
       });
+      const data = typeof app?.data === 'string' ? JSON.parse(app.data) : (app?.data || []);
       return {
         status: 200,
-        body: JSON.stringify(app?.data || []),
+        body: JSON.stringify(data),
         headers: { 'Content-Type': 'application/json' }
       };
     }
@@ -121,7 +122,7 @@ async function handleDataRequest(
         where: { id: appId },
         select: { data: true }
       });
-      let currentData = (app?.data as any[]) || [];
+      let currentData = (typeof app?.data === 'string' ? JSON.parse(app.data) : (app?.data || [])) as any[];
 
       if (action === 'add') {
         currentData = [record, ...currentData];
@@ -133,7 +134,7 @@ async function handleDataRequest(
 
       await prisma.app.update({
         where: { id: appId },
-        data: { data: currentData }
+        data: { data: JSON.stringify(currentData) }
       });
 
       return {
@@ -411,7 +412,8 @@ export async function loadAppContext(appId: string): Promise<AppContext | null> 
     return null;
   }
 
-  const code = (app.componentFiles as any)?.['App.tsx'] || (app.generatedCode as any)?.pageComponent || '';
+  const code = (typeof app.componentFiles === 'string' ? JSON.parse(app.componentFiles) : app.componentFiles)?.['App.tsx'] || 
+               (typeof app.generatedCode === 'string' ? JSON.parse(app.generatedCode) : app.generatedCode)?.pageComponent || '';
 
   return {
     appId: app.id,
@@ -419,6 +421,6 @@ export async function loadAppContext(appId: string): Promise<AppContext | null> 
     code,
     appName: app.name || '',
     appDescription: app.description || '',
-    initialData: app.data || []
+    initialData: typeof app.data === 'string' ? JSON.parse(app.data) : (app.data || [])
   };
 }

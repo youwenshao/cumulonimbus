@@ -137,9 +137,10 @@ async function start() {
               where: { id: appId },
               select: { data: true }
             });
+            const data = typeof app?.data === 'string' ? JSON.parse(app.data) : (app?.data || []);
             return {
               status: 200,
-              body: JSON.stringify(app?.data || []),
+              body: JSON.stringify(data),
               headers: { 'Content-Type': 'application/json' }
             };
           }
@@ -152,7 +153,7 @@ async function start() {
               where: { id: appId },
               select: { data: true }
             });
-            let currentData = (app?.data as any[]) || [];
+            let currentData = (typeof app?.data === 'string' ? JSON.parse(app.data) : (app?.data || [])) as any[];
             
             if (action === 'add') {
               currentData = [record, ...currentData];
@@ -164,7 +165,7 @@ async function start() {
             
             await prisma.app.update({
               where: { id: appId },
-              data: { data: currentData }
+              data: { data: JSON.stringify(currentData) }
             });
             
             return {
@@ -183,15 +184,14 @@ async function start() {
         }
       }
 
-      // Fetch latest data if needed
-      const appRecord = await prisma.app.findUnique({
-        where: { id: appId },
-        select: { data: true, name: true, description: true }
-      });
+    const appRecord = await prisma.app.findUnique({
+      where: { id: appId },
+      select: { data: true, name: true, description: true }
+    });
 
-      const currentData = appRecord?.data || initialData || [];
-      const currentName = appRecord?.name || appName || subdomain;
-      const currentDesc = appRecord?.description || appDescription || '';
+    const currentData = typeof appRecord?.data === 'string' ? JSON.parse(appRecord.data) : (appRecord?.data || initialData || []);
+    const currentName = appRecord?.name || appName || subdomain;
+    const currentDesc = appRecord?.description || appDescription || '';
 
       // Transpile for browser (ESM)
       const browserResult = await esbuild.transform(code, {
