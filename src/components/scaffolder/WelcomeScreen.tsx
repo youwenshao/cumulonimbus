@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { Sparkles } from 'lucide-react';
 
 interface ExamplePromptProps {
   text: string;
@@ -21,18 +20,11 @@ function ExamplePrompt({ text, onClick }: ExamplePromptProps) {
 
 interface WelcomeScreenProps {
   onSelect: (text: string) => void;
-  isDemo?: boolean;
 }
 
-export function WelcomeScreen({ onSelect, isDemo = false }: WelcomeScreenProps) {
+export function WelcomeScreen({ onSelect }: WelcomeScreenProps) {
   return (
     <div className="text-center py-16 animate-fade-in">
-      {isDemo && (
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-yellow/10 border border-accent-yellow/20 text-accent-yellow text-xs font-medium mb-6 animate-slide-down">
-          <Sparkles className="w-3 h-3" />
-          <span>Demo Mode</span>
-        </div>
-      )}
       <h2 className="text-3xl font-serif font-medium text-text-primary mb-4">
         What would you like to <span className="bg-accent-yellow px-2 py-1 text-black">create</span>?
       </h2>

@@ -118,7 +118,7 @@ async function runSimulation(conversationId: string, demoScenario: DemoScenario)
   console.log(`🎮 Running simulation with conversation ID: ${conversationId}`);
 
   // Wait for SSE connection to be fully established before starting simulation
-  const connectionReady = await waitForConnection(conversationId, 5000);
+  const connectionReady = await waitForConnection(conversationId, 10000);
   console.log(`📡 Simulation SSE connection ready: ${connectionReady}`);
   
   // Additional delay to ensure frontend is ready to receive events
@@ -167,7 +167,7 @@ async function handleDemo(userId: string, tempConversationId?: string) {
   console.log(`🔑 StatusId: ${statusId}`);
 
   // Wait longer for SSE connection to ensure reliable status delivery
-  const connectionReady = await waitForConnection(statusId, 5000);
+  const connectionReady = await waitForConnection(statusId, 10000);
   console.log(`📡 SSE connection ready for demo: ${connectionReady}`);
 
   emitStatus(statusId, 'parse', 'Initializing demo simulation...', {
@@ -238,7 +238,7 @@ async function handleStart(userId: string, userMessage: string, tempConversation
 
   // Wait for SSE connection to be ready (with increased timeout for reliability)
   // This ensures status messages are delivered reliably
-  const connectionReady = await waitForConnection(statusId, 5000);
+  const connectionReady = await waitForConnection(statusId, 10000);
   console.log(`📡 SSE connection ready: ${connectionReady}`);
 
   // Emit: Starting to parse (will be buffered if connection not ready)

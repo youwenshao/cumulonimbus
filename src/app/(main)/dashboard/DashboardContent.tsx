@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, ExternalLink, Settings, Search, ArrowUpDown, LogOut, MoreVertical, Pencil, Copy, Archive, Trash, ArchiveRestore } from 'lucide-react';
+import { Plus, ExternalLink, Settings, Search, ArrowUpDown, LogOut, MoreVertical, Pencil, Copy, Archive, Trash, ArchiveRestore, MessageSquare, Play, Clock } from 'lucide-react';
 import { Button, Card, DropdownMenu, DropdownItem, DropdownSeparator, Modal } from '@/components/ui';
 import { formatDate, getAppUrl } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -18,16 +18,31 @@ type App = {
   isAlwaysOn: boolean;
 };
 
+type Conversation = {
+  id: string;
+  appId: string | null;
+  phase: string;
+  createdAt: Date;
+  updatedAt: Date;
+  lastMessage: string;
+  messageCount: number;
+  readinessScore: number;
+};
+
 type SortOption = 'name' | 'date' | 'status';
+type TabOption = 'apps' | 'conversations';
 
 interface DashboardContentProps {
   apps: App[];
+  conversations: Conversation[];
   userEmail: string;
   userPlan: string;
 }
 
-export function DashboardContent({ apps: initialApps, userEmail, userPlan }: DashboardContentProps) {
+export function DashboardContent({ apps: initialApps, conversations: initialConversations, userEmail, userPlan }: DashboardContentProps) {
   const [apps, setApps] = useState<App[]>(initialApps);
+  const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
+  const [activeTab, setActiveTab] = useState<TabOption>('apps');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -228,6 +243,22 @@ export function DashboardContent({ apps: initialApps, userEmail, userPlan }: Das
     toast.success('App ID copied to clipboard');
   };
 
+  const handleDeleteConversation = async (conversationId: string) => {
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete conversation');
+
+      setConversations(conversations.filter(c => c.id !== conversationId));
+      toast.success('Conversation deleted');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to delete conversation');
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col min-w-0">
       {/* Header */}
@@ -250,110 +281,174 @@ export function DashboardContent({ apps: initialApps, userEmail, userPlan }: Das
       {/* Content Area */}
       <main className="flex-1 overflow-y-auto">
         <div className="p-8 max-w-7xl mx-auto">
-          {apps.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <>
-              {/* Controls Bar */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                {/* Search */}
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
-                  <input
-                    type="text"
-                    placeholder="Search apps..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-surface-elevated border border-outline-mid rounded-lg text-text-primary placeholder-text-tertiary focus:outline-none focus:border-accent-yellow/50 focus:ring-1 focus:ring-accent-yellow/50 transition-all"
-                  />
+          {/* Tabs */}
+          <div className="flex items-center gap-1 mb-6 border-b border-outline-mid">
+            <button
+              onClick={() => setActiveTab('apps')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${
+                activeTab === 'apps'
+                  ? 'text-accent-yellow border-accent-yellow'
+                  : 'text-text-secondary border-transparent hover:text-text-primary hover:border-outline-mid'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <ExternalLink className="w-4 h-4" />
+                Apps ({apps.length})
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveTab('conversations')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-all ${
+                activeTab === 'conversations'
+                  ? 'text-accent-yellow border-accent-yellow'
+                  : 'text-text-secondary border-transparent hover:text-text-primary hover:border-outline-mid'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" />
+                Conversations ({conversations.length})
+              </span>
+            </button>
+          </div>
+
+          {/* Apps Tab */}
+          {activeTab === 'apps' && (
+            apps.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <>
+                {/* Controls Bar */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                  {/* Search */}
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
+                    <input
+                      type="text"
+                      placeholder="Search apps..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-surface-elevated border border-outline-mid rounded-lg text-text-primary placeholder-text-tertiary focus:outline-none focus:border-accent-yellow/50 focus:ring-1 focus:ring-accent-yellow/50 transition-all"
+                    />
+                  </div>
+
+                  {/* Sort Controls */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-text-tertiary mr-2">Sort by:</span>
+                    <button
+                      onClick={() => toggleSort('name')}
+                      className={`px-3 py-1.5 rounded-lg text-sm transition-all duration-200 flex items-center gap-1 ${
+                        sortBy === 'name'
+                          ? 'bg-accent-yellow text-text-primary'
+                          : 'bg-surface-elevated text-text-secondary hover:text-text-primary hover:bg-surface-layer'
+                      }`}
+                    >
+                      Name
+                      {sortBy === 'name' && (
+                        <ArrowUpDown className="w-3 h-3" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => toggleSort('date')}
+                      className={`px-3 py-1.5 rounded-lg text-sm transition-all duration-200 flex items-center gap-1 ${
+                        sortBy === 'date'
+                          ? 'bg-accent-yellow text-text-primary'
+                          : 'bg-surface-light text-text-secondary hover:text-text-primary hover:bg-surface-mid'
+                      }`}
+                    >
+                      Date
+                      {sortBy === 'date' && (
+                        <ArrowUpDown className="w-3 h-3" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => toggleSort('status')}
+                      className={`px-3 py-1.5 rounded-lg text-sm transition-all duration-200 flex items-center gap-1 ${
+                        sortBy === 'status'
+                          ? 'bg-accent-yellow text-text-primary'
+                          : 'bg-surface-light text-text-secondary hover:text-text-primary hover:bg-surface-mid'
+                      }`}
+                    >
+                      Status
+                      {sortBy === 'status' && (
+                        <ArrowUpDown className="w-3 h-3" />
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Create Button */}
+                  <Button asChild>
+                    <Link href="/create" className="flex items-center gap-2">
+                      <Plus className="w-4 h-4" />
+                      Create
+                    </Link>
+                  </Button>
                 </div>
 
-                {/* Sort Controls */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-text-tertiary mr-2">Sort by:</span>
-                  <button
-                    onClick={() => toggleSort('name')}
-                    className={`px-3 py-1.5 rounded-lg text-sm transition-all duration-200 flex items-center gap-1 ${
-                      sortBy === 'name'
-                        ? 'bg-accent-yellow text-text-primary'
-                        : 'bg-surface-elevated text-text-secondary hover:text-text-primary hover:bg-surface-layer'
-                    }`}
-                  >
-                    Name
-                    {sortBy === 'name' && (
-                      <ArrowUpDown className="w-3 h-3" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => toggleSort('date')}
-                    className={`px-3 py-1.5 rounded-lg text-sm transition-all duration-200 flex items-center gap-1 ${
-                      sortBy === 'date'
-                        ? 'bg-accent-yellow text-text-primary'
-                        : 'bg-surface-light text-text-secondary hover:text-text-primary hover:bg-surface-mid'
-                    }`}
-                  >
-                    Date
-                    {sortBy === 'date' && (
-                      <ArrowUpDown className="w-3 h-3" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => toggleSort('status')}
-                    className={`px-3 py-1.5 rounded-lg text-sm transition-all duration-200 flex items-center gap-1 ${
-                      sortBy === 'status'
-                        ? 'bg-accent-yellow text-text-primary'
-                        : 'bg-surface-light text-text-secondary hover:text-text-primary hover:bg-surface-mid'
-                    }`}
-                  >
-                    Status
-                    {sortBy === 'status' && (
-                      <ArrowUpDown className="w-3 h-3" />
-                    )}
-                  </button>
+                {/* Results Summary */}
+                <div className="mb-4">
+                  <p className="text-sm text-text-tertiary">
+                    {filteredAndSortedApps.length === apps.length
+                      ? `${apps.length} ${apps.length === 1 ? 'app' : 'apps'} total`
+                      : `${filteredAndSortedApps.length} of ${apps.length} apps`}
+                  </p>
                 </div>
 
-                {/* Create Button */}
-                <Button asChild>
-                  <Link href="/create" className="flex items-center gap-2">
-                    <Plus className="w-4 h-4" />
-                    Create
-                  </Link>
-                </Button>
-              </div>
+                {/* Apps Grid */}
+                {filteredAndSortedApps.length === 0 ? (
+                  <Card variant="outlined" padding="lg" className="text-center">
+                    <p className="text-text-secondary">No apps match your search.</p>
+                  </Card>
+                ) : (
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredAndSortedApps.map((app, index) => (
+                      <AppCard 
+                        key={app.id} 
+                        app={app} 
+                        index={index}
+                        userPlan={userPlan}
+                        onEdit={() => handleEdit(app)}
+                        onDuplicate={() => handleDuplicate(app)}
+                        onArchive={() => handleArchive(app)}
+                        onDelete={() => handleDelete(app)}
+                        onCopyId={() => handleCopyId(app.id)}
+                        onToggleAlwaysOn={(isAlwaysOn) => handleToggleAlwaysOn(app.id, isAlwaysOn)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )
+          )}
 
-              {/* Results Summary */}
-              <div className="mb-4">
-                <p className="text-sm text-text-tertiary">
-                  {filteredAndSortedApps.length === apps.length
-                    ? `${apps.length} ${apps.length === 1 ? 'app' : 'apps'} total`
-                    : `${filteredAndSortedApps.length} of ${apps.length} apps`}
-                </p>
-              </div>
-
-              {/* Apps Grid */}
-              {filteredAndSortedApps.length === 0 ? (
-                <Card variant="outlined" padding="lg" className="text-center">
-                  <p className="text-text-secondary">No apps match your search.</p>
-                </Card>
-              ) : (
+          {/* Conversations Tab */}
+          {activeTab === 'conversations' && (
+            conversations.length === 0 ? (
+              <EmptyConversationsState />
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-6">
+                  <p className="text-sm text-text-tertiary">
+                    {conversations.length} active {conversations.length === 1 ? 'conversation' : 'conversations'}
+                  </p>
+                  <Button asChild>
+                    <Link href="/create?mode=demo" className="flex items-center gap-2">
+                      <Plus className="w-4 h-4" />
+                      New Conversation
+                    </Link>
+                  </Button>
+                </div>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredAndSortedApps.map((app, index) => (
-                    <AppCard 
-                      key={app.id} 
-                      app={app} 
+                  {conversations.map((conversation, index) => (
+                    <ConversationCard
+                      key={conversation.id}
+                      conversation={conversation}
                       index={index}
-                      userPlan={userPlan}
-                      onEdit={() => handleEdit(app)}
-                      onDuplicate={() => handleDuplicate(app)}
-                      onArchive={() => handleArchive(app)}
-                      onDelete={() => handleDelete(app)}
-                      onCopyId={() => handleCopyId(app.id)}
-                      onToggleAlwaysOn={(isAlwaysOn) => handleToggleAlwaysOn(app.id, isAlwaysOn)}
+                      onDelete={() => handleDeleteConversation(conversation.id)}
                     />
                   ))}
                 </div>
-              )}
-            </>
+              </>
+            )
           )}
         </div>
       </main>
@@ -602,6 +697,115 @@ function AppCard({
             </button>
           </div>
         )}
+      </div>
+    </Card>
+  );
+}
+
+function EmptyConversationsState() {
+  return (
+    <div className="flex items-center justify-center min-h-[40vh]">
+      <Card variant="outlined" padding="lg" className="text-center max-w-md animate-fade-in">
+        <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-accent-yellow/10 border border-accent-yellow/20 flex items-center justify-center">
+          <MessageSquare className="w-8 h-8 text-accent-yellow" />
+        </div>
+        <h3 className="text-2xl font-serif font-medium text-text-primary mb-3">No active conversations</h3>
+        <p className="text-text-secondary mb-8 leading-relaxed">
+          Start a new conversation with the AI Architect to design and build your next app.
+        </p>
+        <Button asChild size="lg">
+          <Link href="/create?mode=demo" className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Start New Conversation
+          </Link>
+        </Button>
+      </Card>
+    </div>
+  );
+}
+
+interface ConversationCardProps {
+  conversation: Conversation;
+  index: number;
+  onDelete: () => void;
+}
+
+function ConversationCard({ conversation, index, onDelete }: ConversationCardProps) {
+  const phaseStyles = {
+    PROBE: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
+    PICTURE: 'bg-purple-500/20 text-purple-400 border border-purple-500/30',
+    PLAN: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
+    EXPLORING: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
+    REFINING: 'bg-purple-500/20 text-purple-400 border border-purple-500/30',
+    READY: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+  };
+
+  const readinessColor = conversation.readinessScore >= 80 
+    ? 'text-emerald-500' 
+    : conversation.readinessScore >= 50 
+      ? 'text-amber-500' 
+      : 'text-text-tertiary';
+
+  return (
+    <Card
+      variant="outlined"
+      padding="lg"
+      className="animate-confident hover:border-accent-yellow/50 transition-all duration-300 group relative"
+      style={{ animationDelay: `${index * 0.05}s` }}
+    >
+      {/* Hover overlay with actions */}
+      <div className="absolute inset-0 bg-surface-base/90 backdrop-blur-sm flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 rounded-xl">
+        <Button asChild size="sm">
+          <Link href={`/create?conversationId=${conversation.id}&mode=demo`} className="flex items-center gap-2">
+            <Play className="w-3.5 h-3.5" />
+            Resume
+          </Link>
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onDelete}>
+          <Trash className="w-3.5 h-3.5 text-red-400" />
+        </Button>
+      </div>
+
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex flex-col gap-2">
+          <div
+            className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${
+              phaseStyles[conversation.phase.toUpperCase() as keyof typeof phaseStyles] || phaseStyles.PROBE
+            }`}
+          >
+            {conversation.phase}
+          </div>
+          {conversation.readinessScore > 0 && (
+            <div className="flex items-center gap-1.5">
+              <div className="w-16 h-1.5 bg-surface-layer rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all ${
+                    conversation.readinessScore >= 80 ? 'bg-emerald-500' : 
+                    conversation.readinessScore >= 50 ? 'bg-amber-500' : 'bg-text-tertiary'
+                  }`}
+                  style={{ width: `${conversation.readinessScore}%` }}
+                />
+              </div>
+              <span className={`text-[10px] ${readinessColor}`}>{conversation.readinessScore}%</span>
+            </div>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-1 text-text-tertiary">
+          <MessageSquare className="w-3.5 h-3.5" />
+          <span className="text-xs">{conversation.messageCount}</span>
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <p className="text-sm text-text-secondary line-clamp-3 leading-relaxed min-h-[3.5rem]">
+          {conversation.lastMessage || 'No messages yet'}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2 text-[10px] text-text-tertiary">
+        <Clock className="w-3 h-3" />
+        <span>Updated {formatDate(conversation.updatedAt)}</span>
       </div>
     </Card>
   );

@@ -85,18 +85,23 @@ export function createDeepseekClient(): LLMClient {
       console.log(`🧠 DeepSeek: Making request to ${model}`);
 
       try {
-        const response = await openai.chat.completions.create({
+        const stream = await openai.chat.completions.create({
           model,
           messages: options.messages,
           temperature: options.temperature ?? 0.7,
           max_tokens: options.maxTokens ?? 2048,
-          stream: false,
-        });
+          stream: true,
+        }, { timeout: 30000 });
 
-        const content = response.choices[0]?.message?.content || '';
-        console.log(`✅ DeepSeek: Response received, length: ${content.length}`);
+        let fullContent = '';
+        for await (const chunk of stream) {
+          const content = chunk.choices[0]?.delta?.content || '';
+          fullContent += content;
+        }
 
-        return content;
+        console.log(`✅ DeepSeek: Response received, length: ${fullContent.length}`);
+
+        return fullContent;
       } catch (error) {
         console.error('❌ DeepSeek: Request failed:', error);
         throw error;
@@ -154,19 +159,24 @@ export function createDeepseekClient(): LLMClient {
       }
 
       try {
-        const response = await openai.chat.completions.create({
+        const stream = await openai.chat.completions.create({
           model,
           messages,
           temperature: options.temperature ?? 0.3,
           max_tokens: options.maxTokens ?? 2048,
-          stream: false,
-        });
+          stream: true,
+        }, { timeout: 30000 });
 
-        const content = response.choices[0]?.message?.content || '{}';
-        console.log(`✅ DeepSeek: JSON response received, length: ${content.length}`);
+        let fullContent = '';
+        for await (const chunk of stream) {
+          const content = chunk.choices[0]?.delta?.content || '';
+          fullContent += content;
+        }
 
-        const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, content];
-        const jsonStr = jsonMatch[1]?.trim() || content.trim();
+        console.log(`✅ DeepSeek: JSON response received, length: ${fullContent.length}`);
+
+        const jsonMatch = fullContent.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, fullContent];
+        const jsonStr = jsonMatch[1]?.trim() || fullContent.trim();
 
         try {
           return JSON.parse(jsonStr) as T;
@@ -194,4 +204,3 @@ export function getDeepseekClient(): LLMClient {
 export function getDeepseekConfig(): DeepseekConfig {
   return getConfig();
 }
-
