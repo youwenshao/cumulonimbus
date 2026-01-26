@@ -16,6 +16,8 @@ import type {
   GeneratedComponent,
   ComponentGenerationEvent,
   ComponentType,
+  AestheticSpec,
+  LayoutProposal,
 } from '../types';
 import { getComponents } from '../layout/dsl';
 import { FeedbackLoop } from '../feedback-loop';
@@ -135,12 +137,69 @@ EXPLICITLY AVOID (will cause build errors):
 - react-router (use state for view switching)
 - Any package not listed above
 
-### STYLING
-- Use Tailwind CSS classes
-- Dark theme: bg-black, bg-gray-900, text-text-primary
-- Accent: red-500/red-600 for primary actions
-- Cards: bg-gray-800/gray-700
-- Responsive design patterns`;
+### STYLING & AESTHETICS
+
+You will receive aesthetic specifications from the UI Designer. IMPLEMENT THEM FAITHFULLY - never fall back to generic styling.
+
+#### Typography Implementation
+- Import Google Fonts using @import in a style tag or link tag
+- Define font CSS variables: --font-heading, --font-body, --font-accent
+- Apply fonts consistently via Tailwind arbitrary values: font-[family-name]
+
+#### Color Implementation
+- Define CSS variables in a style block within the root component:
+  --color-primary, --color-accent, --color-bg-base, --color-bg-elevated, --color-text, --color-text-muted
+- Use these via Tailwind arbitrary values: bg-[var(--color-bg-base)], text-[var(--color-text)]
+
+#### Animation Implementation (framer-motion)
+- Import: import { motion, AnimatePresence } from 'framer-motion'
+- Implement page-load animations with staggered delays:
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ delay: index * 0.05, duration: 0.4 }}
+- Add hover/interaction states as specified
+- Use motion.div, motion.button, motion.form for animated elements
+
+#### Background Implementation
+- Implement layered CSS gradients as specified
+- Use backdrop-filter for glassmorphic effects
+- Apply geometric patterns via SVG data URIs or pseudo-elements
+
+#### Example CSS Variable Setup (include in root component):
+\`\`\`tsx
+<style>{\`
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono&display=swap');
+  :root {
+    --font-heading: 'Playfair Display', serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-accent: 'JetBrains Mono', monospace;
+    --color-primary: #7877c6;
+    --color-accent: #ff91b4;
+    --color-bg-base: #0a0a0a;
+    --color-bg-elevated: #1a1a2e;
+    --color-text: #ffffff;
+    --color-text-muted: #a0a0b0;
+  }
+\`}</style>
+\`\`\`
+
+#### Example Staggered Animation:
+\`\`\`tsx
+{items.map((item, index) => (
+  <motion.div
+    key={item.id}
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.4, delay: index * 0.05, ease: "easeOut" }}
+    whileHover={{ y: -4, transition: { duration: 0.2 } }}
+    className="bg-[var(--color-bg-elevated)] rounded-lg p-4"
+  >
+    {item.content}
+  </motion.div>
+))}
+\`\`\`
+
+CRITICAL: Never use generic Tailwind colors (gray-900, etc) when aesthetic specs are provided. Always implement the specified theme.`;
 
 export class CodeGeneratorAgent extends BaseAgent {
   constructor() {
@@ -191,9 +250,10 @@ export class CodeGeneratorAgent extends BaseAgent {
   async *generateAppIncremental(
     schema: Schema,
     layout: LayoutNode,
-    appId: string
+    appId: string,
+    aesthetics?: AestheticSpec
   ): AsyncGenerator<ComponentGenerationEvent> {
-    this.log('Starting incremental code generation', { appId });
+    this.log('Starting incremental code generation', { appId, hasAesthetics: !!aesthetics });
 
     let progress = 0;
 
@@ -218,7 +278,7 @@ export class CodeGeneratorAgent extends BaseAgent {
     const utils = this.generateUtils();
     yield { type: 'component', name: 'utils', code: utils, progress: 28 };
 
-    // 6. Extract and generate components
+    // 6. Extract and generate components with aesthetic context
     const componentSpecs = this.extractComponentSpecs(layout, schema);
     const totalComponents = componentSpecs.length;
     
@@ -229,7 +289,7 @@ export class CodeGeneratorAgent extends BaseAgent {
       yield { type: 'component', name: spec.name, progress };
       
       try {
-        const code = await this.generateComponent(spec, schema);
+        const code = await this.generateComponent(spec, schema, aesthetics);
         yield { type: 'component', name: spec.name, code, progress: progress + 5 };
       } catch (error) {
         this.log('Component generation failed, using template', { name: spec.name, error });
@@ -238,9 +298,9 @@ export class CodeGeneratorAgent extends BaseAgent {
       }
     }
 
-    // 7. Generate page wrapper
+    // 7. Generate page wrapper with aesthetics
     yield { type: 'page', progress: 85 };
-    const pageCode = this.generatePageWrapper(schema, layout, componentSpecs);
+    const pageCode = this.generatePageWrapper(schema, layout, componentSpecs, aesthetics);
     yield { type: 'page', code: pageCode, progress: 95 };
 
     // 8. Complete
@@ -253,7 +313,8 @@ export class CodeGeneratorAgent extends BaseAgent {
   async generateApp(
     schema: Schema,
     layout: LayoutNode,
-    appId: string
+    appId: string,
+    aesthetics?: AestheticSpec
   ): Promise<GeneratedApp> {
     const componentSpecs = this.extractComponentSpecs(layout, schema);
     const components: Record<string, string> = {};
@@ -261,7 +322,7 @@ export class CodeGeneratorAgent extends BaseAgent {
     // Generate all components
     for (const spec of componentSpecs) {
       try {
-        components[spec.name] = await this.generateComponent(spec, schema);
+        components[spec.name] = await this.generateComponent(spec, schema, aesthetics);
       } catch (error) {
         components[spec.name] = this.generateFallbackComponent(spec, schema);
       }
@@ -274,7 +335,7 @@ export class CodeGeneratorAgent extends BaseAgent {
       hooks: this.generateHooks(schema, appId),
       utils: this.generateUtils(),
       components,
-      page: this.generatePageWrapper(schema, layout, componentSpecs),
+      page: this.generatePageWrapper(schema, layout, componentSpecs, aesthetics),
       routes: {
         'route.ts': this.generateAPIRoute(schema, appId),
       },
@@ -286,10 +347,11 @@ export class CodeGeneratorAgent extends BaseAgent {
    */
   async generateComponent(
     spec: ComponentSpec,
-    schema: Schema
+    schema: Schema,
+    aesthetics?: AestheticSpec
   ): Promise<string> {
     const template = this.getComponentTemplate(spec.type);
-    const prompt = this.buildComponentPrompt(spec, schema, template);
+    const prompt = this.buildComponentPrompt(spec, schema, template, aesthetics);
 
     let code = '';
     for await (const chunk of streamComplete({
@@ -598,12 +660,13 @@ export function truncate(text: string, maxLength: number): string {
   }
 
   /**
-   * Generate page wrapper component
+   * Generate page wrapper component with aesthetic styling
    */
   generatePageWrapper(
     schema: Schema,
     layout: LayoutNode,
-    componentSpecs: ComponentSpec[]
+    componentSpecs: ComponentSpec[],
+    aesthetics?: AestheticSpec
   ): string {
     const name = schema.name;
     const nameLower = name.toLowerCase();
@@ -611,11 +674,20 @@ export function truncate(text: string, maxLength: number): string {
       .map(s => `import { ${s.name} } from './components/${s.name}';`)
       .join('\n');
 
+    // Generate aesthetic styles if provided
+    const styleBlock = aesthetics ? this.generateStyleBlock(aesthetics) : this.generateDefaultStyleBlock();
+    const backgroundStyle = aesthetics?.backgroundStyle?.layers?.join(', ') || 'linear-gradient(180deg, #0a0a0a 0%, #1a1a2e 100%)';
+    const motionImport = aesthetics?.motion ? `import { motion } from 'framer-motion';` : '';
+    const useMotion = aesthetics?.motion;
+
     return `'use client';
 
 import { useState } from 'react';
+${motionImport}
 import { use${name}Data } from './lib/hooks';
 ${componentImports}
+
+${styleBlock}
 
 export default function ${name}Page() {
   const { ${nameLower}s, isLoading, error, add${name}, remove${name}, refresh } = use${name}Data();
@@ -642,10 +714,10 @@ export default function ${name}Page() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-black text-text-primary flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-bg-base)', color: 'var(--color-text)' }}>
         <div className="text-center">
-          <p className="text-accent-yellow mb-4">{error}</p>
-          <button onClick={refresh} className="px-4 py-2 bg-red-600 rounded hover:bg-red-700">
+          <p className="mb-4" style={{ color: 'var(--color-accent)' }}>{error}</p>
+          <button onClick={refresh} className="px-4 py-2 rounded transition-colors" style={{ background: 'var(--color-primary)', color: 'var(--color-text)' }}>
             Retry
           </button>
         </div>
@@ -654,33 +726,117 @@ export default function ${name}Page() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-text-primary">
+    <div 
+      className="min-h-screen"
+      style={{ 
+        background: \`${backgroundStyle}\`,
+        color: 'var(--color-text)',
+        fontFamily: 'var(--font-body)'
+      }}
+    >
       <div className="max-w-7xl mx-auto p-6">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold">${schema.label}</h1>
-          <p className="text-gray-400">${schema.description || `Manage your ${nameLower}s`}</p>
-        </header>
+        ${useMotion ? `<motion.header 
+          className="mb-8"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >` : '<header className="mb-8">'}
+          <h1 className="text-3xl font-bold" style={{ fontFamily: 'var(--font-heading)' }}>${schema.label}</h1>
+          <p style={{ color: 'var(--color-text-muted)' }}>${schema.description || `Manage your ${nameLower}s`}</p>
+        ${useMotion ? '</motion.header>' : '</header>'}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
+          ${useMotion ? `<motion.div 
+            className="lg:col-span-1"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+          >` : '<div className="lg:col-span-1">'}
             <${name}Form onSubmit={handleSubmit} />
-          </div>
+          ${useMotion ? '</motion.div>' : '</div>'}
           
-          <div className="lg:col-span-2 space-y-6">
+          ${useMotion ? `<motion.div 
+            className="lg:col-span-2 space-y-6"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >` : '<div className="lg:col-span-2 space-y-6">'}
             {isLoading ? (
-              <div className="text-center py-12 text-gray-500">Loading...</div>
+              <div className="text-center py-12" style={{ color: 'var(--color-text-muted)' }}>Loading...</div>
             ) : filteredData.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">No entries yet</div>
+              <div className="text-center py-12" style={{ color: 'var(--color-text-muted)' }}>No entries yet</div>
             ) : (
               <${name}Table data={filteredData} onDelete={handleDelete} />
             )}
-          </div>
+          ${useMotion ? '</motion.div>' : '</div>'}
         </div>
       </div>
     </div>
   );
 }
 `;
+  }
+
+  /**
+   * Generate style block with CSS variables for aesthetics
+   */
+  private generateStyleBlock(aesthetics: AestheticSpec): string {
+    const { typography, colorPalette } = aesthetics;
+    
+    // Build Google Fonts URL
+    const fonts = [typography.heading, typography.body, typography.accent]
+      .filter((f, i, arr) => arr.indexOf(f) === i) // Dedupe
+      .map(f => f.replace(/ /g, '+'))
+      .join('&family=');
+    
+    return `const styles = \`
+  @import url('https://fonts.googleapis.com/css2?family=${fonts}:wght@400;500;600;700&display=swap');
+  :root {
+    --font-heading: '${typography.heading}', serif;
+    --font-body: '${typography.body}', sans-serif;
+    --font-accent: '${typography.accent}', monospace;
+    --color-primary: ${colorPalette.primary};
+    --color-accent: ${colorPalette.accent};
+    --color-bg-base: ${colorPalette.background};
+    --color-bg-elevated: ${colorPalette.backgroundAlt};
+    --color-text: ${colorPalette.text};
+    --color-text-muted: ${colorPalette.textMuted};
+  }
+\`;
+
+// Inject styles
+if (typeof document !== 'undefined') {
+  const styleEl = document.createElement('style');
+  styleEl.textContent = styles;
+  document.head.appendChild(styleEl);
+}`;
+  }
+
+  /**
+   * Generate default style block when no aesthetics provided
+   */
+  private generateDefaultStyleBlock(): string {
+    return `const styles = \`
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Crimson+Pro:wght@400;600&family=JetBrains+Mono&display=swap');
+  :root {
+    --font-heading: 'Crimson Pro', serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-accent: 'JetBrains Mono', monospace;
+    --color-primary: #6366f1;
+    --color-accent: #ec4899;
+    --color-bg-base: #0a0a0a;
+    --color-bg-elevated: #1a1a2e;
+    --color-text: #fafafa;
+    --color-text-muted: #a1a1aa;
+  }
+\`;
+
+// Inject styles
+if (typeof document !== 'undefined') {
+  const styleEl = document.createElement('style');
+  styleEl.textContent = styles;
+  document.head.appendChild(styleEl);
+}`;
   }
 
   /**
@@ -830,10 +986,54 @@ export async function DELETE(req: NextRequest) {
   private buildComponentPrompt(
     spec: ComponentSpec,
     schema: Schema,
-    template: string
+    template: string,
+    aesthetics?: AestheticSpec
   ): string {
     const fields = schema.fields.filter(f => !f.generated);
     const existingTypes = this.generateTypes(schema);
+    
+    // Build aesthetic section if provided
+    const aestheticSection = aesthetics ? `
+## AESTHETIC SPECIFICATIONS - IMPLEMENT THESE FAITHFULLY
+
+Theme: ${aesthetics.theme}
+
+Typography:
+- Headings: '${aesthetics.typography.heading}' (use via CSS variable: var(--font-heading))
+- Body: '${aesthetics.typography.body}' (use via CSS variable: var(--font-body))
+- Accent: '${aesthetics.typography.accent}' (use via CSS variable: var(--font-accent))
+
+Colors (use CSS variables):
+- Primary: ${aesthetics.colorPalette.primary} (var(--color-primary))
+- Accent: ${aesthetics.colorPalette.accent} (var(--color-accent))
+- Background: ${aesthetics.colorPalette.background} (var(--color-bg-base))
+- Elevated surface: ${aesthetics.colorPalette.backgroundAlt} (var(--color-bg-elevated))
+- Text: ${aesthetics.colorPalette.text} (var(--color-text))
+- Muted text: ${aesthetics.colorPalette.textMuted} (var(--color-text-muted))
+- Theme: ${aesthetics.colorPalette.isDark ? 'Dark' : 'Light'}
+
+Motion (use framer-motion):
+- Intensity: ${aesthetics.motion.intensity}
+- Page load strategy: ${aesthetics.motion.pageLoadStrategy}
+- Interactions: ${aesthetics.motion.interactions.join(', ')}
+
+STYLING RULES:
+- Use style={{ fontFamily: 'var(--font-body)' }} for body text
+- Use style={{ fontFamily: 'var(--font-heading)' }} for headings
+- Use style={{ background: 'var(--color-bg-elevated)' }} for cards/elevated surfaces
+- Use style={{ color: 'var(--color-text)' }} for primary text
+- Use style={{ color: 'var(--color-text-muted)' }} for secondary text
+- Add framer-motion animations: import { motion } from 'framer-motion';
+- Apply hover effects: whileHover={{ y: -4 }} or whileHover={{ scale: 1.02 }}
+
+DO NOT use generic Tailwind colors (gray-900, red-500, etc.) - use the CSS variables above!
+` : `
+## STYLING
+- Use CSS variables for styling consistency with the page
+- Use style={{ color: 'var(--color-text)' }} for text
+- Use style={{ background: 'var(--color-bg-elevated)' }} for cards/surfaces
+- Consider adding framer-motion for animations
+`;
     
     return `Generate a production-ready TypeScript React component for ${spec.type}.
 
@@ -842,6 +1042,7 @@ This component is in the components/ directory. Use EXACTLY these import paths:
 - import { ${schema.name}, ${schema.name}Input } from '../lib/types';
 - import { use${schema.name}Data } from '../lib/hooks';
 - import { create${schema.name}, fetch${schema.name}s } from '../lib/api';
+${aesthetics?.motion ? `- import { motion } from 'framer-motion';` : ''}
 
 DO NOT use '../hooks/...' - that path does NOT exist! Hooks are in '../lib/hooks'.
 
@@ -862,9 +1063,10 @@ ${existingTypes}
 2. Import React and hooks from 'react'
 3. Import types from '../lib/types'
 4. Import custom hooks from '../lib/hooks' (NOT '../hooks/')
-5. Main component with proper typing
-6. Helper functions with typed params/returns
-
+${aesthetics?.motion ? '5. Import motion from framer-motion' : ''}
+6. Main component with proper typing
+7. Helper functions with typed params/returns
+${aestheticSection}
 ## CONTEXT
 Schema: ${schema.name}
 Fields:
@@ -882,6 +1084,7 @@ ${template}
 'use client';
 
 import React, { useState } from 'react';
+${aesthetics?.motion ? `import { motion } from 'framer-motion';` : ''}
 import { ${schema.name}, ${schema.name}Input } from '../lib/types';  // Correct path!
 import { use${schema.name}Data } from '../lib/hooks';  // Correct path! NOT '../hooks/'
 
@@ -899,12 +1102,18 @@ export function ${spec.name}({ onSubmit }: ${spec.name}Props) {
   };
   
   return (
-    // JSX
+    ${aesthetics?.motion ? `<motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={{ background: 'var(--color-bg-elevated)', color: 'var(--color-text)' }}
+    >` : '<div>'}
+      {/* JSX content using CSS variables for colors */}
+    ${aesthetics?.motion ? '</motion.div>' : '</div>'}
   );
 }
 \`\`\`
 
-Generate the complete component code following this exact pattern with CORRECT import paths.`;
+Generate the complete component code following this exact pattern with CORRECT import paths and ${aesthetics ? 'the specified aesthetic styling' : 'CSS variables for styling'}.`;
   }
 
   /**

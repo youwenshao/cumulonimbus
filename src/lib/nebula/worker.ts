@@ -25,6 +25,80 @@ interface SupervisorMessage {
 const { appId, subdomain, code, componentFiles, appName, appDescription, initialData } = workerData;
 const prisma = new PrismaClient();
 
+/**
+ * Bundle V2 app with all component files into a single module
+ */
+async function bundleV2App(componentFiles: Record<string, string>): Promise<string> {
+  // Create virtual file system for esbuild
+  const files: Record<string, string> = {};
+  
+  for (const [filePath, content] of Object.entries(componentFiles)) {
+    files[`/virtual/${filePath}`] = content;
+  }
+  
+  // Bundle with esbuild
+  const result = await esbuild.build({
+    stdin: {
+      contents: files['/virtual/App.tsx'],
+      resolveDir: '/virtual',
+      sourcefile: 'App.tsx',
+      loader: 'tsx'
+    },
+    bundle: true,
+    format: 'esm',
+    target: 'es2020',
+    write: false,
+    external: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'framer-motion',
+      'lucide-react',
+      'recharts',
+      'date-fns',
+      'clsx',
+      'tailwind-merge',
+      'react-hook-form',
+      'zod',
+      'nanoid'
+    ],
+    define: {
+      'process.env.NODE_ENV': '"development"'
+    },
+    plugins: [{
+      name: 'virtual-fs',
+      setup(build) {
+        // Resolve relative imports
+        build.onResolve({ filter: /^\./ }, args => {
+          const resolvedPath = path.join(path.dirname(args.importer), args.path);
+          const normalizedPath = resolvedPath.replace('/virtual/', '');
+          
+          // Try with and without .tsx/.ts extension
+          for (const ext of ['', '.tsx', '.ts']) {
+            const tryPath = normalizedPath + ext;
+            if (files[`/virtual/${tryPath}`]) {
+              return { path: `/virtual/${tryPath}`, namespace: 'virtual' };
+            }
+          }
+          
+          return { path: resolvedPath, namespace: 'virtual' };
+        });
+        
+        // Load files from virtual file system
+        build.onLoad({ filter: /.*/, namespace: 'virtual' }, args => {
+          const content = files[args.path];
+          if (!content) {
+            return { errors: [{ text: `File not found: ${args.path}` }] };
+          }
+          return { contents: content, loader: 'tsx' };
+        });
+      }
+    }]
+  });
+  
+  return result.outputFiles[0].text;
+}
+
 async function start() {
   if (!parentPort) return;
 
@@ -270,15 +344,26 @@ async function start() {
     const currentName = appRecord?.name || appName || subdomain;
     const currentDesc = appRecord?.description || appDescription || '';
 
-      // Transpile for browser (ESM)
-      const browserResult = await esbuild.transform(code, {
-        loader: 'tsx',
-        format: 'esm',
-        target: 'es2020',
-        define: {
-          'process.env.NODE_ENV': '"development"'
-        }
-      });
+      // Bundle or transpile based on app version
+      let browserCode: string;
+      const isV2 = !!(componentFiles && componentFiles['App.tsx']);
+      
+      if (isV2) {
+        // Bundle V2 app (modular components)
+        console.log(`[Worker ${appId}] Bundling V2 app with ${Object.keys(componentFiles).length} files`);
+        browserCode = await bundleV2App(componentFiles);
+      } else {
+        // Transpile V1 app (single file)
+        const browserResult = await esbuild.transform(code, {
+          loader: 'tsx',
+          format: 'esm',
+          target: 'es2020',
+          define: {
+            'process.env.NODE_ENV': '"development"'
+          }
+        });
+        browserCode = browserResult.code;
+      }
 
       // Perform SSR
       let ssrHtml = '';
@@ -336,8 +421,9 @@ async function start() {
       "@/lib/utils": "data:text/javascript,export function cn(...args){return args.filter(Boolean).join(' ')}"
     };
 
-    // Add component files to import map as data URIs
-    if (componentFiles) {
+    // Add component files to import map as data URIs (V1 apps only)
+    // V2 apps use bundling instead
+    if (componentFiles && !isV2) {
       for (const [filename, fileCode] of Object.entries(componentFiles)) {
         // Skip the main App.tsx as it's handled by hydration
         if (filename === 'App.tsx') continue;
@@ -526,7 +612,7 @@ async function start() {
         // App Component Injection
         async function hydrate() {
             try {
-                const codeBase64 = "${Buffer.from(browserResult.code, 'utf8').toString('base64')}";
+                const codeBase64 = "${Buffer.from(browserCode, 'utf8').toString('base64')}";
                 const code = decodeURIComponent(atob(codeBase64).split('').map(function(c) {
                     return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
                 }).join(''));

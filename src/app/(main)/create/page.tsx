@@ -263,9 +263,9 @@ function ModeSelector({ onSelect }: { onSelect: (mode: CreateMode) => void }) {
             onClick={() => onSelect('freeform')}
             className="p-6 bg-surface-elevated/50 border border-accent-yellow/30 rounded-xl text-left hover:border-accent-yellow hover:bg-surface-elevated transition-all group relative overflow-hidden"
           >
-            <div className="absolute top-3 right-3">
-              <span className="px-2 py-0.5 text-xs font-medium bg-accent-yellow/20 text-accent-yellow rounded-full">
-                Default
+            <div className="absolute top-4 right-4">
+              <span className="px-2 py-0.5 text-[10px] font-medium bg-accent-yellow/20 text-accent-yellow rounded-full border border-accent-yellow/30">
+                Flagship
               </span>
             </div>
             <div className="mb-4">
@@ -283,10 +283,10 @@ function ModeSelector({ onSelect }: { onSelect: (mode: CreateMode) => void }) {
           {/* Guided Mode - Legacy V1 */}
           <button
             onClick={() => onSelect('guided')}
-            className="p-6 bg-surface-elevated/50 border border-outline-light rounded-xl text-left hover:border-outline-mid hover:bg-surface-elevated transition-all group"
+            className="p-6 bg-surface-elevated/50 border border-outline-light rounded-xl text-left hover:border-outline-mid hover:bg-surface-elevated transition-all group relative overflow-hidden"
           >
-            <div className="absolute top-3 right-3">
-              <span className="px-2 py-0.5 text-xs font-medium bg-text-tertiary/20 text-text-tertiary rounded-full">
+            <div className="absolute top-4 right-4">
+              <span className="px-2 py-0.5 text-[10px] font-medium bg-surface-mid text-text-tertiary rounded-full border border-outline-light">
                 Legacy
               </span>
             </div>
@@ -305,10 +305,10 @@ function ModeSelector({ onSelect }: { onSelect: (mode: CreateMode) => void }) {
           {/* IDE Mode - Desktop App */}
           <button
             onClick={() => onSelect('v2')}
-            className="p-6 bg-surface-elevated/50 border border-outline-light rounded-xl text-left hover:border-outline-mid hover:bg-surface-elevated transition-all group"
+            className="p-6 bg-surface-elevated/50 border border-outline-light rounded-xl text-left hover:border-outline-mid hover:bg-surface-elevated transition-all group relative overflow-hidden"
           >
-            <div className="absolute top-3 right-3">
-              <span className="px-2 py-0.5 text-xs font-medium bg-purple-500/20 text-purple-400 rounded-full">
+            <div className="absolute top-4 right-4">
+              <span className="px-2 py-0.5 text-[10px] font-medium bg-surface-mid text-text-tertiary rounded-full border border-outline-light">
                 Coming Soon
               </span>
             </div>

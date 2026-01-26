@@ -20,13 +20,164 @@ import {
 import {
   orchestrateDualAgent,
   type DualAgentTurn,
+  type OrchestratorEvent,
+  type PipelineAgent,
 } from '@/lib/scaffolder/dual-agent-orchestrator';
 import { generateAppCode, generateFallbackCode, type GeneratedCode } from '@/lib/scaffolder/code-generator';
 import { CodeGeneratorAgent } from '@/lib/scaffolder-v2/agents/code-generator';
-import type { Schema, LayoutNode, FieldDefinition, FieldType } from '@/lib/scaffolder-v2/types';
+import { intentEngine } from '@/lib/scaffolder-v2/agents/intent-engine';
+import { schemaDesignerAgent } from '@/lib/scaffolder-v2/agents/schema-designer';
+import { uiDesignerAgent } from '@/lib/scaffolder-v2/agents/ui-designer';
+import { workflowAgent } from '@/lib/scaffolder-v2/agents/workflow-agent';
+import type { 
+  Schema, 
+  LayoutNode, 
+  FieldDefinition, 
+  FieldType,
+  EnhancedIntent,
+  SchemaProposal,
+  LayoutProposal,
+  WorkflowDefinition,
+  ComputedField,
+} from '@/lib/scaffolder-v2/types';
 import { specToPrimitives, validateSpec } from '@/lib/scaffolder/compiler';
 import type { UserLLMSettings, LLMProvider } from '@/lib/llm';
 import { enhanceUserSettingsWithApiKeys } from '@/lib/llm';
+import { 
+  consolidateAgentResults, 
+  toGeneratedSpec,
+  type AgentResults,
+  type ConsolidatedAgentResult,
+} from '@/lib/scaffolder/agent-consolidator';
+
+// Feature flag for V2 pipeline
+const USE_V2_PIPELINE = process.env.FREEFORM_V2_PIPELINE === 'true' || 
+                        process.env.NODE_ENV === 'development';
+
+/**
+ * Run parallel specialized agents for enhanced schema, UI, and workflow design
+ */
+async function runParallelAgents(
+  conversationContext: string,
+  existingSpec: GeneratedSpec | undefined,
+  enhancedIntent: EnhancedIntent | undefined
+): Promise<ConsolidatedAgentResult | null> {
+  const timings: Record<string, number> = {};
+  
+  console.log(`🔄 [V2] Running parallel specialized agents...`);
+  
+  try {
+    // Convert existing spec to messages for context
+    const contextMessage = conversationContext || 
+      (existingSpec ? `Build a ${existingSpec.name}: ${existingSpec.description}` : 'Build a simple app');
+    
+    // Create a minimal state for the agents
+    const minimalState = {
+      id: generateId(),
+      version: 'v2' as const,
+      phase: 'schema' as const,
+      messages: [],
+      schemas: [] as Schema[],
+      generatedCode: {},
+      componentSpecs: [],
+      refinementHistory: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    // Run Schema Designer first (UI Designer depends on it)
+    const schemaStartTime = Date.now();
+    let schemaResult;
+    try {
+      const schemaResponse = await schemaDesignerAgent.process(contextMessage, minimalState);
+      if (schemaResponse.success && schemaResponse.data) {
+        schemaResult = schemaResponse.data as SchemaProposal;
+        const schemaName = schemaResult.schemas[0]?.name;
+        console.log(`  ✓ Schema Designer: ${schemaResult.schemas[0]?.fields?.length || 0} fields`);
+        console.log(`    [Name Check] Schema Designer returned name="${schemaName}"`);
+      }
+    } catch (schemaError) {
+      console.error(`  ⚠️ Schema Designer failed:`, schemaError);
+    }
+    timings['schema-designer'] = Date.now() - schemaStartTime;
+    
+    // Extract the schema for dependent agents
+    const schema = schemaResult?.schemas[0];
+    
+    // Run UI Designer and Workflow Agent in parallel (both depend on schema)
+    const [uiResult, workflowResult] = await Promise.all([
+      // UI Designer
+      (async () => {
+        if (!schema) return null;
+        const startTime = Date.now();
+        try {
+          const stateWithSchema = { ...minimalState, schemas: [schema] };
+          const uiResponse = await uiDesignerAgent.process(contextMessage, stateWithSchema);
+          timings['ui-designer'] = Date.now() - startTime;
+          if (uiResponse.success && uiResponse.data) {
+            const result = uiResponse.data as LayoutProposal;
+            console.log(`  ✓ UI Designer: ${result.layout?.type || 'unknown'} layout`);
+            return result;
+          }
+        } catch (uiError) {
+          console.error(`  ⚠️ UI Designer failed:`, uiError);
+          timings['ui-designer'] = Date.now() - startTime;
+        }
+        return null;
+      })(),
+      
+      // Workflow Agent
+      (async () => {
+        if (!schema) return null;
+        const startTime = Date.now();
+        try {
+          const stateWithSchema = { 
+            ...minimalState, 
+            schemas: [schema],
+            enhancedIntent,
+          };
+          const workflowResponse = await workflowAgent.process(contextMessage, stateWithSchema as any);
+          timings['workflow-agent'] = Date.now() - startTime;
+          if (workflowResponse.success && workflowResponse.data) {
+            const result = workflowResponse.data as {
+              workflows: WorkflowDefinition[];
+              computedFields: ComputedField[];
+            };
+            console.log(`  ✓ Workflow Agent: ${result.workflows?.length || 0} workflows, ${result.computedFields?.length || 0} computed fields`);
+            return result;
+          }
+        } catch (workflowError) {
+          console.error(`  ⚠️ Workflow Agent failed:`, workflowError);
+          timings['workflow-agent'] = Date.now() - startTime;
+        }
+        return null;
+      })(),
+    ]);
+    
+    // Consolidate results
+    const agentResults: AgentResults = {
+      intentResult: enhancedIntent,
+      schemaResult: schemaResult || undefined,
+      uiResult: uiResult || undefined,
+      workflowResult: workflowResult || undefined,
+      timings,
+    };
+    
+    const consolidated = await consolidateAgentResults(agentResults);
+    
+    console.log(`✅ [V2] Parallel agents complete in ${Object.values(timings).reduce((a, b) => a + b, 0)}ms`);
+    console.log(`   Schema: ${consolidated.schema.fields.length} fields`);
+    console.log(`   Layout: ${consolidated.layout.type}`);
+    console.log(`   Workflows: ${consolidated.workflows.length}`);
+    console.log(`   Warnings: ${consolidated.metadata.validationWarnings.length}`);
+    
+    return consolidated;
+    
+  } catch (error) {
+    console.error(`❌ [V2] Parallel agents failed:`, error);
+    return null;
+  }
+}
 
 const encoder = new TextEncoder();
 
@@ -290,6 +441,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * Handle a chat message with streaming response using dual-agent system
+ * Enhanced with V2 Intent Engine integration for better understanding
  */
 async function handleStreamingChat(
   userId: string,
@@ -329,11 +481,78 @@ async function handleStreamingChat(
         let internalDialogue: DualAgentTurn[] = [];
         let iterations = 0;
         let finalConfidence = 0;
+        let enhancedIntent: EnhancedIntent | undefined;
 
         console.log(`🎬 Starting dual-agent orchestration for state.id: ${state.id}`);
         
-        // Run dual-agent orchestration
-        for await (const event of orchestrateDualAgent(message, state, userSettings)) {
+        // V2 Pipeline: Start with Intent Engine for new conversations
+        if (USE_V2_PIPELINE && isNewConversation) {
+          try {
+            console.log(`🎯 [V2] Running Intent Engine...`);
+            
+            // Emit agent start event
+            const intentStartData = {
+              type: 'agent_start',
+              agent: 'intent-engine',
+              phase: 'understanding',
+            };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(intentStartData)}\n\n`));
+            
+            const intentStartTime = Date.now();
+            const intentResponse = await intentEngine.process(message, {
+              id: state.id,
+              version: 'v2',
+              phase: 'intent',
+              messages: [],
+              schemas: [],
+              generatedCode: {},
+              componentSpecs: [],
+              refinementHistory: [],
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+            
+            if (intentResponse.success && intentResponse.data?.intent) {
+              enhancedIntent = intentResponse.data.intent as EnhancedIntent;
+              
+              // Emit intent result event
+              const intentResultData = {
+                type: 'intent_result',
+                intent: enhancedIntent,
+                confidence: enhancedIntent.complexityScore,
+                suggestions: intentResponse.data.suggestions,
+              };
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(intentResultData)}\n\n`));
+              
+              // Emit agent complete event
+              const intentCompleteData = {
+                type: 'agent_complete',
+                agent: 'intent-engine',
+                result: {
+                  category: enhancedIntent.appCategory,
+                  entities: enhancedIntent.entities.length,
+                  referenceApps: enhancedIntent.referenceApps.map(r => r.name),
+                },
+                durationMs: Date.now() - intentStartTime,
+              };
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(intentCompleteData)}\n\n`));
+              
+              console.log(`🎯 [V2] Intent Engine complete: category=${enhancedIntent.appCategory}, entities=${enhancedIntent.entities.length}`);
+            }
+          } catch (intentError) {
+            console.error(`⚠️ [V2] Intent Engine failed, continuing without:`, intentError);
+            // Continue without enhanced intent - graceful degradation
+            const errorData = {
+              type: 'agent_error',
+              agent: 'intent-engine',
+              error: 'Intent analysis skipped',
+            };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(errorData)}\n\n`));
+          }
+        }
+        
+        // Run dual-agent orchestration (now with enhanced intent if available)
+        for await (const event of orchestrateDualAgent(message, state, userSettings, enhancedIntent)) {
           if (event.type === 'thinking') {
             // Stream live thinking events for real-time UI updates
             const thinkingData = {
@@ -449,8 +668,8 @@ async function handleStreamingChat(
           type: 'done',
           conversationId: savedConversationId,
           readinessScore: state.readinessScore,
-          // Allow build if: phase is ready, OR readinessScore >= 80, OR Advisor approved (finalConfidence >= 70)
-          canBuild: state.phase === 'ready' || state.readinessScore >= 80 || finalConfidence >= 70,
+          // Allow build if: phase is ready, OR readinessScore >= 70, OR Advisor approved (finalConfidence >= 60)
+          canBuild: state.phase === 'ready' || state.readinessScore >= 70 || finalConfidence >= 60,
           entities: state.entities,
           // Include dual-agent metadata
           iterations,
@@ -556,7 +775,7 @@ async function handleChat(
     message: analysis.responseMessage,
     readinessScore: state.readinessScore,
     // Note: Non-streaming mode doesn't have Advisor confidence, so only check readinessScore and phase
-    canBuild: state.phase === 'ready' || state.readinessScore >= 80,
+    canBuild: state.phase === 'ready' || state.readinessScore >= 70,
     entities: state.entities,
     messages: state.messages,
   });
@@ -728,21 +947,76 @@ async function handleBuild(
   const allComponents: Record<string, string> = {};
   let codeGenerationSuccess = false;
 
+  // V2 Pipeline: Run parallel specialized agents for enhanced output
+  let consolidatedResult: ConsolidatedAgentResult | null = null;
+  if (USE_V2_PIPELINE) {
+    // Get conversation context for the agents
+    const conversationContext = state.messages
+      ?.filter(m => m.role === 'user')
+      .map(m => m.content)
+      .join('\n') || '';
+    
+    // Try to retrieve enhanced intent if stored in conversation state
+    const storedIntent = (state as any).enhancedIntent as EnhancedIntent | undefined;
+    
+    // Run parallel agents (Schema Designer, UI Designer, Workflow Agent)
+    consolidatedResult = await runParallelAgents(
+      conversationContext,
+      state.spec,
+      storedIntent
+    );
+    
+    if (consolidatedResult) {
+      console.log(`📊 [V2] Consolidated result ready:`);
+      console.log(`   - Schema: ${consolidatedResult.schema.name} (${consolidatedResult.schema.fields.length} fields)`);
+      console.log(`   - Layout: ${consolidatedResult.layout.type}`);
+      console.log(`   - Workflows: ${consolidatedResult.workflows.length}`);
+      console.log(`   - Computed Fields: ${consolidatedResult.computedFields.length}`);
+      console.log(`   - Confidence: ${consolidatedResult.metadata.confidence}%`);
+      if (consolidatedResult.metadata.validationWarnings.length > 0) {
+        console.log(`   - Warnings: ${consolidatedResult.metadata.validationWarnings.join(', ')}`);
+      }
+    }
+  }
+
   try {
     console.log('🚀 Using V2 Code Generator for enhanced output...');
     
-    // Convert to V2 Schema format (optimize by doing this only once)
-    const v2Schema = convertToV2Schema(state.spec);
-    const layout = createDefaultLayout(state.spec, v2Schema.name);
+    // Use consolidated result if available, otherwise fall back to conversion
+    let v2Schema: Schema;
+    let layout: LayoutNode;
+    
+    if (consolidatedResult) {
+      console.log(`📐 Using consolidated schema and layout from parallel agents`);
+      v2Schema = consolidatedResult.schema;
+      layout = consolidatedResult.layout;
+      console.log(`   [Schema Name Check] schema.name="${v2Schema.name}" (should be PascalCase)`);
+      console.log(`   [Schema Label Check] schema.label="${v2Schema.label}"`);
+    } else {
+      // Fall back to basic conversion
+      v2Schema = convertToV2Schema(state.spec);
+      layout = createDefaultLayout(state.spec, v2Schema.name);
+      console.log(`   [Fallback Path] Using convertToV2Schema, schema.name="${v2Schema.name}"`);
+    }
     
     console.log(`📐 V2 Schema: ${v2Schema.name} with ${v2Schema.fields.length} fields`);
     
-    // Use V2 CodeGeneratorAgent
+    // Extract aesthetics from the consolidated result (passed through layout proposal)
+    const aesthetics = consolidatedResult?.aesthetics;
+    if (aesthetics) {
+      console.log(`🎨 Aesthetic theme: ${aesthetics.theme}`);
+      console.log(`   Typography: ${aesthetics.typography.heading}/${aesthetics.typography.body}`);
+      console.log(`   Colors: ${aesthetics.colorPalette.primary} + ${aesthetics.colorPalette.accent}`);
+    } else {
+      console.log('⚠️ No aesthetics in consolidated result, code generator will use defaults');
+    }
+    
+    // Use V2 CodeGeneratorAgent with aesthetics
     const codeGenAgent = new CodeGeneratorAgent();
     let hadError = false;
     
     try {
-      for await (const event of codeGenAgent.generateAppIncremental(v2Schema, layout, app.id)) {
+      for await (const event of codeGenAgent.generateAppIncremental(v2Schema, layout, app.id, aesthetics)) {
         if (event.type === 'types' && event.code) {
           generatedCode.types = event.code;
           allComponents['lib/types.ts'] = event.code;
@@ -866,24 +1140,52 @@ async function handleBuild(
     allComponents['App.tsx'] = fallback;
   }
 
+  // Prepare enhanced config with V2 metadata if available
+  const enhancedConfig = {
+    ...appConfig,
+    v2Pipeline: consolidatedResult ? {
+      enabled: true,
+      schema: consolidatedResult.schema,
+      layout: consolidatedResult.layout,
+      aesthetics: consolidatedResult.aesthetics,
+      workflows: consolidatedResult.workflows,
+      computedFields: consolidatedResult.computedFields,
+      metadata: {
+        intent: consolidatedResult.metadata.intent,
+        confidence: consolidatedResult.metadata.confidence,
+        agentTimings: consolidatedResult.metadata.agentTimings,
+      },
+    } : null,
+  };
+
   // Update app with generated code
   const updatedApp = await prisma.app.update({
     where: { id: app.id },
     data: {
       generatedCode: JSON.stringify(generatedCode),
       componentFiles: JSON.stringify(allComponents),
+      config: JSON.stringify(enhancedConfig),
       status: 'ACTIVE',
       buildStatus: 'COMPLETED',
+      version: consolidatedResult ? 'v2' : 'v1', // Mark as v2 if using consolidated result
     },
   });
 
-  // Update conversation
+  // Update conversation with enhanced state
   state.phase = 'complete';
+  const enhancedState = {
+    ...state,
+    v2Pipeline: consolidatedResult ? {
+      used: true,
+      confidence: consolidatedResult.metadata.confidence,
+    } : null,
+  };
+  
   await prisma.conversation.update({
     where: { id: conversationId },
     data: {
       phase: 'COMPLETE',
-      spec: JSON.stringify(state),
+      spec: JSON.stringify(enhancedState),
       appId: app.id,
     },
   });

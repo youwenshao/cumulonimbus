@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
-import { getBaseDomain, getSubdomain } from '@/lib/utils';
+import { getBaseDomain, getSubdomain, isValidAppId } from '@/lib/utils';
 
 /**
  * Middleware for centralized authentication and route protection
@@ -54,6 +54,21 @@ export async function middleware(request: NextRequest) {
     const parts = pathname.split('/');
     appId = parts[2] || '';
     originalPath = '/' + parts.slice(3).join('/') || '/';
+    
+    // Validate appId before proceeding
+    if (appId && !isValidAppId(appId)) {
+      // Return 400 for invalid app IDs
+      return new NextResponse(
+        JSON.stringify({ 
+          error: 'Invalid app ID format',
+          details: 'App ID must contain only lowercase letters, numbers, and hyphens (1-63 characters)'
+        }),
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
     
     // Only rewrite if we have a valid appId
     if (appId) {

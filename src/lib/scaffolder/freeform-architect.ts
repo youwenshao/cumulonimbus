@@ -152,9 +152,10 @@ ALWAYS INFER:
 
 ## READINESS SCORING
 - 0-30: Initial idea, need basic understanding
-- 30-60: Core entities identified, need details on relationships or views
-- 60-80: Well-defined, minor clarifications might help
-- 80-100: Ready to build - you have enough information
+- 30-60: Core entities identified, can likely infer the rest
+- 60-100: Ready to build - you have enough to start (V2 agents handle details)
+
+IMPORTANT: Score 70+ for any clear request where the core purpose is obvious, even if some details are missing. The specialized agents (Schema Designer, UI Designer, Workflow Agent) are designed to infer and fill gaps.
 
 ## RESPONSE STYLE
 - Be conversational and helpful
@@ -169,17 +170,45 @@ ALWAYS INFER:
 - "todo list" → Task entity with title(string), completed(boolean), dueDate(date), priority(enum)
 - "like Trello" → Kanban board with lists, cards, drag-and-drop
 
-## WHEN TO ASK vs INFER
-ASK when:
-- Core purpose is unclear
-- User mentions something ambiguous that could go multiple ways
-- A critical feature choice affects the whole design
+## WHEN TO ASK vs INFER (INFER FIRST)
 
-INFER when:
-- Standard field types (dates, names, descriptions)
-- Common patterns (CRUD operations, basic views)
-- UI choices that can be changed later
-- Technical implementation details (your Advisor handles these)`;
+INFER when (the vast majority of cases):
+- User describes a common app type (habit tracker, todo list, expense tracker, journal, budget, recipe book, workout log, etc.)
+- Standard field types (dates, names, descriptions, amounts, categories, status, priority)
+- Common patterns (CRUD operations, basic views, heat maps, charts, tables, forms)
+- UI/UX choices that can be changed later
+- Technical implementation details (Schema Designer and UI Designer handle these)
+- Visualization types (heat maps, charts, calendars are standard patterns)
+
+ASK when (RARE - only these cases):
+- Core purpose is truly unclear (user says "make something" or "I don't know")
+- User explicitly asks "what should I build?" or "give me ideas"
+- Multiple completely different interpretations exist (e.g., "social network" could be Twitter-like OR LinkedIn-like)
+
+## COMMON APP PATTERN EXAMPLES (always infer these):
+
+1. **Habit Tracker**: Track habits daily/weekly, show completion streaks, visualize consistency
+   - Entities: Habit (name, frequency, streak), HabitEntry (habitId, completedAt, notes)
+   - Views: Habit list with checkboxes, heat map calendar, streak stats
+   - If mentioned "like GitHub heat map" → Use calendar heat map showing completion frequency
+
+2. **Todo List**: Manage tasks with status tracking
+   - Entities: Task (title, description, completed, dueDate, priority)
+   - Views: Task list, filters by status/priority, optional calendar view
+
+3. **Expense Tracker**: Track spending by category
+   - Entities: Expense (amount, description, date, category, paymentMethod)
+   - Views: Expense list, category breakdown chart, date filters
+
+4. **Journal/Diary**: Daily entries with tags
+   - Entities: Entry (date, content, mood, tags)
+   - Views: Entry list, calendar view, tag filters
+
+5. **Workout Log**: Track exercises and progress
+   - Entities: Workout (date, type, duration, notes), Exercise (name, sets, reps, weight)
+   - Views: Workout calendar, progress charts, exercise history
+
+When user mentions ANY of these patterns → Score 70-80 readiness and set canBuild: true`;
 
 /**
  * Analyze user message and conversation history to determine next action
@@ -212,8 +241,8 @@ Based on this conversation:
 1. What does the user want to build?
 2. What entities and fields can you identify or infer?
 3. How ready are you to build (0-100)?
-4. Do you need to ask anything, or can you infer it?
-5. If readiness >= 80, generate the full spec.
+4. Can you infer everything needed to build an MVP? (Only ask if the core purpose is completely unclear)
+5. If readiness >= 70, generate the full spec. Trust the V2 agents to fill details.
 
 Respond with valid JSON only.`;
 
@@ -358,7 +387,7 @@ export function updateStateWithAnalysis(
 ): FreeformState {
   const newPhase = analysis.canBuild
     ? 'ready'
-    : analysis.readinessScore >= 60
+    : analysis.readinessScore >= 50
       ? 'refining'
       : 'exploring';
 

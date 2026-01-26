@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { nebulaSupervisor } from '@/lib/nebula/supervisor';
-import { getSubdomain } from '@/lib/utils';
+import { getSubdomain, isValidAppId } from '@/lib/utils';
 
 // Use Node.js runtime for esbuild compatibility
 export const runtime = 'nodejs';
@@ -55,6 +55,14 @@ export async function GET(
 
   if (!appId) {
     return NextResponse.json({ error: 'App ID required' }, { status: 400 });
+  }
+
+  // Validate app ID format
+  if (!isValidAppId(appId)) {
+    return NextResponse.json({ 
+      error: 'Invalid app ID format',
+      details: 'App ID must contain only lowercase letters, numbers, and hyphens (1-63 characters)'
+    }, { status: 400 });
   }
 
   try {

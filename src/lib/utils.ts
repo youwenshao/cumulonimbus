@@ -161,6 +161,16 @@ export function getSubdomain(host: string): string | null {
 }
 
 /**
+ * Validates if a string is a valid app ID/subdomain
+ * Valid format: lowercase alphanumeric and hyphens, 1-63 chars, cannot start/end with hyphen
+ */
+export function isValidAppId(appId: string | null | undefined): boolean {
+  if (!appId) return false;
+  // DNS subdomain rules: alphanumeric + hyphens, 1-63 chars, cannot start/end with hyphen
+  return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(appId);
+}
+
+/**
  * Generates the correct URL for an app based on the current environment.
  * Always uses path-based routing (/s/app-id) to avoid DNS and SSL wildcard issues.
  */

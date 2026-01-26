@@ -322,7 +322,7 @@ Respond with the complete updated schema in JSON format.`;
   private validateSchema(schema: Schema): Schema {
     const validated: Schema = {
       ...schema,
-      name: this.sanitizeName(schema.name),
+      name: this.sanitizeSchemaName(schema.name), // Use PascalCase for schemas
       label: schema.label || this.generateLabel(schema.name),
       fields: schema.fields.map(field => this.validateField(field)),
       computedFields: schema.computedFields?.map(cf => this.validateComputedField(cf)),
@@ -383,10 +383,23 @@ Respond with the complete updated schema in JSON format.`;
   }
 
   /**
-   * Sanitize a name to be a valid identifier
+   * Sanitize a name to be a valid identifier (preserves casing for fields)
    */
   private sanitizeName(name: string): string {
     return name
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .replace(/^[0-9]/, '_$&');
+  }
+
+  /**
+   * Sanitize a schema name to be a valid PascalCase identifier
+   * Schema names are used for TypeScript types and React component names
+   */
+  private sanitizeSchemaName(name: string): string {
+    // Remove non-alphanumeric chars and convert to PascalCase
+    return name
+      .replace(/[^a-zA-Z0-9]+(.)/g, (_, char) => char.toUpperCase())
+      .replace(/^[a-z]/, char => char.toUpperCase())
       .replace(/[^a-zA-Z0-9]/g, '')
       .replace(/^[0-9]/, '_$&');
   }

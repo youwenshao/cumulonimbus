@@ -1,4 +1,5 @@
 import * as esbuild from 'esbuild';
+import path from 'path';
 import prisma from '@/lib/db';
 
 /**
@@ -28,6 +29,82 @@ export interface AppContext {
   appName: string;
   appDescription: string;
   initialData: any;
+  isV2?: boolean;
+  componentFiles?: Record<string, string> | null;
+}
+
+/**
+ * Bundle V2 app with all component files into a single module
+ */
+async function bundleV2App(componentFiles: Record<string, string>): Promise<string> {
+  // Create virtual file system for esbuild
+  const files: Record<string, string> = {};
+  
+  for (const [filePath, content] of Object.entries(componentFiles)) {
+    files[`/virtual/${filePath}`] = content;
+  }
+  
+  // Bundle with esbuild
+  const result = await esbuild.build({
+    stdin: {
+      contents: files['/virtual/App.tsx'],
+      resolveDir: '/virtual',
+      sourcefile: 'App.tsx',
+      loader: 'tsx'
+    },
+    bundle: true,
+    format: 'esm',
+    target: 'es2020',
+    write: false,
+    external: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'framer-motion',
+      'lucide-react',
+      'recharts',
+      'date-fns',
+      'clsx',
+      'tailwind-merge',
+      'react-hook-form',
+      'zod',
+      'nanoid'
+    ],
+    define: {
+      'process.env.NODE_ENV': '"development"'
+    },
+    plugins: [{
+      name: 'virtual-fs',
+      setup(build) {
+        // Resolve relative imports
+        build.onResolve({ filter: /^\./ }, args => {
+          const resolvedPath = path.join(path.dirname(args.importer), args.path);
+          const normalizedPath = resolvedPath.replace('/virtual/', '');
+          
+          // Try with and without .tsx/.ts extension
+          for (const ext of ['', '.tsx', '.ts']) {
+            const tryPath = normalizedPath + ext;
+            if (files[`/virtual/${tryPath}`]) {
+              return { path: `/virtual/${tryPath}`, namespace: 'virtual' };
+            }
+          }
+          
+          return { path: resolvedPath, namespace: 'virtual' };
+        });
+        
+        // Load files from virtual file system
+        build.onLoad({ filter: /.*/, namespace: 'virtual' }, args => {
+          const content = files[args.path];
+          if (!content) {
+            return { errors: [{ text: `File not found: ${args.path}` }] };
+          }
+          return { contents: content, loader: 'tsx' };
+        });
+      }
+    }]
+  });
+  
+  return result.outputFiles[0].text;
 }
 
 /**
@@ -56,15 +133,24 @@ export async function executeRequest(
     const currentName = appRecord?.name || appName || subdomain;
     const currentDesc = appRecord?.description || appDescription || '';
 
-    // Transpile for browser (ESM)
-    const browserResult = await esbuild.transform(code, {
-      loader: 'tsx',
-      format: 'esm',
-      target: 'es2020',
-      define: {
-        'process.env.NODE_ENV': '"development"'
-      }
-    });
+    // Bundle or transpile based on app version
+    let browserCode: string;
+    
+    if (context.isV2 && context.componentFiles) {
+      // Bundle V2 app (modular components)
+      browserCode = await bundleV2App(context.componentFiles);
+    } else {
+      // Transpile V1 app (single file)
+      const browserResult = await esbuild.transform(code, {
+        loader: 'tsx',
+        format: 'esm',
+        target: 'es2020',
+        define: {
+          'process.env.NODE_ENV': '"development"'
+        }
+      });
+      browserCode = browserResult.code;
+    }
 
     // Generate the HTML response
     const html = generateAppHtml({
@@ -72,7 +158,7 @@ export async function executeRequest(
       currentName,
       currentDesc,
       currentData,
-      browserCode: browserResult.code,
+      browserCode,
     });
 
     return {
@@ -412,8 +498,18 @@ export async function loadAppContext(appId: string): Promise<AppContext | null> 
     return null;
   }
 
-  const code = (typeof app.componentFiles === 'string' ? JSON.parse(app.componentFiles) : app.componentFiles)?.['App.tsx'] || 
-               (typeof app.generatedCode === 'string' ? JSON.parse(app.generatedCode) : app.generatedCode)?.pageComponent || '';
+  // Parse componentFiles if it's a string
+  const parsedComponentFiles = typeof app.componentFiles === 'string' 
+    ? JSON.parse(app.componentFiles) 
+    : app.componentFiles;
+
+  // Detect if this is a V2 app (modular with component files)
+  const isV2 = !!(parsedComponentFiles && parsedComponentFiles['App.tsx']);
+  
+  // For V2 apps, we'll bundle all files later, for V1 apps get the single page component
+  const code = isV2
+    ? parsedComponentFiles['App.tsx']
+    : (typeof app.generatedCode === 'string' ? JSON.parse(app.generatedCode) : app.generatedCode)?.pageComponent || '';
 
   return {
     appId: app.id,
@@ -421,6 +517,8 @@ export async function loadAppContext(appId: string): Promise<AppContext | null> 
     code,
     appName: app.name || '',
     appDescription: app.description || '',
-    initialData: typeof app.data === 'string' ? JSON.parse(app.data) : (app.data || [])
+    initialData: typeof app.data === 'string' ? JSON.parse(app.data) : (app.data || []),
+    isV2,
+    componentFiles: isV2 ? parsedComponentFiles : null
   };
 }

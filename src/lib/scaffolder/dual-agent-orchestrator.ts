@@ -1,23 +1,16 @@
 /**
- * Dual-Agent Orchestrator (V1 - Deprecated)
+ * Dual-Agent Orchestrator with V2 Intent Engine Integration
  * 
- * @deprecated This orchestrator is part of the V1 scaffolder and is deprecated.
- * Use the V2 multi-agent system instead, which provides:
- * - Architect: Coordinates parallel agent execution
- * - Coordinator: Schema design
- * - Designer: UI layout
- * - Coder: Code generation
- * - Advisor: Intent analysis
- * - Automator: Workflows
+ * This orchestrator manages the Architect-Advisor conversation loop
+ * with enhanced intent understanding from the V2 Intent Engine.
  * 
- * The V2 system offers parallel processing, better intent understanding,
- * and automated workflow detection.
+ * The hybrid pipeline:
+ * 1. Intent Engine: Deep understanding of user request
+ * 2. Architect: Generates refined responses with intent context
+ * 3. Advisor: Reviews and approves responses
+ * 4. Specialized Agents: Schema, UI, Workflow design (parallel)
  * 
- * @see src/lib/scaffolder-v2 for the V2 implementation
- * @see docs/migration-guide.md for migration instructions
- * 
- * This V1 orchestrator manages the Architect-Advisor conversation loop
- * for refined responses and streams internal dialogue to the caller.
+ * @see src/lib/scaffolder-v2/agents for specialized agents
  */
 
 import { generateId } from '@/lib/utils';
@@ -33,11 +26,12 @@ import {
   formatReviewSummary,
 } from './advisor-agent';
 import { streamComplete, type ChatMessage } from '@/lib/llm';
+import type { EnhancedIntent } from '@/lib/scaffolder-v2/types';
 
 // Configuration
 const MAX_ITERATIONS = 3;
-const MIN_CONFIDENCE_TO_APPROVE = 70;
-const MIN_CONFIDENCE_WITH_ANSWERS = 60; // Lower threshold when Advisor answered questions
+const MIN_CONFIDENCE_TO_APPROVE = 60; // Trust V2 agents to handle ambiguity
+const MIN_CONFIDENCE_WITH_ANSWERS = 50; // Lower threshold when Advisor answered questions
 
 /**
  * A single turn in the dual-agent dialogue
@@ -76,6 +70,18 @@ export interface DualAgentResult {
 }
 
 /**
+ * Agent types in the pipeline
+ */
+export type PipelineAgent = 
+  | 'intent-engine' 
+  | 'architect' 
+  | 'advisor' 
+  | 'schema-designer' 
+  | 'ui-designer' 
+  | 'workflow-agent' 
+  | 'code-generator';
+
+/**
  * Events emitted during orchestration
  */
 export type OrchestratorEvent =
@@ -83,7 +89,14 @@ export type OrchestratorEvent =
   | { type: 'internal'; agent: 'architect' | 'advisor'; content: string; confidence?: number; decision?: 'iterate' | 'approve'; iteration: number; answeredQuestions?: Array<{ question: string; answer: string }>; decisions?: Array<{ choice: string; rationale: string }> }
   | { type: 'chunk'; content: string }
   | { type: 'analysis'; analysis: ArchitectAnalysis }
-  | { type: 'done'; result: DualAgentResult };
+  | { type: 'done'; result: DualAgentResult }
+  // V2 Pipeline Events
+  | { type: 'agent_start'; agent: PipelineAgent; phase?: string }
+  | { type: 'agent_complete'; agent: PipelineAgent; result?: unknown; durationMs?: number }
+  | { type: 'agent_error'; agent: PipelineAgent; error: string }
+  | { type: 'intent_result'; intent: EnhancedIntent; confidence: number }
+  | { type: 'parallel_agents_start'; agents: PipelineAgent[] }
+  | { type: 'parallel_agents_complete'; results: Record<string, unknown> };
 
 /**
  * Generate the Architect's system prompt, optionally incorporating Advisor feedback
@@ -171,11 +184,16 @@ Respond as the architect.`;
 /**
  * Run the dual-agent orchestration loop
  * Yields events as they occur for real-time streaming
+ * @param userMessage The user's message
+ * @param state The current freeform state
+ * @param userSettings User's LLM configuration
+ * @param enhancedIntent Optional enhanced intent from Intent Engine for context-aware refinement
  */
 export async function* orchestrateDualAgent(
   userMessage: string,
   state: FreeformState,
-  userSettings?: UserLLMSettings
+  userSettings?: UserLLMSettings,
+  enhancedIntent?: EnhancedIntent
 ): AsyncGenerator<OrchestratorEvent> {
   const sessionId = `session-${generateId().substring(0, 8)}`;
   const startTime = Date.now();
@@ -190,6 +208,25 @@ export async function* orchestrateDualAgent(
   let finalConfidence = 0;
   let iteration = 0;
   let approved = false;
+
+  // Build intent context section if enhanced intent is provided
+  const intentContextSection = enhancedIntent ? `
+## INTENT CONTEXT (from Intent Engine analysis)
+- App Category: ${enhancedIntent.appCategory}
+- Complexity Score: ${enhancedIntent.complexityScore}/10
+- Primary Goal: ${enhancedIntent.primaryGoal}
+- Detected Entities: ${enhancedIntent.entities.map(e => `${e.name} (${e.role})`).join(', ')}
+${enhancedIntent.referenceApps.length > 0 ? `- Reference Apps: ${enhancedIntent.referenceApps.map(r => `${r.name} (${Math.round(r.confidence * 100)}%)`).join(', ')}` : ''}
+${enhancedIntent.workflows.length > 0 ? `- Detected Workflows: ${enhancedIntent.workflows.map(w => w.description).join(', ')}` : ''}
+- Suggested Layout: ${enhancedIntent.layoutHints.structure} with ${enhancedIntent.layoutHints.components.join(', ')}
+- Emphasis: ${enhancedIntent.layoutHints.emphasis}
+
+USE THIS CONTEXT TO:
+- Skip questions about details already captured in intent
+- Apply reference app patterns where detected
+- Design entities as identified by the Intent Engine
+- Use the suggested layout structure as a starting point
+` : '';
 
   // System prompt for Architect
   const architectSystemPrompt = `You are an autonomous AI Architect that builds apps through natural conversation.
@@ -213,7 +250,8 @@ export async function* orchestrateDualAgent(
 - When you understand enough, propose what you'll build
 - When asking questions, make them specific and contextual (never generic templates)
 - Show your thinking process briefly
-- When ready, clearly indicate you can build now`;
+- When ready, clearly indicate you can build now
+${intentContextSection}`;
 
   while (!approved && iteration < MAX_ITERATIONS) {
     iteration++;
@@ -491,11 +529,12 @@ export async function* orchestrateDualAgent(
 export async function runDualAgentSync(
   userMessage: string,
   state: FreeformState,
-  userSettings?: UserLLMSettings
+  userSettings?: UserLLMSettings,
+  enhancedIntent?: EnhancedIntent
 ): Promise<DualAgentResult> {
   let result: DualAgentResult | null = null;
   
-  for await (const event of orchestrateDualAgent(userMessage, state, userSettings)) {
+  for await (const event of orchestrateDualAgent(userMessage, state, userSettings, enhancedIntent)) {
     if (event.type === 'done') {
       result = event.result;
     }

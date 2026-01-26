@@ -138,8 +138,84 @@ export interface LayoutNode {
   className?: string;
 }
 
+// ============================================================================
+// Aesthetic Types - For distinctive, artistic frontend design
+// ============================================================================
+
+/**
+ * Typography specification for distinctive font choices
+ */
+export interface TypographySpec {
+  /** Font family for headings (e.g., 'Playfair Display', 'Crimson Pro') */
+  heading: string;
+  /** Font family for body text (e.g., 'DM Sans', 'Manrope') */
+  body: string;
+  /** Font family for accents/mono (e.g., 'JetBrains Mono', 'Fira Code') */
+  accent: string;
+}
+
+/**
+ * Color palette for cohesive theming
+ */
+export interface ColorPaletteSpec {
+  /** Dominant primary color (hex) */
+  primary: string;
+  /** Sharp accent color for highlights (hex) */
+  accent: string;
+  /** Base background color (hex) */
+  background: string;
+  /** Elevated surface color (hex) */
+  backgroundAlt: string;
+  /** Primary text color (hex) */
+  text: string;
+  /** Muted/secondary text color (hex) */
+  textMuted: string;
+  /** Whether this is a dark theme */
+  isDark: boolean;
+}
+
+/**
+ * Motion/animation strategy
+ */
+export interface MotionSpec {
+  /** Animation intensity level */
+  intensity: 'subtle' | 'moderate' | 'dramatic';
+  /** Page load animation strategy */
+  pageLoadStrategy: 'fade' | 'stagger' | 'cascade' | 'reveal' | 'slide';
+  /** Micro-interactions to implement */
+  interactions: string[];
+}
+
+/**
+ * Background styling for atmosphere
+ */
+export interface BackgroundStyleSpec {
+  /** Type of background effect */
+  type: 'solid' | 'gradient' | 'mesh' | 'geometric' | 'noise' | 'particles';
+  /** CSS layers for the background (gradients, patterns) */
+  layers: string[];
+}
+
+/**
+ * Complete aesthetic specification for distinctive UI design
+ */
+export interface AestheticSpec {
+  /** Theme archetype (e.g., 'cyberpunk', 'brutalist', 'neo-tokyo') */
+  theme: string;
+  /** Typography choices */
+  typography: TypographySpec;
+  /** Color palette */
+  colorPalette: ColorPaletteSpec;
+  /** Animation strategy */
+  motion: MotionSpec;
+  /** Background styling */
+  backgroundStyle: BackgroundStyleSpec;
+}
+
 export interface LayoutProposal {
   layout: LayoutNode;
+  /** Aesthetic specifications for distinctive design */
+  aesthetics?: AestheticSpec;
   reasoning: string;
   responsiveNotes: string;
 }
@@ -286,6 +362,7 @@ export interface GeneratedApp {
   validators: string;
   apiClient: string;
   hooks: string;
+  utils: string;
   components: Record<string, string>;
   page: string;
   routes: Record<string, string>;

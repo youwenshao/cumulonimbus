@@ -12,3 +12,9 @@ export { FreeformCreator } from './FreeformCreator';
 export { WelcomeScreen } from './WelcomeScreen';
 export { PreviewMockup } from './PreviewMockup';
 export { TemplateGallery } from './TemplateGallery';
+export { 
+  AgentTimeline, 
+  type AgentActivity, 
+  type PipelineAgent, 
+  type AgentOutput 
+} from './AgentTimeline';

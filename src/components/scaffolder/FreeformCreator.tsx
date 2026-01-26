@@ -3,11 +3,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { LivePreview } from './LivePreview';
 import { CodeEditor } from './CodeEditor';
+import { AgentTimeline, type AgentActivity, type PipelineAgent, type AgentOutput } from './AgentTimeline';
 import { Button, ThemeToggle, ChatInput, ChatMessage } from '@/components/ui';
 import { WelcomeScreen } from './WelcomeScreen';
-import { Terminal, Rocket, CheckCircle, Sparkles, Zap, ChevronDown, ChevronRight, Lightbulb, Scale, Code, Eye, PanelLeft, PanelLeftClose, Loader2 } from 'lucide-react';
+import { Terminal, Rocket, CheckCircle, Sparkles, Zap, ChevronDown, ChevronRight, Lightbulb, Scale, Code, Eye, PanelLeft, PanelLeftClose, Loader2, Target } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, generateId } from '@/lib/utils';
 
 // CodeFile interface for generated code
 interface CodeFile {
@@ -104,6 +105,10 @@ export function FreeformCreator({ onComplete, onCancel, initialConversationId, i
     iteration: 0,
     isExpanded: true,
   });
+  
+  // V2 Pipeline - Agent activities tracking
+  const [agentActivities, setAgentActivities] = useState<AgentActivity[]>([]);
+  const [showAgentPipeline, setShowAgentPipeline] = useState(true);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -229,6 +234,9 @@ export function FreeformCreator({ onComplete, onCancel, initialConversationId, i
       iteration: 1,
       isExpanded: true,
     });
+    
+    // Reset agent activities for new request
+    setAgentActivities([]);
 
     try {
       const response = await fetch('/api/scaffolder/freeform', {
@@ -282,7 +290,58 @@ export function FreeformCreator({ onComplete, onCancel, initialConversationId, i
           try {
             const data = JSON.parse(line.slice(6));
             
-            if (data.type === 'thinking') {
+            // V2 Pipeline Events
+            if (data.type === 'agent_start') {
+              // New agent starting in the pipeline
+              const newActivity: AgentActivity = {
+                id: generateId(),
+                agent: data.agent as PipelineAgent,
+                status: 'running',
+                startTime: Date.now(),
+              };
+              setAgentActivities(prev => [...prev, newActivity]);
+            } else if (data.type === 'agent_complete') {
+              // Agent completed successfully
+              setAgentActivities(prev => prev.map(a => 
+                a.agent === data.agent && a.status === 'running'
+                  ? {
+                      ...a,
+                      status: 'complete' as const,
+                      endTime: Date.now(),
+                      output: data.result as AgentOutput,
+                    }
+                  : a
+              ));
+            } else if (data.type === 'agent_error') {
+              // Agent encountered an error
+              setAgentActivities(prev => prev.map(a => 
+                a.agent === data.agent && a.status === 'running'
+                  ? {
+                      ...a,
+                      status: 'error' as const,
+                      endTime: Date.now(),
+                      error: data.error,
+                    }
+                  : a
+              ));
+            } else if (data.type === 'intent_result') {
+              // Intent Engine result with detailed output
+              setAgentActivities(prev => prev.map(a => 
+                a.agent === 'intent-engine' && a.status === 'running'
+                  ? {
+                      ...a,
+                      status: 'complete' as const,
+                      endTime: Date.now(),
+                      output: {
+                        category: data.intent?.appCategory,
+                        entities: data.intent?.entities?.length || 0,
+                        referenceApps: data.intent?.referenceApps?.map((r: any) => r.name) || [],
+                        confidence: data.intent?.complexityScore,
+                      },
+                    }
+                  : a
+              ));
+            } else if (data.type === 'thinking') {
               // Live thinking stream - update in real-time
               setLiveThinking(prev => ({
                 ...prev,
@@ -737,6 +796,16 @@ export function FreeformCreator({ onComplete, onCancel, initialConversationId, i
                   </div>
                 ))}
               </div>
+
+              {/* V2 Agent Pipeline Visualization */}
+              {agentActivities.length > 0 && (
+                <AgentTimeline 
+                  activities={agentActivities}
+                  isCollapsible={true}
+                  defaultExpanded={showAgentPipeline}
+                  className="animate-fade-in"
+                />
+              )}
 
               {/* Live Thinking Panel - shows real-time Architect/Advisor dialogue */}
               {isStreaming && liveThinking.isActive && (
