@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { LivePreview } from './LivePreview';
 import { Button, ThemeToggle, ChatInput, ChatMessage } from '@/components/ui';
 import { WelcomeScreen } from './WelcomeScreen';
-import { Terminal, Rocket, CheckCircle, Sparkles, Zap, ChevronDown, ChevronRight, Brain, Eye } from 'lucide-react';
+import { Terminal, Rocket, CheckCircle, Sparkles, Zap, ChevronDown, ChevronRight, Lightbulb, Scale } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -26,7 +26,18 @@ interface InternalTurn {
   metadata?: {
     confidence?: number;
     decision?: 'iterate' | 'approve';
+    iteration?: number;
   };
+  answeredQuestions?: Array<{ question: string; answer: string }>;
+  decisions?: Array<{ choice: string; rationale: string }>;
+}
+
+// Live thinking event during streaming
+interface ThinkingEvent {
+  agent: 'architect' | 'advisor';
+  content: string;
+  iteration: number;
+  isStreaming: boolean;
 }
 
 interface Message {
@@ -65,6 +76,22 @@ export function FreeformCreator({ onComplete, onCancel, initialConversationId, i
   // Track which internal dialogues are expanded (for debugging)
   const [expandedDialogues, setExpandedDialogues] = useState<Set<string>>(new Set());
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Live thinking state for real-time display
+  const [liveThinking, setLiveThinking] = useState<{
+    isActive: boolean;
+    currentAgent: 'architect' | 'advisor' | null;
+    architectContent: string;
+    advisorContent: string;
+    iteration: number;
+    isExpanded: boolean;
+  }>({
+    isActive: false,
+    currentAgent: null,
+    architectContent: '',
+    advisorContent: '',
+    iteration: 0,
+    isExpanded: true,
+  });
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -181,6 +208,16 @@ export function FreeformCreator({ onComplete, onCancel, initialConversationId, i
     let iterations = 0;
     let finalConfidence = 0;
 
+    // Reset and activate live thinking
+    setLiveThinking({
+      isActive: true,
+      currentAgent: 'architect',
+      architectContent: '',
+      advisorContent: '',
+      iteration: 1,
+      isExpanded: true,
+    });
+
     try {
       const response = await fetch('/api/scaffolder/freeform', {
         method: 'POST',
@@ -233,7 +270,21 @@ export function FreeformCreator({ onComplete, onCancel, initialConversationId, i
           try {
             const data = JSON.parse(line.slice(6));
             
-            if (data.type === 'chunk') {
+            if (data.type === 'thinking') {
+              // Live thinking stream - update in real-time
+              setLiveThinking(prev => ({
+                ...prev,
+                isActive: true,
+                currentAgent: data.agent,
+                iteration: data.iteration || prev.iteration,
+                ...(data.agent === 'architect' 
+                  ? { architectContent: prev.architectContent + data.content }
+                  : { advisorContent: data.content } // Advisor content replaces (not streaming word-by-word)
+                ),
+              }));
+            } else if (data.type === 'chunk') {
+              // Final response chunk - hide thinking panel
+              setLiveThinking(prev => ({ ...prev, isActive: false }));
               streamedContent += data.content;
               setCurrentStreamContent(streamedContent);
               // Update the streaming message
@@ -252,8 +303,20 @@ export function FreeformCreator({ onComplete, onCancel, initialConversationId, i
                 metadata: {
                   confidence: data.confidence,
                   decision: data.decision,
+                  iteration: data.iteration,
                 },
+                answeredQuestions: data.answeredQuestions,
+                decisions: data.decisions,
               });
+              // Reset content for next iteration
+              if (data.agent === 'advisor') {
+                setLiveThinking(prev => ({
+                  ...prev,
+                  architectContent: '',
+                  advisorContent: '',
+                  iteration: (data.iteration || 0) + 1,
+                }));
+              }
             } else if (data.type === 'done') {
               finalData = data;
               iterations = data.iterations || 1;
@@ -435,7 +498,7 @@ export function FreeformCreator({ onComplete, onCancel, initialConversationId, i
           ) : (
             <ChevronRight className="w-3 h-3" />
           )}
-          <Eye className="w-3 h-3" />
+          <Scale className="w-3 h-3" />
           <span>
             {msg.iterations || 1} iteration{(msg.iterations || 1) > 1 ? 's' : ''} 
             {msg.confidence ? ` • ${msg.confidence}% confidence` : ''}
@@ -454,20 +517,20 @@ export function FreeformCreator({ onComplete, onCancel, initialConversationId, i
                 className={cn(
                   "p-2 rounded-md text-xs",
                   turn.agent === 'architect' 
-                    ? "bg-blue-500/10 border-l-2 border-blue-500" 
+                    ? "bg-amber-500/10 border-l-2 border-amber-500" 
                     : "bg-purple-500/10 border-l-2 border-purple-500"
                 )}
               >
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-1.5">
                     {turn.agent === 'architect' ? (
-                      <Brain className="w-3 h-3 text-blue-500" />
+                      <Lightbulb className="w-3 h-3 text-amber-500" />
                     ) : (
-                      <Eye className="w-3 h-3 text-purple-500" />
+                      <Scale className="w-3 h-3 text-purple-500" />
                     )}
                     <span className={cn(
                       "font-medium",
-                      turn.agent === 'architect' ? "text-blue-600 dark:text-blue-400" : "text-purple-600 dark:text-purple-400"
+                      turn.agent === 'architect' ? "text-amber-600 dark:text-amber-400" : "text-purple-600 dark:text-purple-400"
                     )}>
                       {turn.agent === 'architect' ? 'Architect' : 'Advisor'}
                     </span>
@@ -504,6 +567,34 @@ export function FreeformCreator({ onComplete, onCancel, initialConversationId, i
                     : turn.content
                   }
                 </div>
+                {/* Show answered questions if present */}
+                {turn.answeredQuestions && turn.answeredQuestions.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-purple-500/20">
+                    <div className="text-[10px] font-medium text-purple-500 uppercase tracking-wider mb-1">
+                      Questions Answered
+                    </div>
+                    {turn.answeredQuestions.map((aq, i) => (
+                      <div key={i} className="text-text-tertiary text-[11px] mb-1">
+                        <span className="text-purple-400">Q:</span> {aq.question}
+                        <br />
+                        <span className="text-emerald-400">A:</span> {aq.answer}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Show decisions if present */}
+                {turn.decisions && turn.decisions.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-purple-500/20">
+                    <div className="text-[10px] font-medium text-purple-500 uppercase tracking-wider mb-1">
+                      Decisions Made
+                    </div>
+                    {turn.decisions.map((d, i) => (
+                      <div key={i} className="text-text-tertiary text-[11px]">
+                        • {d.choice}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -597,8 +688,104 @@ export function FreeformCreator({ onComplete, onCancel, initialConversationId, i
                 ))}
               </div>
 
-              {/* Streaming indicator */}
-              {isStreaming && currentStreamContent === '' && (
+              {/* Live Thinking Panel - shows real-time Architect/Advisor dialogue */}
+              {isStreaming && liveThinking.isActive && (
+                <div className="animate-fade-in rounded-xl bg-surface-elevated border border-outline-light overflow-hidden">
+                  {/* Header with collapse toggle */}
+                  <button
+                    onClick={() => setLiveThinking(prev => ({ ...prev, isExpanded: !prev.isExpanded }))}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-surface-layer border-b border-outline-light hover:bg-surface-elevated transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-accent-yellow rounded-full animate-pulse" />
+                        <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
+                      </div>
+                      <span className="text-sm font-medium text-text-primary">
+                        Thinking... 
+                        <span className="text-text-tertiary ml-2">
+                          (Iteration {liveThinking.iteration})
+                        </span>
+                      </span>
+                    </div>
+                    {liveThinking.isExpanded ? (
+                      <ChevronDown className="w-4 h-4 text-text-tertiary" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-text-tertiary" />
+                    )}
+                  </button>
+
+                  {/* Collapsible content */}
+                  {liveThinking.isExpanded && (
+                    <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
+                      {/* Architect thinking */}
+                      {liveThinking.architectContent && (
+                        <div className="p-3 rounded-lg bg-amber-500/5 border-l-2 border-amber-500">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Lightbulb className="w-4 h-4 text-amber-500" />
+                            <span className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                              Architect
+                            </span>
+                            {liveThinking.currentAgent === 'architect' && (
+                              <span className="flex space-x-0.5 ml-auto">
+                                <span className="w-1 h-1 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                <span className="w-1 h-1 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '100ms' }} />
+                                <span className="w-1 h-1 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '200ms' }} />
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
+                            {liveThinking.architectContent.length > 800 
+                              ? liveThinking.architectContent.slice(-800) + '...'
+                              : liveThinking.architectContent
+                            }
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Advisor thinking */}
+                      {liveThinking.advisorContent && (
+                        <div className="p-3 rounded-lg bg-purple-500/5 border-l-2 border-purple-500">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Scale className="w-4 h-4 text-purple-500" />
+                            <span className="text-xs font-medium text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+                              Advisor
+                            </span>
+                            {liveThinking.currentAgent === 'advisor' && (
+                              <span className="flex space-x-0.5 ml-auto">
+                                <span className="w-1 h-1 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                <span className="w-1 h-1 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '100ms' }} />
+                                <span className="w-1 h-1 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '200ms' }} />
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
+                            {liveThinking.advisorContent.length > 500 
+                              ? liveThinking.advisorContent.slice(0, 500) + '...'
+                              : liveThinking.advisorContent
+                            }
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Show waiting state if no content yet */}
+                      {!liveThinking.architectContent && !liveThinking.advisorContent && (
+                        <div className="flex items-center justify-center py-4">
+                          <div className="flex space-x-1">
+                            <div className="w-2 h-2 bg-accent-yellow rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <div className="w-2 h-2 bg-accent-yellow rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <div className="w-2 h-2 bg-accent-yellow rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                          </div>
+                          <span className="text-text-tertiary text-sm ml-3">Starting...</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Streaming indicator - fallback when thinking panel is collapsed or done */}
+              {isStreaming && !liveThinking.isActive && currentStreamContent === '' && (
                 <div className="flex items-center gap-3 p-4 rounded-xl bg-surface-elevated border border-outline-light">
                   <div className="flex space-x-1">
                     <div className="w-2 h-2 bg-accent-yellow rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />

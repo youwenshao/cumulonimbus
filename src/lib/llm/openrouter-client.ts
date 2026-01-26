@@ -24,17 +24,29 @@ function getConfig(): OpenRouterConfig {
   };
 }
 
-function createOpenAIClient(): OpenAI {
+function createOpenAIClient(apiKey?: string): OpenAI {
   const config = getConfig();
 
   return new OpenAI({
-    apiKey: config.apiKey,
+    apiKey: apiKey || config.apiKey,
     baseURL: config.apiUrl,
     defaultHeaders: {
       'HTTP-Referer': process.env.NEXTAUTH_URL || 'http://localhost:1000',
       'X-Title': 'Cumulonimbus',
     },
   });
+}
+
+/**
+ * Get the effective API key - user's key takes precedence over environment
+ */
+function getEffectiveApiKey(options?: CompletionOptions): string {
+  const userKey = options?.userSettings?.openrouterApiKey;
+  if (userKey) {
+    console.log('🔑 OpenRouter: Using user-provided API key');
+    return userKey;
+  }
+  return getConfig().apiKey;
 }
 
 /**
@@ -84,7 +96,6 @@ export async function checkOpenRouterHealth(): Promise<HealthCheckResult> {
  */
 export function createOpenRouterClient(): LLMClient {
   const config = getConfig();
-  const openai = createOpenAIClient();
 
   return {
     name: 'openrouter',
@@ -96,6 +107,8 @@ export function createOpenRouterClient(): LLMClient {
 
     async complete(options: CompletionOptions): Promise<string> {
       const model = options.model || config.model;
+      const apiKey = getEffectiveApiKey(options);
+      const openai = createOpenAIClient(apiKey);
 
       console.log(`🌐 OpenRouter: Making request to ${model}`);
 
@@ -104,7 +117,7 @@ export function createOpenRouterClient(): LLMClient {
           model,
           messages: options.messages,
           temperature: options.temperature ?? 0.7,
-          max_tokens: options.maxTokens ?? 2048,
+          max_tokens: options.maxTokens ?? 8192,
           stream: false,
         });
 
@@ -120,6 +133,8 @@ export function createOpenRouterClient(): LLMClient {
 
     async *streamComplete(options: CompletionOptions): AsyncGenerator<string> {
       const model = options.model || config.model;
+      const apiKey = getEffectiveApiKey(options);
+      const openai = createOpenAIClient(apiKey);
 
       console.log(`🌐 OpenRouter: Streaming from ${model}`);
 
@@ -127,7 +142,7 @@ export function createOpenRouterClient(): LLMClient {
         model,
         messages: options.messages,
         temperature: options.temperature ?? 0.7,
-        max_tokens: options.maxTokens ?? 2048,
+        max_tokens: options.maxTokens ?? 8192,
         stream: true,
       });
 
@@ -143,6 +158,8 @@ export function createOpenRouterClient(): LLMClient {
 
     async completeJSON<T>(options: CompletionOptions & { schema?: string }): Promise<T> {
       const model = options.model || config.model;
+      const apiKey = getEffectiveApiKey(options);
+      const openai = createOpenAIClient(apiKey);
 
       console.log(`🌐 OpenRouter: JSON request to ${model}`);
 
@@ -170,7 +187,7 @@ export function createOpenRouterClient(): LLMClient {
           model,
           messages,
           temperature: options.temperature ?? 0.3,
-          max_tokens: options.maxTokens ?? 2048,
+          max_tokens: options.maxTokens ?? 8192,
           stream: false,
         });
 

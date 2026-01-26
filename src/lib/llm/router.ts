@@ -18,6 +18,7 @@ import { getOllamaClient, checkOllamaHealth, getOllamaConfig } from './ollama-cl
 import { getOpenRouterClient, checkOpenRouterHealth, getOpenRouterConfig } from './openrouter-client';
 import { getLMStudioClient, checkLMStudioHealth, getLMStudioConfig } from './lmstudio-client';
 import { getDeepseekClient, checkDeepseekHealth, getDeepseekConfig } from './deepseek-client';
+import { decryptApiKey, isEncryptionAvailable } from '@/lib/crypto';
 
 // Health check interval: 30 seconds
 const HEALTH_CHECK_INTERVAL_MS = 30000;
@@ -537,4 +538,57 @@ export async function refreshHealth(): Promise<HealthCheckResult[]> {
  */
 export function setPreferredProvider(provider: LLMProvider): void {
   routerState.primaryProvider = provider;
+}
+
+/**
+ * Decrypt user API keys from encrypted database values
+ * Returns an object with decrypted keys (or undefined if not set)
+ */
+export function decryptUserApiKeys(encryptedKeys: {
+  deepseekApiKey?: string | null;
+  openrouterApiKey?: string | null;
+}): { deepseekApiKey?: string; openrouterApiKey?: string } {
+  const result: { deepseekApiKey?: string; openrouterApiKey?: string } = {};
+
+  if (!isEncryptionAvailable()) {
+    console.warn('⚠️ Encryption not available - user API keys cannot be decrypted');
+    return result;
+  }
+
+  if (encryptedKeys.deepseekApiKey) {
+    try {
+      result.deepseekApiKey = decryptApiKey(encryptedKeys.deepseekApiKey);
+    } catch (error) {
+      console.error('Failed to decrypt DeepSeek API key:', error);
+    }
+  }
+
+  if (encryptedKeys.openrouterApiKey) {
+    try {
+      result.openrouterApiKey = decryptApiKey(encryptedKeys.openrouterApiKey);
+    } catch (error) {
+      console.error('Failed to decrypt OpenRouter API key:', error);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Enhance user settings with decrypted API keys
+ * Merges decrypted API keys into existing user settings
+ */
+export function enhanceUserSettingsWithApiKeys(
+  baseSettings: UserLLMSettings,
+  encryptedKeys: {
+    deepseekApiKey?: string | null;
+    openrouterApiKey?: string | null;
+  }
+): UserLLMSettings {
+  const decryptedKeys = decryptUserApiKeys(encryptedKeys);
+  
+  return {
+    ...baseSettings,
+    ...decryptedKeys,
+  };
 }

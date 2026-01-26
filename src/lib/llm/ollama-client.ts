@@ -144,7 +144,7 @@ export function createOllamaClient(): LLMClient {
           stream: false,
           options: {
             temperature: options.temperature ?? 0.7,
-            num_predict: options.maxTokens ?? 2048,
+            num_predict: options.maxTokens ?? 8192,
           },
         } as OllamaGenerateRequest),
       });
@@ -175,7 +175,7 @@ export function createOllamaClient(): LLMClient {
           stream: true,
           options: {
             temperature: options.temperature ?? 0.7,
-            num_predict: options.maxTokens ?? 2048,
+            num_predict: options.maxTokens ?? 8192,
           },
         } as OllamaGenerateRequest),
       });
@@ -276,7 +276,7 @@ export function createOllamaClient(): LLMClient {
           format: 'json',
           options: {
             temperature: options.temperature ?? 0.3,
-            num_predict: options.maxTokens ?? 2048,
+            num_predict: options.maxTokens ?? 8192,
           },
         } as OllamaGenerateRequest),
       });

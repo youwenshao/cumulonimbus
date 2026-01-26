@@ -15,16 +15,148 @@ import {
   analyzeConversation,
   convertSpecToProjectSpec,
   type FreeformState,
+  type GeneratedSpec,
 } from '@/lib/scaffolder/freeform-architect';
 import {
   orchestrateDualAgent,
   type DualAgentTurn,
 } from '@/lib/scaffolder/dual-agent-orchestrator';
 import { generateAppCode, generateFallbackCode, type GeneratedCode } from '@/lib/scaffolder/code-generator';
+import { CodeGeneratorAgent } from '@/lib/scaffolder-v2/agents/code-generator';
+import type { Schema, LayoutNode, FieldDefinition, FieldType } from '@/lib/scaffolder-v2/types';
 import { specToPrimitives, validateSpec } from '@/lib/scaffolder/compiler';
 import type { UserLLMSettings, LLMProvider } from '@/lib/llm';
+import { enhanceUserSettingsWithApiKeys } from '@/lib/llm';
 
 const encoder = new TextEncoder();
+
+/**
+ * Convert Freeform GeneratedSpec to V2 Schema format
+ */
+function convertToV2Schema(spec: GeneratedSpec): Schema {
+  const mapFieldTypeToV2 = (type: string): FieldType => {
+    const typeMap: Record<string, FieldType> = {
+      string: 'string',
+      number: 'number',
+      boolean: 'boolean',
+      date: 'date',
+      enum: 'enum',
+      relation: 'string', // Simplified for now
+    };
+    return typeMap[type] || 'string';
+  };
+
+  // Combine all entity fields into a single schema
+  const allFields: FieldDefinition[] = [];
+  
+  for (const entity of spec.entities) {
+    for (const field of entity.fields) {
+      allFields.push({
+        name: field.name,
+        label: field.name.charAt(0).toUpperCase() + field.name.slice(1).replace(/([A-Z])/g, ' $1'),
+        type: mapFieldTypeToV2(field.type),
+        required: field.required ?? false,
+        options: field.enumValues,
+        placeholder: `Enter ${field.name}...`,
+      });
+    }
+  }
+
+  // Add standard ID and timestamp fields
+  const hasIdField = allFields.some(f => f.name === 'id');
+  if (!hasIdField) {
+    allFields.unshift({
+      name: 'id',
+      label: 'ID',
+      type: 'string',
+      required: true,
+      generated: true,
+      primaryKey: true,
+    });
+  }
+
+  const hasCreatedAt = allFields.some(f => f.name === 'createdAt');
+  if (!hasCreatedAt) {
+    allFields.push({
+      name: 'createdAt',
+      label: 'Created At',
+      type: 'datetime',
+      required: true,
+      generated: true,
+    });
+  }
+
+  return {
+    name: spec.entities[0]?.name || 'Item',
+    label: spec.entities[0]?.name || 'Items',
+    description: spec.description,
+    fields: allFields,
+  };
+}
+
+/**
+ * Create a default layout from spec views
+ */
+function createDefaultLayout(spec: GeneratedSpec, schemaName: string): LayoutNode {
+  const componentChildren: LayoutNode[] = [];
+
+  // Add form component
+  componentChildren.push({
+    id: 'form-section',
+    type: 'component',
+    component: {
+      type: 'form',
+      props: {
+        schemaName,
+        submitLabel: 'Add Entry',
+      },
+    },
+  });
+
+  // Add views based on spec
+  for (const view of spec.views) {
+    componentChildren.push({
+      id: `${view.type}-${view.title.toLowerCase().replace(/\s+/g, '-')}`,
+      type: 'component',
+      component: {
+        type: view.type as any,
+        variant: 'default',
+        props: {
+          schemaName,
+          title: view.title,
+        },
+      },
+    });
+  }
+
+  // If no specific views, add a table
+  if (componentChildren.length === 1) {
+    componentChildren.push({
+      id: 'data-table',
+      type: 'component',
+      component: {
+        type: 'table',
+        props: {
+          schemaName,
+          title: 'All Data',
+          sortable: true,
+          deletable: true,
+        },
+      },
+    });
+  }
+
+  return {
+    id: 'root',
+    type: 'container',
+    container: {
+      direction: 'column',
+      gap: '1.5rem',
+      padding: '2rem',
+      children: componentChildren,
+    },
+  };
+}
 
 /**
  * Validate generated code for basic syntax issues
@@ -100,7 +232,7 @@ export async function POST(request: NextRequest) {
     console.log(`💬 Message: "${message?.substring(0, 100)}..."`);
     console.log(`🔑 ConversationId: ${conversationId || 'new'}`);
 
-    // Get user LLM settings
+    // Get user LLM settings including API keys
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: {
@@ -108,15 +240,31 @@ export async function POST(request: NextRequest) {
         ollamaEndpoint: true,
         ollamaModel: true,
         ollamaSmallModel: true,
+        lmstudioEndpoint: true,
+        lmstudioModel: true,
+        deepseekApiKey: true,
+        openrouterApiKey: true,
       },
     });
 
-    const userSettings: UserLLMSettings | undefined = user ? {
+    // Build base user settings
+    const baseSettings: UserLLMSettings = user ? {
       provider: (user.preferredLLMProvider as LLMProvider) || undefined,
       ollamaEndpoint: user.ollamaEndpoint || undefined,
       ollamaModel: user.ollamaModel || undefined,
       ollamaSmallModel: user.ollamaSmallModel || undefined,
-    } : undefined;
+      lmstudioEndpoint: user.lmstudioEndpoint || undefined,
+      lmstudioModel: user.lmstudioModel || undefined,
+    } : {};
+
+    // Enhance with decrypted API keys if available
+    const userSettings: UserLLMSettings | undefined = user ? enhanceUserSettingsWithApiKeys(
+      baseSettings,
+      {
+        deepseekApiKey: user.deepseekApiKey,
+        openrouterApiKey: user.openrouterApiKey,
+      }
+    ) : undefined;
 
     switch (action) {
       case 'chat':
@@ -186,8 +334,18 @@ async function handleStreamingChat(
         
         // Run dual-agent orchestration
         for await (const event of orchestrateDualAgent(message, state, userSettings)) {
-          if (event.type === 'internal') {
-            // Stream internal dialogue events (for debugging UI)
+          if (event.type === 'thinking') {
+            // Stream live thinking events for real-time UI updates
+            const thinkingData = {
+              type: 'thinking',
+              agent: event.agent,
+              content: event.content,
+              iteration: event.iteration,
+              isStreaming: event.isStreaming,
+            };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(thinkingData)}\n\n`));
+          } else if (event.type === 'internal') {
+            // Stream internal dialogue events (complete turn)
             const internalData = {
               type: 'internal',
               agent: event.agent,
@@ -195,6 +353,8 @@ async function handleStreamingChat(
               confidence: event.confidence,
               decision: event.decision,
               iteration: event.iteration,
+              answeredQuestions: event.answeredQuestions,
+              decisions: event.decisions,
             };
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(internalData)}\n\n`));
           } else if (event.type === 'chunk') {
@@ -502,57 +662,141 @@ async function handleBuild(
       status: 'GENERATING',
       buildStatus: 'GENERATING',
       subdomain,
+      version: 'v1', // Explicitly set to v1 for Freeform apps
     },
   });
 
   console.log(`📝 App record created with ID: ${app.id}`);
 
-  // Generate code
+  // Generate code using V2 Code Generator for better quality
   let generatedCode: GeneratedCode = {
     pageComponent: '',
     types: '',
   };
+  const allComponents: Record<string, string> = {};
 
   try {
+    console.log('🚀 Using V2 Code Generator for enhanced output...');
+    
+    // Convert to V2 Schema format
+    const v2Schema = convertToV2Schema(state.spec);
+    const layout = createDefaultLayout(state.spec, v2Schema.name);
+    
+    console.log(`📐 V2 Schema: ${v2Schema.name} with ${v2Schema.fields.length} fields`);
+    
+    // Use V2 CodeGeneratorAgent
+    const codeGenAgent = new CodeGeneratorAgent();
     let hadError = false;
-    for await (const chunk of generateAppCode(projectSpec as any, app.id)) {
-      if (chunk.type === 'code' && chunk.component === 'page') {
-        generatedCode.pageComponent += chunk.content;
-      } else if (chunk.type === 'code' && chunk.component === 'types') {
-        generatedCode.types = (generatedCode.types || '') + chunk.content;
-      } else if (chunk.type === 'complete') {
-        generatedCode.pageComponent = chunk.content;
-        break;
-      } else if (chunk.type === 'error') {
-        console.log('⚠️ Code generation error event, will use fallback');
-        hadError = true;
-        break;
+    
+    try {
+      for await (const event of codeGenAgent.generateAppIncremental(v2Schema, layout, app.id)) {
+        if (event.type === 'types' && event.code) {
+          generatedCode.types = event.code;
+          allComponents['lib/types.ts'] = event.code;
+          console.log(`  ✓ Generated types (${event.code.length} chars)`);
+        } else if (event.type === 'component' && event.code) {
+          if (event.name === 'api') {
+            allComponents['lib/api.ts'] = event.code;
+          } else if (event.name === 'hooks') {
+            allComponents['lib/hooks.ts'] = event.code;
+          } else if (event.name === 'validators') {
+            allComponents['lib/validators.ts'] = event.code;
+          } else {
+            allComponents[`components/${event.name}.tsx`] = event.code;
+          }
+          console.log(`  ✓ Generated component: ${event.name} (${event.code.length} chars)`);
+        } else if (event.type === 'page' && event.code) {
+          generatedCode.pageComponent = event.code;
+          allComponents['App.tsx'] = event.code;
+          console.log(`  ✓ Generated page (${event.code.length} chars)`);
+        } else if (event.type === 'error') {
+          console.log(`⚠️ V2 Code generation error: ${event.error}`);
+          hadError = true;
+        }
+      }
+
+      // Ensure App.tsx is set if pageComponent was generated
+      if (generatedCode.pageComponent && !allComponents['App.tsx']) {
+        allComponents['App.tsx'] = generatedCode.pageComponent;
+      }
+
+      // If V2 generated modular components, combine them into page component
+      if (!generatedCode.pageComponent && Object.keys(allComponents).length > 0) {
+        // Use the page wrapper or combine components
+        if (allComponents['page-wrapper']) {
+          generatedCode.pageComponent = allComponents['page-wrapper'];
+        } else {
+          // Fallback: use the first component that looks like a page
+          const pageComponent = Object.entries(allComponents).find(([name]) => 
+            name.includes('page') || name.includes('Page') || name.includes('main')
+          );
+          if (pageComponent) {
+            generatedCode.pageComponent = pageComponent[1];
+          }
+        }
+      }
+
+      // Store all components for potential future use
+      if (Object.keys(allComponents).length > 0) {
+        (generatedCode as any).components = allComponents;
+      }
+
+    } catch (v2Error) {
+      console.error('V2 Code generation failed:', v2Error);
+      hadError = true;
+    }
+
+    // Fallback to V1 if V2 failed
+    if (hadError || !generatedCode.pageComponent) {
+      console.log('🔄 V2 failed, falling back to V1 code generation...');
+      
+      for await (const chunk of generateAppCode(projectSpec as any, app.id)) {
+        if (chunk.type === 'code' && chunk.component === 'page') {
+          generatedCode.pageComponent += chunk.content;
+        } else if (chunk.type === 'code' && chunk.component === 'types') {
+          generatedCode.types = (generatedCode.types || '') + chunk.content;
+        } else if (chunk.type === 'complete') {
+          generatedCode.pageComponent = chunk.content;
+          // Ensure App.tsx is set for V1 fallback too
+          allComponents['App.tsx'] = chunk.content;
+          break;
+        } else if (chunk.type === 'error') {
+          console.log('⚠️ V1 Code generation also failed');
+          break;
+        }
       }
     }
     
-    // Use fallback if we got an error event or no code was generated
-    if (hadError || !generatedCode.pageComponent) {
-      console.log('🔄 Using fallback code generation');
-      generatedCode.pageComponent = generateFallbackCode(projectSpec as any, app.id);
+    // Final fallback to template
+    if (!generatedCode.pageComponent) {
+      console.log('🔄 Using fallback template code generation');
+      const fallback = generateFallbackCode(projectSpec as any, app.id);
+      generatedCode.pageComponent = fallback;
+      allComponents['App.tsx'] = fallback;
     } else {
       // Validate the generated code for basic syntax issues
       const syntaxError = validateCodeSyntax(generatedCode.pageComponent);
       if (syntaxError) {
         console.log(`⚠️ Generated code has syntax errors: ${syntaxError}`);
         console.log('🔄 Using fallback code generation due to syntax errors');
-        generatedCode.pageComponent = generateFallbackCode(projectSpec as any, app.id);
+        const fallback = generateFallbackCode(projectSpec as any, app.id);
+        generatedCode.pageComponent = fallback;
+        allComponents['App.tsx'] = fallback;
       }
     }
   } catch (error) {
-    console.error('Code generation failed, using fallback:', error);
-    generatedCode.pageComponent = generateFallbackCode(projectSpec as any, app.id);
+    console.error('All code generation attempts failed, using fallback:', error);
+    const fallback = generateFallbackCode(projectSpec as any, app.id);
+    generatedCode.pageComponent = fallback;
+    allComponents['App.tsx'] = fallback;
   }
 
   // Update app with generated code
-  await prisma.app.update({
+  const updatedApp = await prisma.app.update({
     where: { id: app.id },
     data: {
       generatedCode: JSON.stringify(generatedCode),
+      componentFiles: JSON.stringify(allComponents),
       status: 'ACTIVE',
       buildStatus: 'COMPLETED',
     },

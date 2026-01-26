@@ -22,7 +22,7 @@ interface SupervisorMessage {
   correlationId?: string;
 }
 
-const { appId, subdomain, code, appName, appDescription, initialData } = workerData;
+const { appId, subdomain, code, componentFiles, appName, appDescription, initialData } = workerData;
 const prisma = new PrismaClient();
 
 async function start() {
@@ -114,6 +114,59 @@ async function start() {
           throw err;
         }
       }
+
+      // Handle relative imports from componentFiles
+      if (moduleName.startsWith('./') || moduleName.startsWith('../')) {
+        // Normalize the path (very basic)
+        let normalizedPath = moduleName.startsWith('./') ? moduleName.substring(2) : moduleName;
+        
+        // Try common extensions and directory patterns
+        const variations = [
+          normalizedPath,
+          normalizedPath + '.tsx',
+          normalizedPath + '.ts',
+          normalizedPath + '.jsx',
+          normalizedPath + '.js',
+          normalizedPath + '/index.ts',
+          normalizedPath + '/index.tsx',
+        ];
+
+        for (const pathWithExt of variations) {
+          // Try exact match, then with ./ prefix removed, then with components/ or lib/ prefix
+          const keysToTry = [
+            pathWithExt,
+            pathWithExt.startsWith('./') ? pathWithExt.substring(2) : pathWithExt,
+            `components/${pathWithExt}`,
+            `lib/${pathWithExt}`,
+          ];
+
+          for (const key of keysToTry) {
+            if (componentFiles && componentFiles[key]) {
+              console.log(`[Worker ${appId}] Resolving relative import: ${moduleName} -> ${key}`);
+              
+              // Transpile the dependency on the fly
+              try {
+                const fileContent = componentFiles[key];
+                const depResult = esbuild.transformSync(fileContent, {
+                  loader: key.endsWith('ts') || key.endsWith('tsx') ? 'tsx' : 'jsx',
+                  format: 'cjs',
+                  target: 'node18',
+                });
+                
+              const depMod = { exports: {} as any };
+              const depExecFn = new Function('React', 'require', 'module', 'exports', depResult.code);
+              depExecFn(React, nebulaRequire, depMod, depMod.exports);
+              
+              return depMod.exports;
+            } catch (err: any) {
+                console.error(`[Worker ${appId}] Failed to transpile dependency ${key}:`, err.message);
+                throw err;
+              }
+            }
+          }
+        }
+      }
+
       try {
         const result = require(moduleName);
         return result;
@@ -243,6 +296,51 @@ async function start() {
         console.warn(`[Worker ${appId}] SSR failed:`, err.message);
       }
 
+    const browserImports: Record<string, string> = {
+      "react": "https://esm.sh/react@18.2.0",
+      "react-dom": "https://esm.sh/react-dom@18.2.0",
+      "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+      "lucide-react": "https://esm.sh/lucide-react@0.468.0?deps=react@18.2.0",
+      "framer-motion": "https://esm.sh/framer-motion@11.15.0?deps=react@18.2.0",
+      "date-fns": "https://esm.sh/date-fns@3.6.0",
+      "clsx": "https://esm.sh/clsx@2.1.1",
+      "tailwind-merge": "https://esm.sh/tailwind-merge@2.6.0",
+      "recharts": "https://esm.sh/recharts@2.15.0?deps=react@18.2.0",
+      "react-hook-form": "https://esm.sh/react-hook-form@7.54.0?deps=react@18.2.0",
+      "zod": "https://esm.sh/zod@3.24.1",
+      "nanoid": "https://esm.sh/nanoid@5.0.7",
+      "@/lib/utils": "data:text/javascript,export function cn(...args){return args.filter(Boolean).join(' ')}"
+    };
+
+    // Add component files to import map as data URIs
+    if (componentFiles) {
+      for (const [filename, fileCode] of Object.entries(componentFiles)) {
+        // Skip the main App.tsx as it's handled by hydration
+        if (filename === 'App.tsx') continue;
+        
+        // Transpile to ESM for browser
+        try {
+          const browserDepResult = esbuild.transformSync(fileCode as string, {
+            loader: filename.endsWith('ts') || filename.endsWith('tsx') ? 'tsx' : 'jsx',
+            format: 'esm',
+            target: 'es2020',
+          });
+          
+          const base64Code = Buffer.from(browserDepResult.code, 'utf8').toString('base64');
+          const dataUri = `data:text/javascript;base64,${base64Code}`;
+          
+          // Add variations for resolution (./lib/hooks, lib/hooks, etc.)
+          const baseName = filename.replace(/\.(tsx|ts|jsx|js)$/, '');
+          browserImports[`./${baseName}`] = dataUri;
+          browserImports[baseName] = dataUri;
+          browserImports[`./${filename}`] = dataUri;
+          browserImports[filename] = dataUri;
+        } catch (e) {
+          console.warn(`[Worker ${appId}] Failed to transpile ${filename} for browser:`, e);
+        }
+      }
+    }
+
       return {
         status: 200,
         body: `
@@ -256,21 +354,7 @@ async function start() {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script type="importmap">
     {
-      "imports": {
-        "react": "https://esm.sh/react@18.2.0",
-        "react-dom": "https://esm.sh/react-dom@18.2.0",
-        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-        "lucide-react": "https://esm.sh/lucide-react@0.468.0?deps=react@18.2.0",
-        "framer-motion": "https://esm.sh/framer-motion@11.15.0?deps=react@18.2.0",
-        "date-fns": "https://esm.sh/date-fns@3.6.0",
-        "clsx": "https://esm.sh/clsx@2.1.1",
-        "tailwind-merge": "https://esm.sh/tailwind-merge@2.6.0",
-        "recharts": "https://esm.sh/recharts@2.15.0?deps=react@18.2.0",
-        "react-hook-form": "https://esm.sh/react-hook-form@7.54.0?deps=react@18.2.0",
-        "zod": "https://esm.sh/zod@3.24.1",
-        "nanoid": "https://esm.sh/nanoid@5.0.7",
-        "@/lib/utils": "data:text/javascript,export function cn(...args){return args.filter(Boolean).join(' ')}"
-      }
+      "imports": ${JSON.stringify(browserImports, null, 2)}
     }
     </script>
     <script>

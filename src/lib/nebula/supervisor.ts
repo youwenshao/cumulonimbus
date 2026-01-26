@@ -157,6 +157,7 @@ class NebulaSupervisor {
         appId: app.id,
         subdomain: app.subdomain,
         code,
+        componentFiles,
         appName: app.name,
         appDescription: app.description,
         initialData: typeof app.data === 'string' ? JSON.parse(app.data) : (app.data || [])

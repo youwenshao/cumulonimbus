@@ -21,6 +21,15 @@ model User {
   ollamaSmallModel     String?        @default("qwen3:4b")
   preferredLLMProvider String?        @default("auto")
   
+  // User API Keys (encrypted)
+  deepseekApiKey       String?        // Encrypted DeepSeek API key
+  openrouterApiKey     String?        // Encrypted OpenRouter API key
+  
+  // Advanced LLM Settings
+  manualModelSelection Boolean        @default(false)
+  manualOllamaModel    String?        // Manually selected Ollama model
+  manualLMStudioModel  String?        // Manually selected LM Studio model
+  
   // Subscription fields
   plan                 String           @default("FREE")
   subscriptionStatus   String?        @default("ACTIVE")

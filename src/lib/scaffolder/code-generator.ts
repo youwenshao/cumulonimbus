@@ -238,7 +238,7 @@ export async function* generateAppCode(
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.3,
-      maxTokens: 4096,
+      maxTokens: 8192,
     })) {
       fullCode += chunk;
       chunkCount++;
@@ -357,7 +357,7 @@ Generate the FIXED page.tsx code now, addressing all the reported issues:`;
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.3,
-      maxTokens: 4096,
+      maxTokens: 8192,
     })) {
       fullCode += chunk;
       chunkCount++;

@@ -123,7 +123,7 @@ export function createLMStudioClient(): LLMClient {
           model,
           messages: options.messages,
           temperature: options.temperature ?? 0.7,
-          max_tokens: options.maxTokens ?? 2048,
+          max_tokens: options.maxTokens ?? 8192,
           stream: false,
         }),
       });
@@ -154,7 +154,7 @@ export function createLMStudioClient(): LLMClient {
           model,
           messages: options.messages,
           temperature: options.temperature ?? 0.7,
-          max_tokens: options.maxTokens ?? 2048,
+          max_tokens: options.maxTokens ?? 8192,
           stream: true,
         }),
       });
@@ -240,7 +240,7 @@ export function createLMStudioClient(): LLMClient {
           model,
           messages,
           temperature: options.temperature ?? 0.3,
-          max_tokens: options.maxTokens ?? 2048,
+          max_tokens: options.maxTokens ?? 8192,
           stream: false,
         }),
       });

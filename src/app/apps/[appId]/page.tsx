@@ -33,29 +33,57 @@ export default async function AppPage({ params }: PageProps) {
   }
 
   // For v2 apps, use Schema type; for v1 apps, use ProjectSpec
-  const spec = app.version === 'v2'
-    ? (typeof app.spec === 'string' ? JSON.parse(app.spec) : app.spec) as unknown as Schema
-    : (typeof app.spec === 'string' ? JSON.parse(app.spec) : app.spec) as unknown as ProjectSpec;
+  let spec: Schema | ProjectSpec;
+  try {
+    spec = app.version === 'v2'
+      ? (typeof app.spec === 'string' ? JSON.parse(app.spec) : app.spec) as unknown as Schema
+      : (typeof app.spec === 'string' ? JSON.parse(app.spec) : app.spec) as unknown as ProjectSpec;
+  } catch (e) {
+    console.error('Failed to parse app spec:', e);
+    spec = app.version === 'v2' ? { name: '', label: '', fields: [] } : { name: '', description: '', dataStore: { name: '', label: '', fields: [] }, views: [], category: '', features: {} } as any;
+  }
   
-  const data = (typeof app.data === 'string' ? JSON.parse(app.data) : (app.data || [])) as DataRecord[];
+  let data: DataRecord[] = [];
+  try {
+    data = (typeof app.data === 'string' ? JSON.parse(app.data) : (app.data || [])) as DataRecord[];
+  } catch (e) {
+    console.error('Failed to parse app data:', e);
+  }
   
-  const generatedCode = (typeof app.generatedCode === 'string' 
-    ? JSON.parse(app.generatedCode) 
-    : app.generatedCode) as unknown as GeneratedCode | null;
+  let generatedCode: GeneratedCode | null = null;
+  try {
+    generatedCode = (typeof app.generatedCode === 'string' 
+      ? JSON.parse(app.generatedCode) 
+      : app.generatedCode) as unknown as GeneratedCode | null;
+  } catch (e) {
+    console.error('Failed to parse generated code:', e);
+  }
     
-  const componentFiles = (typeof app.componentFiles === 'string'
-    ? JSON.parse(app.componentFiles)
-    : app.componentFiles) as Record<string, string> | null;
+  let componentFiles: Record<string, string> | null = null;
+  try {
+    componentFiles = (typeof app.componentFiles === 'string'
+      ? JSON.parse(app.componentFiles)
+      : app.componentFiles) as Record<string, string> | null;
+  } catch (e) {
+    console.error('Failed to parse component files:', e);
+  }
 
   // Check if this is a V2 app (schema-based)
   if (app.version === 'v2') {
+    let layout = null;
+    try {
+      layout = typeof app.layoutDefinition === 'string' ? JSON.parse(app.layoutDefinition) : app.layoutDefinition as any;
+    } catch (e) {
+      console.error('Failed to parse layout definition:', e);
+    }
+
     return (
       <V2Runtime
         appId={app.id}
         name={app.name}
         description={app.description}
         schema={spec as Schema}
-        layout={typeof app.layoutDefinition === 'string' ? JSON.parse(app.layoutDefinition) : app.layoutDefinition as any}
+        layout={layout}
         componentFiles={componentFiles as any}
         initialData={data}
       />

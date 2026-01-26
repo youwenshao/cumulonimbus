@@ -34,6 +34,8 @@ const CODE_GEN_SYSTEM_PROMPT = `You are an expert React/TypeScript developer gen
 - Generate ONLY the code - no explanations, no markdown code blocks
 - Use 'use client' directive for client components
 - Follow React best practices (hooks, proper state management)
+- Use NAMED EXPORTS for all components (e.g., export function ComponentName...) - DO NOT use default exports
+- Use NAMED IMPORTS for all internal dependencies (e.g., import { ComponentName } from './components/ComponentName')
 
 ### COMPILATION REQUIREMENTS
 - Must compile with TypeScript strict mode
@@ -112,7 +114,7 @@ export class CodeGeneratorAgent extends BaseAgent {
       name: 'CodeGenerator',
       description: 'Generates modular React components',
       temperature: 0.2,
-      maxTokens: 4096,
+      maxTokens: 8192,
     });
   }
 
@@ -257,7 +259,7 @@ export class CodeGeneratorAgent extends BaseAgent {
         { role: 'user', content: prompt },
       ],
       temperature: 0.2,
-      maxTokens: 2048,
+      maxTokens: 8192,
     })) {
       code += chunk;
     }

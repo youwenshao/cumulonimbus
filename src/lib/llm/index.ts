@@ -57,6 +57,8 @@ export {
   checkAllHealth,
   refreshHealth,
   setPreferredProvider,
+  decryptUserApiKeys,
+  enhanceUserSettingsWithApiKeys,
   // Convenience functions
   complete,
   streamComplete,

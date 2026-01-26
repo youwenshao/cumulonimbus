@@ -7,3 +7,8 @@ export {
   type LLMSettings, 
   type LLMProviderSettingsProps,
 } from './LLMProviderSettings';
+
+export {
+  AdvancedLLMSettings,
+  type AdvancedLLMSettingsProps,
+} from './AdvancedLLMSettings';

@@ -62,7 +62,8 @@ export interface DualAgentResult {
  * Events emitted during orchestration
  */
 export type OrchestratorEvent =
-  | { type: 'internal'; agent: 'architect' | 'advisor'; content: string; confidence?: number; decision?: 'iterate' | 'approve'; iteration: number }
+  | { type: 'thinking'; agent: 'architect' | 'advisor'; content: string; iteration: number; isStreaming?: boolean }
+  | { type: 'internal'; agent: 'architect' | 'advisor'; content: string; confidence?: number; decision?: 'iterate' | 'approve'; iteration: number; answeredQuestions?: Array<{ question: string; answer: string }>; decisions?: Array<{ choice: string; rationale: string }> }
   | { type: 'chunk'; content: string }
   | { type: 'analysis'; analysis: ArchitectAnalysis }
   | { type: 'done'; result: DualAgentResult };
@@ -87,6 +88,18 @@ function getArchitectPrompt(
 
   let feedbackSection = '';
   if (advisorFeedback && iteration && iteration > 1) {
+    // Include answered questions from the Advisor
+    const answeredQuestionsSection = advisorFeedback.answeredQuestions && advisorFeedback.answeredQuestions.length > 0
+      ? `\n\nQUESTIONS ANSWERED BY ADVISOR (incorporate these into your response):
+${advisorFeedback.answeredQuestions.map(aq => `Q: ${aq.question}\nA: ${aq.answer}\nReasoning: ${aq.reasoning}`).join('\n\n')}`
+      : '';
+
+    // Include decisions made by the Advisor
+    const decisionsSection = advisorFeedback.decisions && advisorFeedback.decisions.length > 0
+      ? `\n\nDECISIONS MADE BY ADVISOR (use these choices):
+${advisorFeedback.decisions.map(d => `- ${d.choice}: ${d.rationale}`).join('\n')}`
+      : '';
+
     feedbackSection = `
 
 ADVISOR FEEDBACK (Iteration ${iteration - 1}):
@@ -95,8 +108,11 @@ Critique: ${advisorFeedback.critique}
 Suggestions: ${advisorFeedback.suggestions.join('; ') || 'None'}
 ${advisorFeedback.refinedApproach ? `Refined Approach: ${advisorFeedback.refinedApproach}` : ''}
 ${advisorFeedback.gaps ? `Gaps to Address: ${advisorFeedback.gaps.join(', ')}` : ''}
+${answeredQuestionsSection}
+${decisionsSection}
 
-Please incorporate this feedback to improve your response.`;
+IMPORTANT: The Advisor has answered questions on behalf of the user. Do NOT re-ask these questions.
+Instead, incorporate the Advisor's answers and proceed with the design.`;
   }
 
   return `You are having a conversation about building an app. Continue the conversation naturally.
@@ -113,10 +129,10 @@ ${feedbackSection}
 
 Guidelines:
 - If you understand what they want, describe what you'll build
-- If you need clarification, ask a specific question (not generic templates)
+- Think out loud about design choices - your Advisor will help decide
 - If readiness is high (>70), indicate you're ready to build
 - Be conversational, not robotic
-- Show your reasoning briefly
+- Avoid asking the user questions unless absolutely necessary about core purpose
 
 Respond naturally as the architect.`;
 }
@@ -184,8 +200,18 @@ export async function* orchestrateDualAgent(
       { role: 'user', content: architectPrompt },
     ];
 
-    // Stream the Architect's response
+    // Emit thinking start event for Architect
+    yield {
+      type: 'thinking',
+      agent: 'architect',
+      content: '',
+      iteration,
+      isStreaming: true,
+    };
+
+    // Stream the Architect's response with real-time thinking events
     currentResponse = '';
+    let thinkingBuffer = '';
     try {
       for await (const chunk of streamComplete({
         messages: architectMessages,
@@ -193,6 +219,30 @@ export async function* orchestrateDualAgent(
         userSettings,
       })) {
         currentResponse += chunk;
+        thinkingBuffer += chunk;
+        
+        // Emit thinking updates periodically (every ~50 chars or on newlines)
+        if (thinkingBuffer.length >= 50 || chunk.includes('\n')) {
+          yield {
+            type: 'thinking',
+            agent: 'architect',
+            content: thinkingBuffer,
+            iteration,
+            isStreaming: true,
+          };
+          thinkingBuffer = '';
+        }
+      }
+      
+      // Emit any remaining buffer
+      if (thinkingBuffer.length > 0) {
+        yield {
+          type: 'thinking',
+          agent: 'architect',
+          content: thinkingBuffer,
+          iteration,
+          isStreaming: true,
+        };
       }
     } catch (error) {
       console.error(`  │  ❌ Architect stream failed:`, error);
@@ -209,7 +259,7 @@ export async function* orchestrateDualAgent(
     };
     internalDialogue.push(architectTurn);
 
-    // Emit internal event for Architect
+    // Emit internal event for Architect (complete)
     yield {
       type: 'internal',
       agent: 'architect',
@@ -222,6 +272,15 @@ export async function* orchestrateDualAgent(
     // Get structured analysis
     currentAnalysis = await analyzeConversation(userMessage, state, userSettings);
     architectTurn.metadata!.readinessScore = currentAnalysis.readinessScore;
+
+    // Emit thinking event for Advisor
+    yield {
+      type: 'thinking',
+      agent: 'advisor',
+      content: 'Reviewing response and making decisions...',
+      iteration,
+      isStreaming: true,
+    };
 
     // Now have Advisor review the response
     console.log(`  ├─ 🔍 Advisor (reviewing iteration ${iteration})`);
@@ -238,11 +297,22 @@ export async function* orchestrateDualAgent(
     advisorFeedbackHistory.push(review);
     finalConfidence = review.confidence;
 
+    // Build Advisor's thinking content with answered questions
+    let advisorThinkingContent = review.critique;
+    if (review.answeredQuestions && review.answeredQuestions.length > 0) {
+      advisorThinkingContent += '\n\nAnswered Questions:\n' + 
+        review.answeredQuestions.map(aq => `• ${aq.question} → ${aq.answer}`).join('\n');
+    }
+    if (review.decisions && review.decisions.length > 0) {
+      advisorThinkingContent += '\n\nDecisions Made:\n' + 
+        review.decisions.map(d => `• ${d.choice}`).join('\n');
+    }
+
     // Log Advisor's turn
     const advisorTurn: DualAgentTurn = {
       id: generateId(),
       agent: 'advisor',
-      content: review.critique,
+      content: advisorThinkingContent,
       timestamp: new Date(),
       metadata: {
         confidence: review.confidence,
@@ -252,22 +322,34 @@ export async function* orchestrateDualAgent(
     };
     internalDialogue.push(advisorTurn);
 
-    // Emit internal event for Advisor
+    // Emit internal event for Advisor with full details
     yield {
       type: 'internal',
       agent: 'advisor',
-      content: review.critique,
+      content: advisorThinkingContent,
       confidence: review.confidence,
       decision: review.decision,
       iteration,
+      answeredQuestions: review.answeredQuestions?.map(aq => ({ question: aq.question, answer: aq.answer })),
+      decisions: review.decisions,
     };
 
     console.log(`  │  ${formatReviewSummary(review, iteration)}`);
+    if (review.answeredQuestions && review.answeredQuestions.length > 0) {
+      console.log(`  │  📝 Advisor answered ${review.answeredQuestions.length} question(s)`);
+    }
+    if (review.decisions && review.decisions.length > 0) {
+      console.log(`  │  ⚡ Advisor made ${review.decisions.length} decision(s)`);
+    }
 
-    // Check if approved
+    // Check if approved (also approve if Advisor says no user input needed even with questions)
+    const noQuestionsRemaining = !review.needsUserInput;
     if (review.decision === 'approve' || review.confidence >= MIN_CONFIDENCE_TO_APPROVE) {
       approved = true;
       console.log(`  └─ ✅ Final response ready (${iteration} iteration${iteration > 1 ? 's' : ''}, ${finalConfidence}% confidence)`);
+    } else if (noQuestionsRemaining && review.answeredQuestions && review.answeredQuestions.length > 0) {
+      // Advisor answered questions, iterate to incorporate answers
+      console.log(`  │  🔄 Iterating to incorporate Advisor's answers...`);
     } else {
       console.log(`  │  🔄 Iterating...`);
     }

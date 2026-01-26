@@ -4,6 +4,7 @@ import { getServerSession } from '@/lib/auth';
 import prisma from '@/lib/db';
 import { generateId, generateSubdomain } from '@/lib/utils';
 import type { UserLLMSettings, LLMProvider } from '@/lib/llm';
+import { enhanceUserSettingsWithApiKeys } from '@/lib/llm';
 import { 
   architectAgent, 
   adaptiveArchitect,
@@ -138,7 +139,7 @@ async function handleChat(
   // Add user message to state
   state = addMessageToState(state, 'user', message, { phase: state.phase }) as DynamicConversationState;
 
-  // Get user LLM settings
+  // Get user LLM settings including API keys
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -146,19 +147,31 @@ async function handleChat(
       ollamaEndpoint: true,
       ollamaModel: true,
       ollamaSmallModel: true,
-      // lmstudioEndpoint: true,  // TODO: Enable after DB migration
-      // lmstudioModel: true,     // TODO: Enable after DB migration
+      lmstudioEndpoint: true,
+      lmstudioModel: true,
+      deepseekApiKey: true,
+      openrouterApiKey: true,
     },
   });
 
-  const userSettings: UserLLMSettings | undefined = user ? {
+  // Build base user settings
+  const baseSettings: UserLLMSettings = user ? {
     provider: (user.preferredLLMProvider || undefined) as LLMProvider | undefined,
     ollamaEndpoint: user.ollamaEndpoint || undefined,
     ollamaModel: user.ollamaModel || undefined,
     ollamaSmallModel: user.ollamaSmallModel || undefined,
-    // lmstudioEndpoint: user.lmstudioEndpoint || undefined,  // TODO: Enable after DB migration
-    // lmstudioModel: user.lmstudioModel || undefined,        // TODO: Enable after DB migration
-  } : undefined;
+    lmstudioEndpoint: user.lmstudioEndpoint || undefined,
+    lmstudioModel: user.lmstudioModel || undefined,
+  } : {};
+
+  // Enhance with decrypted API keys if available
+  const userSettings: UserLLMSettings | undefined = user ? enhanceUserSettingsWithApiKeys(
+    baseSettings,
+    {
+      deepseekApiKey: user.deepseekApiKey,
+      openrouterApiKey: user.openrouterApiKey,
+    }
+  ) : undefined;
 
   // Create checkpoint before processing
   if (state.schemas.length > 0 || state.layout) {

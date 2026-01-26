@@ -104,12 +104,44 @@ const ANALYSIS_SCHEMA = `{
 // Export for use by dual-agent orchestrator
 export const ARCHITECT_SYSTEM_PROMPT = `You are an autonomous AI Architect that builds apps through natural conversation.
 
+## PLATFORM CONTEXT - CRITICAL
+You are building hosted web apps for the Cumulonimbus platform.
+
+PLATFORM ARCHITECTURE:
+- Apps run as isolated React components inside the platform's sandbox
+- Data is automatically persisted via /api/apps/{appId}/data endpoints
+- No external cloud storage needed - the platform handles all persistence
+- No authentication/login needed - handled by platform
+- Available API: GET (fetch all), POST (create), PUT (update), DELETE (remove)
+- Apps are single-page React components with full access to modern libraries
+- Styling uses Tailwind CSS with dark theme support
+
+PLATFORM CAPABILITIES:
+- In-app authentication systems are possible (apps run in containers)
+- Local databases like SQLite are supported
+- Full backend logic can run within the container
+- Complex stateful applications are supported
+
+DO NOT ASK ABOUT:
+- Third-party cloud storage (AWS S3, GCP, Firebase Storage) - not available
+- External database services (managed Postgres, MongoDB Atlas) - use local SQLite instead
+- Third-party distribution or app stores - apps live within the platform
+- External API integrations requiring secrets - not supported
+- CDN or edge deployment - handled by platform
+
+ALWAYS INFER:
+- Data persistence: Platform's built-in data API or local SQLite
+- File storage: Platform's built-in storage (no external cloud)
+- Authentication: Can implement in-app auth if needed, or use platform context
+- State management: React useState/useReducer (no Redux needed)
+
 ## CORE PRINCIPLES
 1. Ask questions ONLY when truly necessary - most details can be inferred
 2. Infer technical details (field types, validations, UI patterns) from context
 3. Learn from conversation context - each message builds on the previous
 4. Decide dynamically when you have enough information to build
 5. Generate specs without rigid templates - be creative and adaptive
+6. Trust your Advisor partner to fill in gaps - work as a team
 
 ## CAPABILITIES
 - Extract entities and relationships from natural language descriptions
@@ -130,6 +162,7 @@ export const ARCHITECT_SYSTEM_PROMPT = `You are an autonomous AI Architect that 
 - When asking questions, make them specific and contextual (never generic templates)
 - Show your thinking process briefly
 - When ready, clearly indicate you can build now
+- Frame questions as "thinking out loud" - your Advisor will help decide
 
 ## EXAMPLES OF GOOD INFERENCE
 - "track expenses" → Expense entity with amount(number), description(string), date(date), category(enum)
@@ -145,7 +178,8 @@ ASK when:
 INFER when:
 - Standard field types (dates, names, descriptions)
 - Common patterns (CRUD operations, basic views)
-- UI choices that can be changed later`;
+- UI choices that can be changed later
+- Technical implementation details (your Advisor handles these)`;
 
 /**
  * Analyze user message and conversation history to determine next action
@@ -348,15 +382,25 @@ export function convertSpecToProjectSpec(spec: GeneratedSpec) {
     dataStore: {
       name: spec.entities[0]?.name || 'items',
       label: spec.entities[0]?.name || 'Items',
-      fields: spec.entities.flatMap(entity =>
-        entity.fields.map(field => ({
-          name: field.name,
-          label: field.name.charAt(0).toUpperCase() + field.name.slice(1).replace(/([A-Z])/g, ' $1'),
-          type: mapFieldType(field.type),
-          required: field.required ?? false,
-          options: field.enumValues,
-        }))
-      ),
+      fields: (() => {
+        const allFields = spec.entities.flatMap(entity =>
+          entity.fields.map(field => ({
+            name: field.name,
+            label: field.name.charAt(0).toUpperCase() + field.name.slice(1).replace(/([A-Z])/g, ' $1'),
+            type: mapFieldType(field.type),
+            required: field.required ?? false,
+            options: field.enumValues,
+          }))
+        );
+        
+        // Filter out duplicate field names, keeping the first occurrence
+        const seen = new Set<string>();
+        return allFields.filter(field => {
+          if (seen.has(field.name)) return false;
+          seen.add(field.name);
+          return true;
+        });
+      })(),
     },
     views: spec.views.map(view => ({
       type: view.type,

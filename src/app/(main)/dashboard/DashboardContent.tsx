@@ -431,7 +431,7 @@ export function DashboardContent({ apps: initialApps, conversations: initialConv
                     {conversations.length} active {conversations.length === 1 ? 'conversation' : 'conversations'}
                   </p>
                   <Button asChild>
-                    <Link href="/create?mode=demo" className="flex items-center gap-2">
+                    <Link href="/create" className="flex items-center gap-2">
                       <Plus className="w-4 h-4" />
                       New Conversation
                     </Link>
@@ -714,7 +714,7 @@ function EmptyConversationsState() {
           Start a new conversation with the AI Architect to design and build your next app.
         </p>
         <Button asChild size="lg">
-          <Link href="/create?mode=demo" className="flex items-center gap-2">
+          <Link href="/create" className="flex items-center gap-2">
             <Plus className="w-4 h-4" />
             Start New Conversation
           </Link>

@@ -19,13 +19,25 @@ function getConfig(): DeepseekConfig {
   };
 }
 
-function createOpenAIClient(): OpenAI {
+function createOpenAIClient(apiKey?: string): OpenAI {
   const config = getConfig();
 
   return new OpenAI({
-    apiKey: config.apiKey,
+    apiKey: apiKey || config.apiKey,
     baseURL: config.apiUrl,
   });
+}
+
+/**
+ * Get the effective API key - user's key takes precedence over environment
+ */
+function getEffectiveApiKey(options?: CompletionOptions): string {
+  const userKey = options?.userSettings?.deepseekApiKey;
+  if (userKey) {
+    console.log('🔑 DeepSeek: Using user-provided API key');
+    return userKey;
+  }
+  return getConfig().apiKey;
 }
 
 export async function checkDeepseekHealth(): Promise<HealthCheckResult> {
@@ -70,7 +82,6 @@ export async function checkDeepseekHealth(): Promise<HealthCheckResult> {
 
 export function createDeepseekClient(): LLMClient {
   const config = getConfig();
-  const openai = createOpenAIClient();
 
   return {
     name: 'deepseek',
@@ -81,6 +92,8 @@ export function createDeepseekClient(): LLMClient {
 
     async complete(options: CompletionOptions): Promise<string> {
       const model = options.model || config.model;
+      const apiKey = getEffectiveApiKey(options);
+      const openai = createOpenAIClient(apiKey);
 
       console.log(`🧠 DeepSeek: Making request to ${model}`);
 
@@ -89,7 +102,7 @@ export function createDeepseekClient(): LLMClient {
           model,
           messages: options.messages,
           temperature: options.temperature ?? 0.7,
-          max_tokens: options.maxTokens ?? 2048,
+          max_tokens: options.maxTokens ?? 8192,
           stream: true,
         }, { timeout: 30000 });
 
@@ -110,6 +123,8 @@ export function createDeepseekClient(): LLMClient {
 
     async *streamComplete(options: CompletionOptions): AsyncGenerator<string> {
       const model = options.model || config.model;
+      const apiKey = getEffectiveApiKey(options);
+      const openai = createOpenAIClient(apiKey);
 
       console.log(`🧠 DeepSeek: Streaming from ${model}`);
 
@@ -118,7 +133,7 @@ export function createDeepseekClient(): LLMClient {
           model,
           messages: options.messages,
           temperature: options.temperature ?? 0.7,
-          max_tokens: options.maxTokens ?? 2048,
+          max_tokens: options.maxTokens ?? 8192,
           stream: true,
         });
 
@@ -138,6 +153,8 @@ export function createDeepseekClient(): LLMClient {
 
     async completeJSON<T>(options: CompletionOptions & { schema?: string }): Promise<T> {
       const model = options.model || config.model;
+      const apiKey = getEffectiveApiKey(options);
+      const openai = createOpenAIClient(apiKey);
 
       console.log(`🧠 DeepSeek: JSON request to ${model}`);
 
@@ -163,7 +180,7 @@ export function createDeepseekClient(): LLMClient {
           model,
           messages,
           temperature: options.temperature ?? 0.3,
-          max_tokens: options.maxTokens ?? 2048,
+          max_tokens: options.maxTokens ?? 8192,
           stream: true,
         }, { timeout: 30000 });
 

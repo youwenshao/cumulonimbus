@@ -4,6 +4,7 @@ import { streamComplete, type ChatMessage } from '@/lib/qwen';
 import { wrapError } from '@/lib/error-handling/scaffolder-errors';
 import prisma from '@/lib/db';
 import type { UserLLMSettings, LLMProvider } from '@/lib/llm';
+import { enhanceUserSettingsWithApiKeys } from '@/lib/llm';
 
 /**
  * Streaming API endpoint for AI responses
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`🚀 Starting stream for context: ${context}`);
 
-    // Get user LLM settings
+    // Get user LLM settings including API keys
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: {
@@ -57,19 +58,31 @@ export async function POST(request: NextRequest) {
         ollamaEndpoint: true,
         ollamaModel: true,
         ollamaSmallModel: true,
-        // lmstudioEndpoint: true,  // TODO: Enable after DB migration
-        // lmstudioModel: true,     // TODO: Enable after DB migration
+        lmstudioEndpoint: true,
+        lmstudioModel: true,
+        deepseekApiKey: true,
+        openrouterApiKey: true,
       },
     });
 
-    const userSettings: UserLLMSettings | undefined = user ? {
+    // Build base user settings
+    const baseSettings: UserLLMSettings = user ? {
       provider: (user.preferredLLMProvider as LLMProvider) || undefined,
       ollamaEndpoint: user.ollamaEndpoint || undefined,
       ollamaModel: user.ollamaModel || undefined,
       ollamaSmallModel: user.ollamaSmallModel || undefined,
-      // lmstudioEndpoint: user.lmstudioEndpoint || undefined,  // TODO: Enable after DB migration
-      // lmstudioModel: user.lmstudioModel || undefined,        // TODO: Enable after DB migration
-    } : undefined;
+      lmstudioEndpoint: user.lmstudioEndpoint || undefined,
+      lmstudioModel: user.lmstudioModel || undefined,
+    } : {};
+
+    // Enhance with decrypted API keys if available
+    const userSettings: UserLLMSettings | undefined = user ? enhanceUserSettingsWithApiKeys(
+      baseSettings,
+      {
+        deepseekApiKey: user.deepseekApiKey,
+        openrouterApiKey: user.openrouterApiKey,
+      }
+    ) : undefined;
 
     // Build messages array
     const messages: ChatMessage[] = [

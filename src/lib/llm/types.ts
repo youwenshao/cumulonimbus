@@ -48,6 +48,18 @@ export interface UserLLMSettings {
   ollamaSmallModel?: string;
   lmstudioEndpoint?: string;
   lmstudioModel?: string;
+  
+  // User identification for fetching user-specific settings
+  userId?: string;
+  
+  // User-provided API keys (decrypted, for runtime use)
+  deepseekApiKey?: string;
+  openrouterApiKey?: string;
+  
+  // Advanced settings
+  manualModelSelection?: boolean;
+  manualOllamaModel?: string;
+  manualLMStudioModel?: string;
 }
 
 export interface StreamChunk {

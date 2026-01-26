@@ -53,14 +53,13 @@ function CreateContent() {
   const queryMode = searchParams.get('mode');
   const appId = searchParams.get('appId');
   const conversationId = searchParams.get('conversationId');
-  const useV2 = searchParams.get('v2') === 'true' || 
-                process.env.NEXT_PUBLIC_SCAFFOLDER_VERSION === 'v2';
+  const useV2 = searchParams.get('v2') === 'true';
   
   // If mode is specified in URL, use it
   useEffect(() => {
     if (queryMode === 'guided' || queryMode === 'v1') {
       setMode('guided');
-    } else if (useV2 || queryMode === 'v2') {
+    } else if (queryMode === 'v2') {
       setMode('v2');
     } else if (queryMode === 'demo' || conversationId) {
       // Use demo (freeform) mode if specified or if resuming a conversation
@@ -68,6 +67,12 @@ function CreateContent() {
     } else if (appId) {
       // Default to guided mode if editing an app
       setMode('guided');
+    } else if (useV2) {
+      // Fallback to v2 if no explicit mode is set but useV2 flag is true
+      setMode('v2');
+    } else {
+      // Explicitly reset mode if no valid query params are found
+      setMode(null);
     }
   }, [queryMode, useV2, appId, conversationId]);
   
