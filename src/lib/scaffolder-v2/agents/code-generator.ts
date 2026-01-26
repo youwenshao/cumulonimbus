@@ -43,6 +43,40 @@ const CODE_GEN_SYSTEM_PROMPT = `You are an expert React/TypeScript developer gen
 - Use functional components with proper typing
 - Handle async operations with try/catch and proper typing
 
+### FILE STRUCTURE & IMPORT PATHS
+
+The generated app has this exact file structure:
+- lib/types.ts          # Type definitions (EntityName, EntityNameInput)
+- lib/validators.ts     # Zod validators  
+- lib/api.ts            # API client functions
+- lib/hooks.ts          # Custom hooks (useEntityNameData)
+- lib/utils.ts          # Utility functions (cn, formatDate, truncate)
+- components/Form.tsx   # Your components go here
+- components/Table.tsx
+- App.tsx               # Root page component
+
+CRITICAL IMPORT RULES for components in the components/ directory:
+- Types: import { EntityName, EntityNameInput } from '../lib/types';
+- Validators: import { entityNameSchema } from '../lib/validators';
+- API: import { createEntityName, fetchEntityNames } from '../lib/api';
+- Hooks: import { useEntityNameData } from '../lib/hooks';
+- Utils: import { cn, formatDate, truncate } from '../lib/utils';
+- Other components: import { OtherComponent } from './OtherComponent';
+
+NEVER use these import paths (they will cause runtime errors):
+- import from '../hooks/...' - WRONG! hooks are in lib/hooks.ts
+- import from './hooks/...' - WRONG!
+- import from '../../lib/...' - WRONG! Only one level up
+- import from 'hooks/...' - WRONG!
+
+ALWAYS use these correct relative paths from components/ directory:
+- '../lib/types' for type imports
+- '../lib/hooks' for hook imports
+- '../lib/api' for API function imports
+- '../lib/validators' for validator imports
+- '../lib/utils' for utility functions
+- './ComponentName' for sibling component imports
+
 ### AVAILABLE IMPORTS - You have access to these pre-bundled dependencies:
 
 CORE & BUILT-INS:
@@ -180,7 +214,11 @@ export class CodeGeneratorAgent extends BaseAgent {
     const hooks = this.generateHooks(schema, appId);
     yield { type: 'component', name: 'hooks', code: hooks, progress: 25 };
 
-    // 5. Extract and generate components
+    // 5. Generate utils
+    const utils = this.generateUtils();
+    yield { type: 'component', name: 'utils', code: utils, progress: 28 };
+
+    // 6. Extract and generate components
     const componentSpecs = this.extractComponentSpecs(layout, schema);
     const totalComponents = componentSpecs.length;
     
@@ -200,12 +238,12 @@ export class CodeGeneratorAgent extends BaseAgent {
       }
     }
 
-    // 6. Generate page wrapper
+    // 7. Generate page wrapper
     yield { type: 'page', progress: 85 };
     const pageCode = this.generatePageWrapper(schema, layout, componentSpecs);
     yield { type: 'page', code: pageCode, progress: 95 };
 
-    // 7. Complete
+    // 8. Complete
     yield { type: 'complete', progress: 100 };
   }
 
@@ -234,6 +272,7 @@ export class CodeGeneratorAgent extends BaseAgent {
       validators: this.generateValidators(schema),
       apiClient: this.generateAPIClient(schema, appId),
       hooks: this.generateHooks(schema, appId),
+      utils: this.generateUtils(),
       components,
       page: this.generatePageWrapper(schema, layout, componentSpecs),
       routes: {
@@ -523,6 +562,42 @@ export function use${name}Data() {
   }
 
   /**
+   * Generate utility functions
+   */
+  generateUtils(): string {
+    return `import { type ClassValue, clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+/**
+ * Merge Tailwind CSS classes with conflict resolution
+ */
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+/**
+ * Format a date to a readable string
+ */
+export function formatDate(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+/**
+ * Truncate text to a maximum length
+ */
+export function truncate(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength - 3) + '...';
+}
+`;
+  }
+
+  /**
    * Generate page wrapper component
    */
   generatePageWrapper(
@@ -759,8 +834,16 @@ export async function DELETE(req: NextRequest) {
   ): string {
     const fields = schema.fields.filter(f => !f.generated);
     const existingTypes = this.generateTypes(schema);
-
+    
     return `Generate a production-ready TypeScript React component for ${spec.type}.
+
+## CRITICAL: IMPORT PATHS
+This component is in the components/ directory. Use EXACTLY these import paths:
+- import { ${schema.name}, ${schema.name}Input } from '../lib/types';
+- import { use${schema.name}Data } from '../lib/hooks';
+- import { create${schema.name}, fetch${schema.name}s } from '../lib/api';
+
+DO NOT use '../hooks/...' - that path does NOT exist! Hooks are in '../lib/hooks'.
 
 ## TYPE REQUIREMENTS
 - Return type: React.FC or JSX.Element
@@ -769,16 +852,18 @@ export async function DELETE(req: NextRequest) {
 - Events: All event handlers must have typed parameters
 
 ## REFERENCE TYPES
-Use these exact type definitions. Do not redefine them if you can import them, but for this generation, include the interfaces if they are not assumed to be imported.
+Use these exact type definitions. Import them from '../lib/types':
 \`\`\`typescript
 ${existingTypes}
 \`\`\`
 
 ## COMPONENT STRUCTURE
-1. Interface definitions (match the Reference Types above)
-2. Type imports
-3. Main component with proper typing
-4. Helper functions with typed params/returns
+1. 'use client' directive
+2. Import React and hooks from 'react'
+3. Import types from '../lib/types'
+4. Import custom hooks from '../lib/hooks' (NOT '../hooks/')
+5. Main component with proper typing
+6. Helper functions with typed params/returns
 
 ## CONTEXT
 Schema: ${schema.name}
@@ -792,17 +877,20 @@ ${Object.keys(spec.props).length > 0 ? `Props: ${JSON.stringify(spec.props)}` : 
 ## SPECIFIC REQUIREMENTS
 ${template}
 
-## EXAMPLE PATTERN
+## EXAMPLE PATTERN WITH CORRECT IMPORTS
 \`\`\`typescript
-import React, { useState } from 'react';
+'use client';
 
-interface DataType {
-  id: string;
-  name: string;
+import React, { useState } from 'react';
+import { ${schema.name}, ${schema.name}Input } from '../lib/types';  // Correct path!
+import { use${schema.name}Data } from '../lib/hooks';  // Correct path! NOT '../hooks/'
+
+interface ${spec.name}Props {
+  onSubmit?: (data: ${schema.name}Input) => Promise<void>;
 }
 
-const ExampleComponent: React.FC = () => {
-  const [data, setData] = useState<DataType[]>([]);
+export function ${spec.name}({ onSubmit }: ${spec.name}Props) {
+  const [formData, setFormData] = useState<Partial<${schema.name}Input>>({});
   const [loading, setLoading] = useState<boolean>(false);
   
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
@@ -813,10 +901,10 @@ const ExampleComponent: React.FC = () => {
   return (
     // JSX
   );
-};
+}
 \`\`\`
 
-Generate the complete component code following this exact typing pattern.`;
+Generate the complete component code following this exact pattern with CORRECT import paths.`;
   }
 
   /**

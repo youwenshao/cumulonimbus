@@ -35,12 +35,14 @@ interface ConversationState {
   allQuestionsAnswered?: boolean;
 }
 
-type CreateMode = 'guided' | 'v2' | 'demo';
+type CreateMode = 'guided' | 'v2' | 'freeform';
 
 function CreateContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [mode, setMode] = useState<CreateMode | null>(null);
+  // Default to 'freeform' (V2 Scaffolder) - no longer showing mode selector by default
+  const [mode, setMode] = useState<CreateMode>('freeform');
+  const [showModeSelector, setShowModeSelector] = useState(false);
 
   const handleModeSelect = (selectedMode: CreateMode) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -53,35 +55,44 @@ function CreateContent() {
   const queryMode = searchParams.get('mode');
   const appId = searchParams.get('appId');
   const conversationId = searchParams.get('conversationId');
-  const useV2 = searchParams.get('v2') === 'true';
+  const showSelector = searchParams.get('selector') === 'true';
   
   // If mode is specified in URL, use it
   useEffect(() => {
-    if (queryMode === 'guided' || queryMode === 'v1') {
-      setMode('guided');
-    } else if (queryMode === 'v2') {
-      setMode('v2');
-    } else if (queryMode === 'demo' || conversationId) {
-      // Use demo (freeform) mode if specified or if resuming a conversation
-      setMode('demo');
-    } else if (appId) {
-      // Default to guided mode if editing an app
-      setMode('guided');
-    } else if (useV2) {
-      // Fallback to v2 if no explicit mode is set but useV2 flag is true
-      setMode('v2');
-    } else {
-      // Explicitly reset mode if no valid query params are found
-      setMode(null);
+    // Show mode selector if explicitly requested
+    if (showSelector) {
+      setShowModeSelector(true);
+      return;
     }
-  }, [queryMode, useV2, appId, conversationId]);
+    
+    if (queryMode === 'guided' || queryMode === 'v1') {
+      // Legacy guided mode (V1)
+      setMode('guided');
+    } else if (queryMode === 'v2' || queryMode === 'ide') {
+      // Advanced IDE mode (marketing page)
+      setMode('v2');
+    } else if (queryMode === 'freeform' || queryMode === 'demo') {
+      // V2 Freeform scaffolder (default)
+      setMode('freeform');
+    } else if (conversationId) {
+      // Resume existing conversation in freeform mode
+      setMode('freeform');
+    } else if (appId) {
+      // Edit existing app in freeform mode (V2)
+      setMode('freeform');
+    } else {
+      // Default to freeform (V2 Scaffolder) - the new default experience
+      setMode('freeform');
+    }
+  }, [queryMode, appId, conversationId, showSelector]);
   
-  // Show mode selector if no mode is set
-  if (!mode) {
+  // Show mode selector if explicitly requested via ?selector=true
+  if (showModeSelector) {
     return <ModeSelector onSelect={handleModeSelect} />;
   }
 
-  if (mode === 'demo') {
+  // V2 Freeform Scaffolder - the default experience
+  if (mode === 'freeform') {
     return (
       <FreeformCreator 
         initialConversationId={conversationId || undefined}
@@ -94,7 +105,7 @@ function CreateContent() {
             router.push(`/apps/${id}`);
           }
         }}
-        onCancel={() => setMode(null)}
+        onCancel={() => setShowModeSelector(true)}
       />
     );
   }
@@ -127,7 +138,7 @@ function CreateContent() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setMode(null)}
+                  onClick={() => setMode('freeform')}
                 >
                   Back to Create
                 </Button>
@@ -224,8 +235,8 @@ function CreateContent() {
     );
   }
   
-  // V1 scaffolder (existing implementation)
-  return <CreatePageV1 onModeChange={() => setMode(null)} appId={appId} />;
+  // V1 scaffolder (legacy - for backward compatibility)
+  return <CreatePageV1 onModeChange={() => setShowModeSelector(true)} appId={appId} />;
 }
 
 function ModeSelector({ onSelect }: { onSelect: (mode: CreateMode) => void }) {
@@ -247,51 +258,66 @@ function ModeSelector({ onSelect }: { onSelect: (mode: CreateMode) => void }) {
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl w-full">
-          {/* Freeform Mode */}
+          {/* Freeform Mode - Default V2 Scaffolder */}
           <button
-            onClick={() => onSelect('demo')}
+            onClick={() => onSelect('freeform')}
             className="p-6 bg-surface-elevated/50 border border-accent-yellow/30 rounded-xl text-left hover:border-accent-yellow hover:bg-surface-elevated transition-all group relative overflow-hidden"
           >
+            <div className="absolute top-3 right-3">
+              <span className="px-2 py-0.5 text-xs font-medium bg-accent-yellow/20 text-accent-yellow rounded-full">
+                Default
+              </span>
+            </div>
             <div className="mb-4">
               <Sparkles className="w-8 h-8 text-accent-yellow" />
             </div>
             <h3 className="text-2xl font-medium font-serif text-text-primary mb-2">Freeform</h3>
             <p className="text-sm text-text-secondary">
-              Describe your idea and watch the AI build it in real-time. A hands-free experience for rapid prototyping.
+              Describe your idea and watch the AI build it in real-time. V2 multi-agent architecture for rapid prototyping.
             </p>
             <div className="mt-4 text-xs text-text-tertiary group-hover:text-text-secondary">
-              Best for: Fast experimentation, rapid prototyping
+              Best for: Fast experimentation, any complexity level
             </div>
           </button>
 
-          {/* Guided Mode */}
+          {/* Guided Mode - Legacy V1 */}
           <button
             onClick={() => onSelect('guided')}
             className="p-6 bg-surface-elevated/50 border border-outline-light rounded-xl text-left hover:border-outline-mid hover:bg-surface-elevated transition-all group"
           >
+            <div className="absolute top-3 right-3">
+              <span className="px-2 py-0.5 text-xs font-medium bg-text-tertiary/20 text-text-tertiary rounded-full">
+                Legacy
+              </span>
+            </div>
             <div className="mb-4">
               <Target className="w-8 h-8 text-accent-yellow" />
             </div>
             <h3 className="text-2xl font-medium font-serif text-text-primary mb-2">Guided</h3>
             <p className="text-sm text-text-secondary">
-              Step-by-step conversation to refine your requirements. More control over the final result.
+              Step-by-step conversation to refine your requirements. V1 scaffolder for structured workflows.
             </p>
             <div className="mt-4 text-xs text-text-tertiary group-hover:text-text-secondary">
-              Best for: Specific requirements, data-heavy apps
+              Best for: Specific requirements, simple CRUD apps
             </div>
           </button>
 
-          {/* V2 Conversational Mode */}
+          {/* IDE Mode - Desktop App */}
           <button
             onClick={() => onSelect('v2')}
             className="p-6 bg-surface-elevated/50 border border-outline-light rounded-xl text-left hover:border-outline-mid hover:bg-surface-elevated transition-all group"
           >
+            <div className="absolute top-3 right-3">
+              <span className="px-2 py-0.5 text-xs font-medium bg-purple-500/20 text-purple-400 rounded-full">
+                Coming Soon
+              </span>
+            </div>
             <div className="mb-4">
               <Rocket className="w-8 h-8 text-accent-yellow" />
             </div>
-            <h3 className="text-2xl font-medium font-serif text-text-primary mb-2">Advanced</h3>
+            <h3 className="text-2xl font-medium font-serif text-text-primary mb-2">IDE</h3>
             <p className="text-sm text-text-secondary">
-              Download the native desktop IDE for advanced multi-agent workflows and local development.
+              Native desktop IDE for advanced multi-agent workflows, local development, and full code control.
             </p>
             <div className="mt-4 text-xs text-text-tertiary group-hover:text-text-secondary">
               Best for: Professional developers, complex projects

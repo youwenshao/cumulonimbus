@@ -754,6 +754,8 @@ async function handleBuild(
             allComponents['lib/hooks.ts'] = event.code;
           } else if (event.name === 'validators') {
             allComponents['lib/validators.ts'] = event.code;
+          } else if (event.name === 'utils') {
+            allComponents['lib/utils.ts'] = event.code;
           } else {
             allComponents[`components/${event.name}.tsx`] = event.code;
           }

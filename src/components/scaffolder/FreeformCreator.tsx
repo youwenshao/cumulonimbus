@@ -2,11 +2,20 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { LivePreview } from './LivePreview';
+import { CodeEditor } from './CodeEditor';
 import { Button, ThemeToggle, ChatInput, ChatMessage } from '@/components/ui';
 import { WelcomeScreen } from './WelcomeScreen';
-import { Terminal, Rocket, CheckCircle, Sparkles, Zap, ChevronDown, ChevronRight, Lightbulb, Scale } from 'lucide-react';
+import { Terminal, Rocket, CheckCircle, Sparkles, Zap, ChevronDown, ChevronRight, Lightbulb, Scale, Code, Eye, PanelLeft, PanelLeftClose, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+
+// CodeFile interface for generated code
+interface CodeFile {
+  name: string;
+  path: string;
+  code: string;
+  language: string;
+}
 
 interface FreeformCreatorProps {
   onComplete?: (appId: string, subdomain?: string) => void;
@@ -73,9 +82,12 @@ export function FreeformCreator({ onComplete, onCancel, initialConversationId, i
   const [generatedAppId, setGeneratedAppId] = useState<string | null>(null);
   const [generatedSubdomain, setGeneratedSubdomain] = useState<string | null>(null);
   const [isBuilding, setIsBuilding] = useState(false);
+  const [generatedFiles, setGeneratedFiles] = useState<CodeFile[]>([]);
   // Track which internal dialogues are expanded (for debugging)
   const [expandedDialogues, setExpandedDialogues] = useState<Set<string>>(new Set());
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Build view state - for code editor + preview in preview phase
+  const [showCodeDuringBuild, setShowCodeDuringBuild] = useState(true);
   // Live thinking state for real-time display
   const [liveThinking, setLiveThinking] = useState<{
     isActive: boolean;
@@ -412,6 +424,44 @@ export function FreeformCreator({ onComplete, onCancel, initialConversationId, i
       if (response.ok && data.app) {
         setGeneratedAppId(data.app.id);
         setGeneratedSubdomain(data.app.subdomain);
+        
+        // Extract generated code from response
+        const files: CodeFile[] = [];
+        if (data.generatedCode) {
+          // Extract all component files
+          if (data.generatedCode.components) {
+            Object.entries(data.generatedCode.components).forEach(([path, code]) => {
+              files.push({
+                name: path.split('/').pop() || path,
+                path,
+                code: code as string,
+                language: 'typescript',
+              });
+            });
+          }
+          
+          // Add page component if available
+          if (data.generatedCode.pageComponent) {
+            files.push({
+              name: 'App.tsx',
+              path: 'App.tsx',
+              code: data.generatedCode.pageComponent,
+              language: 'typescript',
+            });
+          }
+          
+          // Add types if available
+          if (data.generatedCode.types) {
+            files.push({
+              name: 'types.ts',
+              path: 'lib/types.ts',
+              code: data.generatedCode.types,
+              language: 'typescript',
+            });
+          }
+        }
+        
+        setGeneratedFiles(files);
         setPhase('preview');
         
         // Update final message
@@ -820,13 +870,11 @@ export function FreeformCreator({ onComplete, onCancel, initialConversationId, i
                 </div>
               )}
 
-              {/* Building indicator */}
+              {/* Building phase - simple loading */}
               {phase === 'building' && (
                 <div className="animate-slide-up p-6 rounded-xl bg-surface-elevated border border-outline-light">
                   <div className="flex items-center gap-4">
-                    <div className="animate-spin">
-                      <Terminal className="w-6 h-6 text-accent-yellow" />
-                    </div>
+                    <Loader2 className="w-6 h-6 animate-spin text-accent-yellow" />
                     <div>
                       <div className="font-medium text-text-primary">Generating your app...</div>
                       <div className="text-sm text-text-secondary">Writing components and resolving dependencies</div>
@@ -835,25 +883,78 @@ export function FreeformCreator({ onComplete, onCancel, initialConversationId, i
                 </div>
               )}
 
-              {/* Preview */}
+              {/* Preview with optional code view */}
               {phase === 'preview' && generatedAppId && (
-                <section className="animate-fade-in pt-6 border-t border-outline-light">
-                  <div className="flex items-center justify-between mb-6">
+                <section className="animate-fade-in pt-6 border-t border-outline-light space-y-4">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Rocket className="w-5 h-5 text-accent-yellow" />
                       <h2 className="text-lg font-medium text-text-primary">App Ready</h2>
                     </div>
-                    <div className="flex items-center gap-2 text-emerald-700/80 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 dark:text-emerald-500/70 dark:bg-emerald-500/5 dark:border-emerald-500/20">
-                      <CheckCircle className="w-4 h-4" />
-                      <span className="text-xs font-bold uppercase tracking-wider">Built</span>
+                    <div className="flex items-center gap-3">
+                      {/* View toggle for preview phase */}
+                      <div className="flex items-center gap-1 p-1 bg-surface-layer rounded-lg">
+                        <button
+                          onClick={() => setShowCodeDuringBuild(false)}
+                          className={cn(
+                            'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-all',
+                            !showCodeDuringBuild
+                              ? 'bg-accent-yellow/20 text-accent-yellow'
+                              : 'text-text-secondary hover:text-text-primary hover:bg-surface-elevated'
+                          )}
+                        >
+                          <Eye className="w-4 h-4" />
+                          Preview
+                        </button>
+                        <button
+                          onClick={() => setShowCodeDuringBuild(true)}
+                          className={cn(
+                            'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-all',
+                            showCodeDuringBuild
+                              ? 'bg-accent-yellow/20 text-accent-yellow'
+                              : 'text-text-secondary hover:text-text-primary hover:bg-surface-elevated'
+                          )}
+                        >
+                          <Code className="w-4 h-4" />
+                          Code
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 text-emerald-700/80 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 dark:text-emerald-500/70 dark:bg-emerald-500/5 dark:border-emerald-500/20">
+                        <CheckCircle className="w-4 h-4" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Built</span>
+                      </div>
                     </div>
                   </div>
-                  <LivePreview 
-                    appId={generatedAppId} 
-                    subdomain={generatedSubdomain || undefined}
-                    appName="Your App"
-                    onAccept={handleAccept}
-                  />
+
+                  {/* Show code editor or preview based on toggle */}
+                  {showCodeDuringBuild ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <CodeEditor
+                        conversationId={conversationIdRef.current || ''}
+                        initialFiles={generatedFiles}
+                        useV2={false}
+                        height="h-[500px]"
+                        editable={true}
+                        onCodeChange={(path, code) => {
+                          console.log('Code changed:', path);
+                          // TODO: Optionally trigger preview refresh
+                        }}
+                      />
+                      <LivePreview 
+                        appId={generatedAppId} 
+                        subdomain={generatedSubdomain || undefined}
+                        appName="Your App"
+                        onAccept={handleAccept}
+                      />
+                    </div>
+                  ) : (
+                    <LivePreview 
+                      appId={generatedAppId} 
+                      subdomain={generatedSubdomain || undefined}
+                      appName="Your App"
+                      onAccept={handleAccept}
+                    />
+                  )}
                 </section>
               )}
 

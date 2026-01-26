@@ -6,6 +6,14 @@ import { generateId, generateSubdomain } from '@/lib/utils';
 import type { UserLLMSettings, LLMProvider } from '@/lib/llm';
 import { enhanceUserSettingsWithApiKeys } from '@/lib/llm';
 import { 
+  // New naming convention (preferred)
+  architect,
+  coordinator,
+  designer,
+  coder,
+  advisor,
+  automator,
+  // Legacy names for backward compatibility
   architectAgent, 
   adaptiveArchitect,
   intentEngine,
@@ -49,7 +57,9 @@ import type {
   LayoutNode,
   EnhancedIntent,
   ProposalSet,
-  GeneratedApp
+  GeneratedApp,
+  WorkflowDefinition,
+  ProactiveSuggestion,
 } from '@/lib/scaffolder-v2/types';
 
 /**
@@ -240,7 +250,8 @@ async function handleChat(
     });
   }
 
-  const architectResponse = await adaptiveArchitect.process(message, state, userSettings);
+  // Use the Architect to coordinate the pipeline
+  const architectResponse = await architect.process(message, state, userSettings);
   const decision = architectResponse.data as EnhancedArchitectDecision;
 
   console.log(`🧠 Architect decision:`, {
@@ -329,9 +340,14 @@ async function handleChat(
 }
 
 import { QualityController } from '@/lib/scaffolder-v2/quality-control';
+import { 
+  emitV2CodeChunk, 
+  waitForV2CodeStreamConnection,
+  isV2ControllerHealthy 
+} from './code-stream/[conversationId]/route';
 
 /**
- * Handle finalize action
+ * Handle finalize action with streaming support
  */
 async function handleFinalize(
   userId: string,
@@ -354,31 +370,101 @@ async function handleFinalize(
     return NextResponse.json({ error: 'Cannot finalize without schema and layout' }, { status: 400 });
   }
 
-  // Generate app
-  const appCode = await codeGeneratorAgent.generateApp(
-    state.schemas[0],
-    state.layout,
-    conversationId // Temporary ID for generation
-  );
+  // Wait for code stream connection (frontend may be connecting)
+  const streamConnected = await waitForV2CodeStreamConnection(conversationId, 3000);
+  const useStreaming = streamConnected && isV2ControllerHealthy(conversationId);
+  
+  console.log(`🏗️ V2 Finalize: Streaming ${useStreaming ? 'enabled' : 'disabled'} for ${conversationId}`);
 
-  // Quality Control
+  // Track generated code for response
+  const generatedCode: Record<string, string> = {};
   const qualityReports: Record<string, any> = {};
   let overallScore = 0;
   let componentCount = 0;
 
-  for (const [path, code] of Object.entries(appCode.components)) {
-    const report = QualityController.verify(code);
-    qualityReports[path] = report;
-    overallScore += report.score;
-    componentCount++;
-  }
+  if (useStreaming) {
+    // Use incremental generation with streaming
+    emitV2CodeChunk(conversationId, {
+      type: 'status',
+      component: 'system',
+      code: '',
+      progress: 0,
+      metadata: { totalFiles: 10 }, // Estimate
+    });
 
-  // Also verify page
-  if (appCode.page) {
-    const report = QualityController.verify(appCode.page);
-    qualityReports['page.tsx'] = report;
-    overallScore += report.score;
-    componentCount++;
+    let fileIndex = 0;
+    for await (const event of coder.generateAppIncremental(
+      state.schemas[0],
+      state.layout,
+      conversationId
+    )) {
+      if (event.code) {
+        const fileName = event.name || event.type;
+        generatedCode[fileName] = event.code;
+        
+        // Emit chunk to stream
+        emitV2CodeChunk(conversationId, {
+          type: 'chunk',
+          component: fileName,
+          code: event.code,
+          progress: event.progress,
+          metadata: {
+            fileName,
+            language: 'typescript',
+            currentFile: ++fileIndex,
+          },
+        });
+
+        // Quality check
+        if (event.type === 'component' || event.type === 'page') {
+          const report = QualityController.verify(event.code);
+          qualityReports[fileName] = report;
+          overallScore += report.score;
+          componentCount++;
+        }
+      } else if (event.type === 'complete') {
+        emitV2CodeChunk(conversationId, {
+          type: 'complete',
+          component: 'system',
+          code: '',
+          progress: 100,
+        });
+      }
+    }
+  } else {
+    // Fallback: Generate all at once (non-streaming)
+    const appCode = await coder.generateApp(
+      state.schemas[0],
+      state.layout,
+      conversationId
+    );
+
+    // Store all generated code
+    generatedCode['types'] = appCode.types;
+    generatedCode['validators'] = appCode.validators;
+    generatedCode['api'] = appCode.apiClient;
+    generatedCode['hooks'] = appCode.hooks;
+    generatedCode['utils'] = appCode.utils;
+    generatedCode['page'] = appCode.page;
+    
+    for (const [name, code] of Object.entries(appCode.components)) {
+      generatedCode[name] = code;
+    }
+
+    // Quality Control
+    for (const [path, code] of Object.entries(appCode.components)) {
+      const report = QualityController.verify(code);
+      qualityReports[path] = report;
+      overallScore += report.score;
+      componentCount++;
+    }
+
+    if (appCode.page) {
+      const report = QualityController.verify(appCode.page);
+      qualityReports['page.tsx'] = report;
+      overallScore += report.score;
+      componentCount++;
+    }
   }
 
   overallScore = componentCount > 0 ? overallScore / componentCount : 0;
@@ -394,7 +480,7 @@ async function handleFinalize(
       spec: {
         schema: state.schemas[0],
         layout: state.layout,
-        components: appCode.components,
+        components: generatedCode,
       } as any,
       config: {},
       data: [],
@@ -402,24 +488,34 @@ async function handleFinalize(
         qualityReports,
         overallScore,
         generatedAt: new Date().toISOString(),
+        streamingUsed: useStreaming,
       } as any,
-      // published: false, // Column does not exist
     },
   });
 
-  // Create runtime files
-  // In a real implementation, this would write files to disk or S3
-  // For now, we'll rely on the runtime to generate them on the fly from the DB spec
+  // Link app to conversation
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data: {
+      appId: app.id,
+      phase: 'COMPLETE',
+    },
+  });
 
   return NextResponse.json({
     success: true,
-    appId: app.id,
+    app: {
+      id: app.id,
+      name: app.name,
+      subdomain: app.subdomain,
+    },
     appUrl: `/apps/${app.id}`,
-    generatedCode: appCode,
+    generatedCode,
     qualityControl: {
       score: overallScore,
       reports: qualityReports,
-    }
+    },
+    streamingUsed: useStreaming,
   });
 }
 
@@ -610,9 +706,9 @@ async function handleFixComponent(
   // Generate prompt
   const correctionPrompt = loop.generateCorrectionPrompt();
 
-  // Regenerate code
+  // Regenerate code using the Coder agent
   const prompt = instruction || 'Fix the component based on the error log';
-  const fixedCode = await codeGeneratorAgent.regenerateComponentWithFeedback(
+  const fixedCode = await coder.regenerateComponentWithFeedback(
     componentCode,
     errorLog,
     correctionPrompt || prompt // Prefer structured prompt if available
@@ -751,7 +847,8 @@ async function executeParallelPipeline(
       let result;
       switch (action.agent) {
         case 'schema':
-          result = await schemaDesignerAgent.process(userMessage, updatedState);
+          // Coordinator: Generates data schemas from natural language
+          result = await coordinator.process(userMessage, updatedState);
           if (result.success && result.data) {
              const proposal = result.data as { schemas: Schema[]; suggestedName: string; domain: string };
              updatedState = updateConversationState(updatedState, {
@@ -772,7 +869,8 @@ async function executeParallelPipeline(
           break;
           
         case 'ui':
-          result = await uiDesignerAgent.process(userMessage, updatedState);
+          // Designer: Creates layouts and component arrangements
+          result = await designer.process(userMessage, updatedState);
           if (result.success && result.data) {
             const proposal = result.data as { layout: LayoutNode };
             updatedState = updateConversationState(updatedState, {
@@ -788,7 +886,30 @@ async function executeParallelPipeline(
           break;
           
         case 'workflow':
-          // Placeholder
+          // Automator: Handles automations and state machines
+          result = await automator.process(userMessage, updatedState);
+          if (result.success && result.data) {
+            const workflowData = result.data as { workflows: WorkflowDefinition[] };
+            updatedState = updateConversationState(updatedState, {
+              workflows: workflowData.workflows,
+            }) as DynamicConversationState;
+            
+            // Update readiness
+            updatedState = updateReadiness(updatedState, {
+              workflow: Math.min((updatedState.readiness.workflow || 0) + 40, 100),
+              overall: Math.min((updatedState.readiness.overall || 0) + 10, 100)
+            });
+          }
+          break;
+          
+        case 'intent':
+          // Advisor: Deep understanding with reference app detection
+          result = await advisor.process(userMessage, updatedState);
+          if (result.success && result.data) {
+            const intentData = result.data as { intent: EnhancedIntent; suggestions: ProactiveSuggestion[] };
+            updatedState = setEnhancedIntent(updatedState, intentData.intent);
+            updatedState = setSuggestions(updatedState, intentData.suggestions);
+          }
           break;
       }
       

@@ -1,7 +1,23 @@
 /**
- * Dual-Agent Orchestrator
- * Manages the Architect-Advisor conversation loop for refined responses.
- * Streams internal dialogue and final response to the caller.
+ * Dual-Agent Orchestrator (V1 - Deprecated)
+ * 
+ * @deprecated This orchestrator is part of the V1 scaffolder and is deprecated.
+ * Use the V2 multi-agent system instead, which provides:
+ * - Architect: Coordinates parallel agent execution
+ * - Coordinator: Schema design
+ * - Designer: UI layout
+ * - Coder: Code generation
+ * - Advisor: Intent analysis
+ * - Automator: Workflows
+ * 
+ * The V2 system offers parallel processing, better intent understanding,
+ * and automated workflow detection.
+ * 
+ * @see src/lib/scaffolder-v2 for the V2 implementation
+ * @see docs/migration-guide.md for migration instructions
+ * 
+ * This V1 orchestrator manages the Architect-Advisor conversation loop
+ * for refined responses and streams internal dialogue to the caller.
  */
 
 import { generateId } from '@/lib/utils';

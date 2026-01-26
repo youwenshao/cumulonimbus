@@ -1,3 +1,22 @@
+/**
+ * V1 Scaffolder API Route (Deprecated)
+ * 
+ * @deprecated This API is part of the V1 scaffolder and is deprecated.
+ * Use /api/scaffolder-v2 instead for new development.
+ * 
+ * The V2 API provides:
+ * - Multi-agent architecture with parallel processing
+ * - Better intent understanding
+ * - Workflow automation
+ * - Quality control
+ * 
+ * This V1 route is maintained for backward compatibility.
+ * Run `npm run migrate:v2` to migrate V1 data to V2 format.
+ * 
+ * @see src/app/api/scaffolder-v2/route.ts for the V2 API
+ * @see docs/migration-guide.md for migration instructions
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth';
 import prisma from '@/lib/db';

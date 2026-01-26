@@ -46,7 +46,7 @@ model App {
   userId             String
   name               String
   description        String
-  spec               String
+  spec               String      // V2: { schema, layout, components }
   config             String
   data               String        @default("[]")
   status             String   @default("DRAFT")
@@ -55,9 +55,9 @@ model App {
   buildStatus        String @default("PENDING")
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
-  version            String?     @default("v1")
-  componentFiles     String?
-  layoutDefinition   String?
+  version            String?     @default("v2")  // Default to V2 scaffolder
+  componentFiles     String?     // V2: Modular component files
+  layoutDefinition   String?     // V2: Layout DSL definition
   
   // Nebula Hosting fields
   subdomain          String?     @unique
@@ -67,6 +67,7 @@ model App {
   user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([userId, version])
 }
 
 model Conversation {
@@ -74,12 +75,12 @@ model Conversation {
   userId            String
   appId             String?
   messages          String              @default("[]")
-  phase             String @default("PARSE")
+  phase             String @default("intent")  // V2 phases: intent, design, refine, finalize
   spec              String?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
-  version           String?           @default("v1")
-  agentState        String?
+  version           String?           @default("v2")  // Default to V2 scaffolder
+  agentState        String?           // V2: DynamicConversationState
   schemaDesigns     String?             @default("[]")
   layoutDesigns     String?             @default("[]")
   refinementHistory String?             @default("[]")
@@ -87,6 +88,8 @@ model Conversation {
 
   @@index([userId])
   @@index([appId])
+  @@index([userId, version])
+  @@index([userId, updatedAt])
 }
 
 // Enum String converted to String

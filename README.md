@@ -37,16 +37,21 @@ Cumulonimbus is an intent-to-application platform that allows non-technical user
 - **Code Streaming**: Watch code being generated in real-time
 - **User Authentication**: Secure email/password authentication with NextAuth.js
 
-### Advanced Features
+### V2 Scaffolder (Default)
 
-- **Scaffolder V2**: Agent-based architecture with architect pattern (Available)
-  - **Multi-Agent System**: Specialized agents for schema design, UI layout, and code generation
-  - **Dynamic Schema Generation**: AI generates custom data schemas from natural language
-  - **Flexible Layout System**: Layout DSL with responsive templates (dashboard, sidebar, kanban)
-  - **Live Preview**: Real-time preview updates during app generation with SSE streaming
-  - **Iterative Refinement**: Conversational refinement with history tracking and undo support
-  - **Modular Code Generation**: Separate component files with TypeScript types and validators
-  - **Feature Flags**: Gradual rollout with beta user access and percentage-based enabling
+- **Agent-Based Architecture**: Coordinated multi-agent system for intelligent app generation
+  - **Architect**: Coordinates parallel agent execution, decision graphs, and readiness tracking
+  - **Coordinator**: Generates data schemas from natural language descriptions
+  - **Designer**: Creates layouts and component arrangements with responsive templates
+  - **Coder**: Generates modular React components with TypeScript types
+  - **Advisor**: Deep understanding with reference app detection (e.g., "like Trello")
+  - **Automator**: Handles automations, state machines, and workflows
+- **Dynamic Schema Generation**: AI generates custom data schemas from natural language
+- **Flexible Layout System**: Layout DSL with responsive templates (dashboard, sidebar, kanban)
+- **Live Preview**: Real-time preview updates during app generation with SSE streaming
+- **Iterative Refinement**: Conversational refinement with history tracking and undo support
+- **Multi-Proposal System**: Compare 2-3 design alternatives before committing
+- **Quality Control**: Automated code verification with scoring
 - **Multi-Model Intelligence**: 
   - Smart LLM routing across Ollama, LM Studio, OpenRouter, and DeepSeek
   - Automatic health monitoring and failover between providers
@@ -157,30 +162,61 @@ Cumulonimbus is an intent-to-application platform that allows non-technical user
 
 8. Open [http://localhost:1000](http://localhost:1000)
 
-### Enabling V2 Features (Optional)
+### V2 Scaffolder Configuration
 
-Cumulonimbus includes advanced V2 features for enhanced app generation:
+Cumulonimbus uses the V2 Scaffolder by default. The V2 agent system includes:
 
-1. **Enable V2 for all users** (in `.env`):
+- **Architect**: Coordinates the entire generation pipeline
+- **Coordinator**: Generates data schemas
+- **Designer**: Creates UI layouts
+- **Coder**: Generates React components
+- **Advisor**: Understands intent and references
+- **Automator**: Handles workflows and automations
+
+**Configuration** (in `.env`):
+```env
+SCAFFOLDER_VERSION=v2           # Default - V2 agent-based scaffolding
+LIVE_PREVIEW_ENABLED=true       # Enable real-time preview
+MULTI_ENTITY_ENABLED=true       # Enable multi-entity schema generation
+ADVANCED_LAYOUTS_ENABLED=true   # Enable advanced layout templates
+```
+
+### Migrating from V1
+
+If you're upgrading from an earlier version of Cumulonimbus:
+
+1. **Backup your database** (recommended):
+   ```bash
+   pg_dump your_database > backup.sql
+   ```
+
+2. **Run the migration**:
+   ```bash
+   npm run migrate:v2
+   ```
+
+3. **Update environment variables** in `.env`:
    ```env
    SCAFFOLDER_VERSION=v2
    ```
 
-2. **Enable V2 for beta testing** (in `.env`):
-   ```env
-   SCAFFOLDER_VERSION=v1  # Keep v1 as default
-   V2_BETA_EMAILS=your@email.com,beta@example.com
-   V2_ROLLOUT_PERCENTAGE=10  # Enable for 10% of users
+4. **Restart the application**:
+   ```bash
+   npm run dev
    ```
 
-3. **Enable advanced features** (in `.env`):
-   ```env
-   LIVE_PREVIEW_ENABLED=true
-   MULTI_ENTITY_ENABLED=true
-   ADVANCED_LAYOUTS_ENABLED=true
-   ```
+The migration script will:
+- Convert all V1 conversations to V2 format
+- Migrate all V1 apps to use V2 schemas and layouts
+- Preserve all data and conversation history
+- Log any migration errors for manual review
 
-4. **Test V2 features** by adding `?v2=true` to the create page URL
+**Migration Options:**
+```bash
+npm run migrate:v2              # Migrate all V1 items to V2
+npm run migrate:v2 -- --dry-run # Preview migration without changes
+npm run migrate:v2 -- --force   # Re-migrate all items (including V2)
+```
 
 ### Quick Setup Script
 
@@ -347,13 +383,11 @@ DEEPSEEK_MODEL=         # deepseek-chat
 LLM_PROVIDER=           # auto/ollama/lmstudio/openrouter/deepseek
 LLM_FALLBACK_ENABLED=   # true/false
 
-# Scaffolder V2 Configuration (Advanced Features)
-SCAFFOLDER_VERSION=     # v1/v2 - Enable V2 agent-based scaffolding
-V2_BETA_EMAILS=         # Comma-separated emails for beta access (optional)
-V2_ROLLOUT_PERCENTAGE=  # 0-100 - Percentage rollout for V2 features
-LIVE_PREVIEW_ENABLED=   # true/false - Enable real-time preview
-MULTI_ENTITY_ENABLED=   # true/false - Enable multi-entity schemas
-ADVANCED_LAYOUTS_ENABLED= # true/false - Enable advanced layout templates
+# Scaffolder V2 Configuration (Default)
+SCAFFOLDER_VERSION=v2       # v2 is default - Agent-based scaffolding
+LIVE_PREVIEW_ENABLED=true   # Enable real-time preview
+MULTI_ENTITY_ENABLED=true   # Enable multi-entity schemas
+ADVANCED_LAYOUTS_ENABLED=true # Enable advanced layout templates
 ```
 
 ### Getting an OpenRouter API Key
@@ -523,6 +557,7 @@ Cumulonimbus automatically selects the best available AI provider based on your 
 - `npm run db:generate` - Generate Prisma client
 - `npm run db:push` - Push Prisma schema to database
 - `npm run db:studio` - Open Prisma Studio (database GUI)
+- `npm run migrate:v2` - Migrate V1 conversations and apps to V2 format
 
 ## Future Roadmap
 
