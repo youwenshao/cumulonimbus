@@ -18,6 +18,9 @@ import type {
   ComponentType,
   AestheticSpec,
   LayoutProposal,
+  AppCapabilities,
+  CustomViewSpec,
+  DataOperation,
 } from '../types';
 import { getComponents } from '../layout/dsl';
 import { FeedbackLoop } from '../feedback-loop';
@@ -137,6 +140,33 @@ EXPLICITLY AVOID (will cause build errors):
 - react-router (use state for view switching)
 - Any package not listed above
 
+### FLEXIBLE GENERATION - NO CRUD DEFAULTS
+
+CRITICAL: You generate ONLY what the app actually needs. Do NOT default to CRUD patterns.
+
+For each app, determine:
+1. What views does the user need? (NOT assumed form + table)
+2. What data operations are required? (NOT assumed full CRUD)
+3. What custom visualizations would enhance the experience?
+
+Example - A habit tracker with GitHub-style heat map needs:
+- A HabitHeatMap.tsx component (PRIMARY view, using react-activity-calendar)
+- A DailyCheckIn.tsx component (floating action button for today)
+- A HabitSetup.tsx component (shown once during initial setup or via menu)
+- An SettingsMenu.tsx component (burger menu for editing habits)
+- Minimal API: just read and create operations, NOT full CRUD
+
+What it does NOT need:
+- A form on the left, table on the right
+- Full CRUD API (update, delete for every record)
+- A generic data table showing all records
+
+When generating components:
+1. Check the AppCapabilities - generate only what's specified
+2. Custom components should be CREATIVE, not falling back to generic patterns
+3. The PRIMARY component should be prominent and serve the main use case
+4. Secondary components should support, not duplicate functionality
+
 ### STYLING & AESTHETICS
 
 You will receive aesthetic specifications from the UI Designer. IMPLEMENT THEM FAITHFULLY - never fall back to generic styling.
@@ -246,32 +276,44 @@ export class CodeGeneratorAgent extends BaseAgent {
 
   /**
    * Generate all app code incrementally
+   * Now respects capabilities for flexible generation
    */
   async *generateAppIncremental(
     schema: Schema,
     layout: LayoutNode,
     appId: string,
-    aesthetics?: AestheticSpec
+    aesthetics?: AestheticSpec,
+    capabilities?: AppCapabilities
   ): AsyncGenerator<ComponentGenerationEvent> {
-    this.log('Starting incremental code generation', { appId, hasAesthetics: !!aesthetics });
+    this.log('Starting incremental code generation', { 
+      appId, 
+      hasAesthetics: !!aesthetics,
+      hasCapabilities: !!capabilities,
+      needsCRUD: capabilities?.needsCRUD ?? true,
+    });
 
-    let progress = 0;
+    // Determine what code to generate based on capabilities
+    const needsCRUD = capabilities?.needsCRUD ?? true; // Default to CRUD for backward compatibility
+    const needsDataEntry = capabilities?.needsDataEntry ?? needsCRUD;
+    const dataOperations = capabilities?.dataOperations || [];
 
-    // 1. Generate TypeScript types
+    // 1. Generate TypeScript types (always needed)
     yield { type: 'types', progress: 5 };
     const types = this.generateTypes(schema);
     yield { type: 'types', code: types, progress: 10 };
 
-    // 2. Generate validators
-    const validators = this.generateValidators(schema);
-    yield { type: 'component', name: 'validators', code: validators, progress: 15 };
+    // 2. Generate validators (only if data entry needed)
+    if (needsDataEntry) {
+      const validators = this.generateValidators(schema);
+      yield { type: 'component', name: 'validators', code: validators, progress: 15 };
+    }
 
-    // 3. Generate API client
-    const apiClient = this.generateAPIClient(schema, appId);
+    // 3. Generate API client (flexible based on capabilities)
+    const apiClient = this.generateFlexibleAPIClient(schema, appId, capabilities);
     yield { type: 'component', name: 'api', code: apiClient, progress: 20 };
 
-    // 4. Generate hooks
-    const hooks = this.generateHooks(schema, appId);
+    // 4. Generate hooks (flexible based on capabilities)
+    const hooks = this.generateFlexibleHooks(schema, appId, capabilities);
     yield { type: 'component', name: 'hooks', code: hooks, progress: 25 };
 
     // 5. Generate utils
@@ -279,17 +321,17 @@ export class CodeGeneratorAgent extends BaseAgent {
     yield { type: 'component', name: 'utils', code: utils, progress: 28 };
 
     // 6. Extract and generate components with aesthetic context
-    const componentSpecs = this.extractComponentSpecs(layout, schema);
+    const componentSpecs = this.extractComponentSpecs(layout, schema, capabilities);
     const totalComponents = componentSpecs.length;
     
     for (let i = 0; i < componentSpecs.length; i++) {
       const spec = componentSpecs[i];
-      progress = 30 + Math.floor((i / totalComponents) * 50);
+      const progress = 30 + Math.floor((i / totalComponents) * 50);
       
       yield { type: 'component', name: spec.name, progress };
       
       try {
-        const code = await this.generateComponent(spec, schema, aesthetics);
+        const code = await this.generateComponent(spec, schema, aesthetics, capabilities);
         yield { type: 'component', name: spec.name, code, progress: progress + 5 };
       } catch (error) {
         this.log('Component generation failed, using template', { name: spec.name, error });
@@ -298,9 +340,9 @@ export class CodeGeneratorAgent extends BaseAgent {
       }
     }
 
-    // 7. Generate page wrapper with aesthetics
+    // 7. Generate page wrapper with aesthetics and capabilities
     yield { type: 'page', progress: 85 };
-    const pageCode = this.generatePageWrapper(schema, layout, componentSpecs, aesthetics);
+    const pageCode = this.generateFlexiblePageWrapper(schema, layout, componentSpecs, aesthetics, capabilities);
     yield { type: 'page', code: pageCode, progress: 95 };
 
     // 8. Complete
@@ -309,20 +351,24 @@ export class CodeGeneratorAgent extends BaseAgent {
 
   /**
    * Generate a complete app (non-streaming)
+   * Now respects capabilities for flexible generation
    */
   async generateApp(
     schema: Schema,
     layout: LayoutNode,
     appId: string,
-    aesthetics?: AestheticSpec
+    aesthetics?: AestheticSpec,
+    capabilities?: AppCapabilities
   ): Promise<GeneratedApp> {
-    const componentSpecs = this.extractComponentSpecs(layout, schema);
+    const componentSpecs = this.extractComponentSpecs(layout, schema, capabilities);
     const components: Record<string, string> = {};
+    const needsCRUD = capabilities?.needsCRUD ?? true;
+    const needsDataEntry = capabilities?.needsDataEntry ?? needsCRUD;
 
     // Generate all components
     for (const spec of componentSpecs) {
       try {
-        components[spec.name] = await this.generateComponent(spec, schema, aesthetics);
+        components[spec.name] = await this.generateComponent(spec, schema, aesthetics, capabilities);
       } catch (error) {
         components[spec.name] = this.generateFallbackComponent(spec, schema);
       }
@@ -330,26 +376,33 @@ export class CodeGeneratorAgent extends BaseAgent {
 
     return {
       types: this.generateTypes(schema),
-      validators: this.generateValidators(schema),
-      apiClient: this.generateAPIClient(schema, appId),
-      hooks: this.generateHooks(schema, appId),
+      validators: needsDataEntry ? this.generateValidators(schema) : '// No validators needed for this app',
+      apiClient: this.generateFlexibleAPIClient(schema, appId, capabilities),
+      hooks: this.generateFlexibleHooks(schema, appId, capabilities),
       utils: this.generateUtils(),
       components,
-      page: this.generatePageWrapper(schema, layout, componentSpecs, aesthetics),
-      routes: {
+      page: this.generateFlexiblePageWrapper(schema, layout, componentSpecs, aesthetics, capabilities),
+      routes: needsCRUD ? {
         'route.ts': this.generateAPIRoute(schema, appId),
-      },
+      } : {},
     };
   }
 
   /**
    * Generate a single component using LLM
+   * Now supports custom components and respects capabilities
    */
   async generateComponent(
     spec: ComponentSpec,
     schema: Schema,
-    aesthetics?: AestheticSpec
+    aesthetics?: AestheticSpec,
+    capabilities?: AppCapabilities
   ): Promise<string> {
+    // For custom components, use the flexible custom component generator
+    if (spec.type === 'custom' && spec.props?.description) {
+      return this.generateCustomComponent(spec, schema, aesthetics);
+    }
+    
     const template = this.getComponentTemplate(spec.type);
     const prompt = this.buildComponentPrompt(spec, schema, template, aesthetics);
 
@@ -659,6 +712,469 @@ export function truncate(text: string, maxLength: number): string {
 `;
   }
 
+  // ============================================================================
+  // Flexible Generation Methods - Respect App Capabilities
+  // ============================================================================
+
+  /**
+   * Generate flexible API client based on capabilities
+   * Only includes operations that the app actually needs
+   */
+  generateFlexibleAPIClient(schema: Schema, appId: string, capabilities?: AppCapabilities): string {
+    const name = schema.name;
+    const nameLower = name.toLowerCase();
+
+    // Default to full CRUD for backward compatibility
+    if (!capabilities) {
+      return this.generateAPIClient(schema, appId);
+    }
+
+    const operations: string[] = [];
+    const dataOps = capabilities.dataOperations || [];
+    
+    // Always include types import
+    let code = `// API Client for ${name}
+
+const API_BASE = '/api/apps/${appId}/data';
+
+`;
+
+    // Determine which operations to include
+    const needsRead = capabilities.needsDataList || dataOps.some(op => op.type === 'read');
+    const needsCreate = capabilities.needsDataEntry || dataOps.some(op => op.type === 'create');
+    const needsUpdate = dataOps.some(op => op.type === 'update');
+    const needsDelete = dataOps.some(op => op.type === 'delete');
+    const needsAggregate = capabilities.needsDataVisualization || dataOps.some(op => op.type === 'aggregate');
+
+    // Generate only needed operations
+    if (needsRead) {
+      code += `export async function fetch${name}s(): Promise<${name}[]> {
+  const res = await fetch(API_BASE);
+  if (!res.ok) throw new Error('Failed to fetch ${nameLower}s');
+  const data = await res.json();
+  return data.records || [];
+}
+
+`;
+    }
+
+    if (needsCreate) {
+      code += `export async function create${name}(input: ${name}Input): Promise<${name}> {
+  const res = await fetch(API_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error('Failed to create ${nameLower}');
+  const data = await res.json();
+  return data.record;
+}
+
+`;
+    }
+
+    if (needsUpdate) {
+      code += `export async function update${name}(id: string, input: Partial<${name}Input>): Promise<${name}> {
+  const res = await fetch(\`\${API_BASE}?id=\${id}\`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error('Failed to update ${nameLower}');
+  const data = await res.json();
+  return data.record;
+}
+
+`;
+    }
+
+    if (needsDelete) {
+      code += `export async function delete${name}(id: string): Promise<void> {
+  const res = await fetch(\`\${API_BASE}?id=\${id}\`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete ${nameLower}');
+}
+
+`;
+    }
+
+    // Custom operations from capabilities
+    for (const op of dataOps.filter(op => op.type === 'custom')) {
+      code += `export async function ${op.customName || 'customOperation'}(params: Record<string, unknown>): Promise<unknown> {
+  // ${op.description}
+  const res = await fetch(\`\${API_BASE}/custom\`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ operation: '${op.customName}', ...params }),
+  });
+  if (!res.ok) throw new Error('Operation failed');
+  return res.json();
+}
+
+`;
+    }
+
+    // If no operations were added, add a minimal fetch
+    if (!needsRead && !needsCreate && !needsUpdate && !needsDelete) {
+      code += `// This app uses local state only - no API operations needed
+export const API_BASE_URL = API_BASE;
+`;
+    }
+
+    return code;
+  }
+
+  /**
+   * Generate flexible hooks based on capabilities
+   * Only includes hooks for operations the app actually needs
+   */
+  generateFlexibleHooks(schema: Schema, appId: string, capabilities?: AppCapabilities): string {
+    const name = schema.name;
+    const nameLower = name.toLowerCase();
+
+    // Default to full CRUD hooks for backward compatibility
+    if (!capabilities) {
+      return this.generateHooks(schema, appId);
+    }
+
+    const dataOps = capabilities.dataOperations || [];
+    const needsRead = capabilities.needsDataList || dataOps.some(op => op.type === 'read');
+    const needsCreate = capabilities.needsDataEntry || dataOps.some(op => op.type === 'create');
+    const needsUpdate = dataOps.some(op => op.type === 'update');
+    const needsDelete = dataOps.some(op => op.type === 'delete');
+
+    // Build import statement based on needed operations
+    const apiImports: string[] = [];
+    if (needsRead) apiImports.push(`fetch${name}s`);
+    if (needsCreate) apiImports.push(`create${name}`);
+    if (needsUpdate) apiImports.push(`update${name}`);
+    if (needsDelete) apiImports.push(`delete${name}`);
+
+    let code = `'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+${apiImports.length > 0 ? `import { ${apiImports.join(', ')} } from './api';` : ''}
+import type { ${name}${needsCreate || needsUpdate ? `, ${name}Input` : ''} } from './types';
+
+export function use${name}Data() {
+  const [${nameLower}s, set${name}s] = useState<${name}[]>([]);
+  const [isLoading, setIsLoading] = useState(${needsRead ? 'true' : 'false'});
+  const [error, setError] = useState<string | null>(null);
+
+`;
+
+    // Add fetch if needed
+    if (needsRead) {
+      code += `  const fetchData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await fetch${name}s();
+      set${name}s(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch data');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+`;
+    }
+
+    // Add create if needed
+    if (needsCreate) {
+      code += `  const add${name} = useCallback(async (input: ${name}Input) => {
+    try {
+      const newItem = await create${name}(input);
+      set${name}s(prev => [...prev, newItem]);
+      return newItem;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add');
+      throw err;
+    }
+  }, []);
+
+`;
+    }
+
+    // Add delete if needed
+    if (needsDelete) {
+      code += `  const remove${name} = useCallback(async (id: string) => {
+    try {
+      await delete${name}(id);
+      set${name}s(prev => prev.filter(item => item.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete');
+      throw err;
+    }
+  }, []);
+
+`;
+    }
+
+    // Add update if needed
+    if (needsUpdate) {
+      code += `  const edit${name} = useCallback(async (id: string, input: Partial<${name}Input>) => {
+    try {
+      const updated = await update${name}(id, input);
+      set${name}s(prev => prev.map(item => item.id === id ? updated : item));
+      return updated;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update');
+      throw err;
+    }
+  }, []);
+
+`;
+    }
+
+    // Build return object based on what was generated
+    const returnProps: string[] = [
+      `${nameLower}s`,
+      'isLoading',
+      'error',
+    ];
+    if (needsCreate) returnProps.push(`add${name}`);
+    if (needsDelete) returnProps.push(`remove${name}`);
+    if (needsUpdate) returnProps.push(`edit${name}`);
+    if (needsRead) returnProps.push('refresh: fetchData');
+
+    code += `  return {
+    ${returnProps.join(',\n    ')},
+  };
+}
+`;
+
+    return code;
+  }
+
+  /**
+   * Generate flexible page wrapper based on capabilities
+   * Creates appropriate layout based on app's actual needs
+   */
+  generateFlexiblePageWrapper(
+    schema: Schema,
+    layout: LayoutNode,
+    componentSpecs: ComponentSpec[],
+    aesthetics?: AestheticSpec,
+    capabilities?: AppCapabilities
+  ): string {
+    // Use the enhanced page wrapper for apps with capabilities
+    if (!capabilities) {
+      return this.generatePageWrapper(schema, layout, componentSpecs, aesthetics);
+    }
+
+    const name = schema.name;
+    const nameLower = name.toLowerCase();
+    
+    // Build imports based on components
+    const componentImports = componentSpecs
+      .map(s => `import { ${s.name} } from './components/${s.name}';`)
+      .join('\n');
+
+    // Determine what hooks to use
+    const hookExports: string[] = [`${nameLower}s`, 'isLoading', 'error'];
+    if (capabilities.needsDataEntry) hookExports.push(`add${name}`);
+    if (capabilities.dataOperations?.some(op => op.type === 'delete')) hookExports.push(`remove${name}`);
+    if (capabilities.dataOperations?.some(op => op.type === 'update')) hookExports.push(`edit${name}`);
+    if (capabilities.needsDataList) hookExports.push('refresh');
+
+    // Generate aesthetic styles if provided
+    const styleBlock = aesthetics ? this.generateStyleBlock(aesthetics) : this.generateDefaultStyleBlock();
+    const backgroundStyle = aesthetics?.backgroundStyle?.layers?.join(', ') || 'linear-gradient(180deg, #0a0a0a 0%, #1a1a2e 100%)';
+    const motionImport = aesthetics?.motion ? `import { motion } from 'framer-motion';` : '';
+    const useMotion = aesthetics?.motion;
+
+    // Build component rendering based on capabilities
+    const primaryInteraction = capabilities.primaryInteraction || 'manage';
+    let mainContent = '';
+    
+    // Find primary and secondary components
+    const primaryComponent = componentSpecs.find(c => 
+      (c.props as Record<string, unknown>)?.isPrimary || 
+      capabilities.customViews?.find(v => v.name === c.name)?.isPrimary
+    );
+    const otherComponents = componentSpecs.filter(c => c !== primaryComponent);
+
+    if (primaryComponent) {
+      // Layout with primary component prominent
+      mainContent = `
+        <div className="flex flex-col gap-6">
+          ${useMotion ? `<motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+            className="flex-1"
+          >` : '<div className="flex-1">'}
+            <${primaryComponent.name} 
+              data={${nameLower}s}
+              ${capabilities.needsDataEntry ? `onAdd={add${name}}` : ''}
+              ${capabilities.dataOperations?.some(op => op.type === 'delete') ? `onDelete={remove${name}}` : ''}
+            />
+          ${useMotion ? '</motion.div>' : '</div>'}
+          
+          ${otherComponents.map((c, i) => `
+          ${useMotion ? `<motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: ${0.1 + i * 0.1} }}
+          >` : '<div>'}
+            <${c.name} data={${nameLower}s} />
+          ${useMotion ? '</motion.div>' : '</div>'}`).join('\n')}
+        </div>`;
+    } else {
+      // Standard grid layout
+      mainContent = `
+        <div className="grid grid-cols-1 lg:grid-cols-${componentSpecs.length > 2 ? '3' : '2'} gap-6">
+          ${componentSpecs.map((c, i) => `
+          ${useMotion ? `<motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: ${i * 0.1} }}
+          >` : '<div>'}
+            <${c.name} 
+              data={${nameLower}s}
+              ${c.type === 'form' && capabilities.needsDataEntry ? `onSubmit={add${name}}` : ''}
+              ${c.type === 'table' && capabilities.dataOperations?.some(op => op.type === 'delete') ? `onDelete={remove${name}}` : ''}
+            />
+          ${useMotion ? '</motion.div>' : '</div>'}`).join('\n')}
+        </div>`;
+    }
+
+    return `'use client';
+
+import { useState } from 'react';
+${motionImport}
+import { use${name}Data } from './lib/hooks';
+${componentImports}
+
+${styleBlock}
+
+export default function ${name}Page() {
+  const { ${hookExports.join(', ')} } = use${name}Data();
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-bg-base)', color: 'var(--color-text)' }}>
+        <div className="text-center">
+          <p className="mb-4" style={{ color: 'var(--color-accent)' }}>{error}</p>
+          ${capabilities.needsDataList ? `<button onClick={refresh} className="px-4 py-2 rounded transition-colors" style={{ background: 'var(--color-primary)', color: 'var(--color-text)' }}>
+            Retry
+          </button>` : ''}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      className="min-h-screen"
+      style={{ 
+        background: \`${backgroundStyle}\`,
+        color: 'var(--color-text)',
+        fontFamily: 'var(--font-body)'
+      }}
+    >
+      <div className="max-w-7xl mx-auto p-6">
+        ${useMotion ? `<motion.header 
+          className="mb-8"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >` : '<header className="mb-8">'}
+          <h1 className="text-3xl font-bold" style={{ fontFamily: 'var(--font-heading)' }}>${schema.label}</h1>
+          <p style={{ color: 'var(--color-text-muted)' }}>${schema.description || ''}</p>
+        ${useMotion ? '</motion.header>' : '</header>'}
+
+        {isLoading ? (
+          <div className="text-center py-12" style={{ color: 'var(--color-text-muted)' }}>Loading...</div>
+        ) : (
+          ${mainContent}
+        )}
+      </div>
+    </div>
+  );
+}
+`;
+  }
+
+  /**
+   * Generate a truly custom component using LLM
+   * Creates components based on description, not predefined templates
+   */
+  async generateCustomComponent(
+    spec: ComponentSpec,
+    schema: Schema,
+    aesthetics?: AestheticSpec
+  ): Promise<string> {
+    const props = spec.props as Record<string, unknown>;
+    const description = props.description as string;
+    const dataRequirements = props.dataRequirements as string[];
+    const interactionModel = props.interactionModel as string;
+    const visualStyle = props.visualStyle as string;
+    const suggestedLibraries = props.suggestedLibraries as string[] | undefined;
+
+    const customPrompt = `Generate a CUSTOM React component based on this specification:
+
+## Component: ${spec.name}
+
+### Description
+${description}
+
+### Data Requirements
+${dataRequirements?.join('\n') || 'Uses schema data'}
+
+### Interaction Model
+${interactionModel || 'interactive'}
+
+### Visual Style
+${visualStyle || 'Modern and clean'}
+
+${suggestedLibraries?.length ? `### Suggested Libraries
+Use these libraries if helpful: ${suggestedLibraries.join(', ')}` : ''}
+
+### Schema Context
+Entity: ${schema.name}
+Fields: ${schema.fields.filter(f => !f.generated).map(f => `${f.label} (${f.type})`).join(', ')}
+
+${aesthetics ? `### Aesthetic Theme
+Theme: ${aesthetics.theme}
+Colors: Primary ${aesthetics.colorPalette.primary}, Accent ${aesthetics.colorPalette.accent}
+Typography: ${aesthetics.typography.heading} headings, ${aesthetics.typography.body} body
+Animation: ${aesthetics.motion.intensity} intensity with ${aesthetics.motion.pageLoadStrategy} page load` : ''}
+
+### Requirements
+1. Use 'use client' directive
+2. Use TypeScript with proper types
+3. Use NAMED exports (export function ${spec.name}...)
+4. Import types from '../lib/types'
+5. Use framer-motion for animations if the aesthetic calls for it
+6. Use CSS variables for colors: var(--color-primary), var(--color-bg-elevated), etc.
+7. Make it interactive and polished
+8. DO NOT use generic CRUD patterns - this is a CUSTOM component
+
+Generate the complete component code.`;
+
+    let code = '';
+    for await (const chunk of streamComplete({
+      messages: [
+        { role: 'system', content: CODE_GEN_SYSTEM_PROMPT },
+        { role: 'user', content: customPrompt },
+      ],
+      temperature: 0.4, // Slightly higher for creativity
+      maxTokens: 8192,
+    })) {
+      code += chunk;
+    }
+
+    return this.cleanGeneratedCode(code);
+  }
+
   /**
    * Generate page wrapper component with aesthetic styling
    */
@@ -933,12 +1449,18 @@ export async function DELETE(req: NextRequest) {
 
   /**
    * Extract component specs from layout
+   * Now respects capabilities - doesn't force form+table when not needed
    */
-  private extractComponentSpecs(layout: LayoutNode, schema: Schema): ComponentSpec[] {
+  private extractComponentSpecs(
+    layout: LayoutNode, 
+    schema: Schema,
+    capabilities?: AppCapabilities
+  ): ComponentSpec[] {
     const components = getComponents(layout);
     const specs: ComponentSpec[] = [];
     const seenTypes = new Set<string>();
 
+    // First, process components from the layout
     for (const node of components) {
       if (!node.component) continue;
       
@@ -956,25 +1478,62 @@ export async function DELETE(req: NextRequest) {
       });
     }
 
-    // Ensure we have at least form and table
-    if (!seenTypes.has('form')) {
-      specs.unshift({
-        id: generateId(),
-        name: `${schema.name}Form`,
-        type: 'form',
-        schemaRef: schema.name,
-        props: {},
-      });
+    // Add custom views from capabilities
+    if (capabilities?.customViews) {
+      for (const customView of capabilities.customViews) {
+        if (seenTypes.has(customView.name)) continue;
+        seenTypes.add(customView.name);
+        
+        specs.push({
+          id: generateId(),
+          name: customView.name,
+          type: 'custom',
+          schemaRef: schema.name,
+          props: {
+            description: customView.description,
+            dataRequirements: customView.dataRequirements,
+            interactionModel: customView.interactionModel,
+            visualStyle: customView.visualStyle,
+            suggestedLibraries: customView.suggestedLibraries,
+            isPrimary: customView.isPrimary,
+            layoutHint: customView.layoutHint,
+          },
+          customizations: [customView.description],
+        });
+      }
     }
 
-    if (!seenTypes.has('table')) {
-      specs.push({
-        id: generateId(),
-        name: `${schema.name}Table`,
-        type: 'table',
-        schemaRef: schema.name,
-        props: {},
-      });
+    // Only add default form+table if:
+    // 1. No capabilities specified (legacy behavior)
+    // 2. OR capabilities explicitly request data entry/list
+    const shouldAddDefaults = !capabilities || (
+      capabilities.needsDataEntry || 
+      capabilities.needsDataList ||
+      capabilities.needsCRUD
+    );
+
+    if (shouldAddDefaults) {
+      // Only add form if explicitly needed or no capabilities specified
+      if (!seenTypes.has('form') && (!capabilities || capabilities.needsDataEntry)) {
+        specs.unshift({
+          id: generateId(),
+          name: `${schema.name}Form`,
+          type: 'form',
+          schemaRef: schema.name,
+          props: {},
+        });
+      }
+
+      // Only add table if explicitly needed or no capabilities specified
+      if (!seenTypes.has('table') && (!capabilities || capabilities.needsDataList)) {
+        specs.push({
+          id: generateId(),
+          name: `${schema.name}Table`,
+          type: 'table',
+          schemaRef: schema.name,
+          props: {},
+        });
+      }
     }
 
     return specs;
@@ -1118,6 +1677,7 @@ Generate the complete component code following this exact pattern with CORRECT i
 
   /**
    * Get template/requirements for component type
+   * Expanded to support creative, flexible components
    */
   private getComponentTemplate(type: ComponentType): string {
     const templates: Record<ComponentType, string> = {
@@ -1137,41 +1697,117 @@ Generate the complete component code following this exact pattern with CORRECT i
 - Handle empty state`,
 
       chart: `
-- Display as a styled placeholder for now
-- Show chart type indicator
-- Use Tailwind dark theme styling`,
+- Use recharts library (LineChart, BarChart, PieChart, AreaChart)
+- Accept data array and configure axes based on schema fields
+- Include ResponsiveContainer for responsive sizing
+- Add Tooltip and Legend components
+- Use CSS variables for colors (var(--color-primary), var(--color-accent))
+- Use framer-motion for entrance animations`,
 
       cards: `
 - Accept typed data array prop (DataType[])
-- Display items as cards in a grid
-- Show key fields (first 3)
-- Include delete action
-- Use Tailwind dark theme styling`,
+- Display items as cards in a responsive grid
+- Show key fields with nice formatting
+- Use framer-motion for staggered card animations
+- Include hover effects (lift, glow)
+- Support click-to-expand or click-to-action`,
 
       stats: `
-- Calculate totals/counts from data
-- Display as metric cards
-- Use Tailwind dark theme styling`,
+- Calculate totals/counts/averages from data
+- Display as beautiful metric cards with icons
+- Use framer-motion for number counting animations
+- Show trend indicators if date data available
+- Use CSS variables for consistent theming`,
 
       filters: `
 - Accept typed filters state and onChange callback
 - Include filter inputs for filterable fields
-- Use Tailwind dark theme styling`,
+- Use dropdown selects for enum fields
+- Include search input for text fields
+- Clear filters button`,
 
       kanban: `
 - Accept typed data array and status field
-- Display columns by status
-- Use Tailwind dark theme styling`,
+- Display columns by status values
+- Use @dnd-kit for drag and drop between columns
+- Animate card movements with framer-motion
+- Include column headers with counts`,
 
       calendar: `
-- Display as styled placeholder
-- Show month/date indicator
-- Use Tailwind dark theme styling`,
+- Display a proper calendar grid with dates
+- Highlight dates that have data entries
+- Use framer-motion for month transition animations
+- Support click on date to show entries
+- Show mini-previews on hover`,
+
+      heatmap: `
+- Create a GitHub-style contribution/activity heatmap
+- Use react-activity-calendar or custom grid implementation
+- Accept data with date and count/value fields
+- Color intensity based on value
+- Include hover tooltips showing date and value
+- Add legend showing intensity scale
+- Use framer-motion for entrance animation
+- Support different time ranges (year, 6 months, 3 months)`,
+
+      timeline: `
+- Display data as a vertical timeline
+- Use date fields for ordering
+- Show event cards connected by a line
+- Use framer-motion for staggered reveal
+- Include icons for different event types
+- Support expanding/collapsing event details`,
+
+      gallery: `
+- Display items in a masonry or grid layout
+- Support images if available, otherwise styled cards
+- Use framer-motion for layout animations
+- Include lightbox on click
+- Support filtering and sorting`,
+
+      list: `
+- Clean, simple list view of items
+- Each item shows key information on one line
+- Support inline actions (complete, delete)
+- Use framer-motion for list item animations
+- Support reordering with drag and drop`,
+
+      detail: `
+- Show detailed view of a single item
+- Display all fields with nice formatting
+- Include edit and delete actions
+- Support navigation between items
+- Use framer-motion for transitions`,
+
+      'action-button': `
+- Floating action button (FAB) style
+- Primary action for the app (add, complete, etc.)
+- Use framer-motion for hover/press animations
+- Optionally expand to show multiple actions
+- Position floating in bottom-right`,
+
+      menu: `
+- Hamburger menu or side drawer
+- List of navigation items/actions
+- Use framer-motion for open/close animation
+- Include icons for each menu item
+- Support nested menus if needed`,
+
+      modal: `
+- Overlay dialog for forms or confirmations
+- Use AnimatePresence for enter/exit animations
+- Include close button and backdrop click to close
+- Support different sizes (small, medium, large)
+- Focus trap for accessibility`,
 
       custom: `
-- Create a flexible custom component
+- Create a unique, creative component based on the description
+- Don't follow standard patterns - be creative
 - Accept typed data prop
-- Use Tailwind dark theme styling`,
+- Use framer-motion for animations
+- Use CSS variables for theming
+- Consider the interaction model (read-only, interactive, editable, actionable)
+- Make it polished and delightful`,
     };
 
     return templates[type] || templates.custom;

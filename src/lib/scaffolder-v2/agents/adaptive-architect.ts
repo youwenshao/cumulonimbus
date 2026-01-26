@@ -1,6 +1,7 @@
 /**
  * Adaptive Architect
  * Coordinates parallel agent execution with decision graphs and readiness tracking
+ * Now includes creative iteration loop for design exploration
  */
 
 import { BaseAgent } from './base-agent';
@@ -18,7 +19,33 @@ import type {
   MergedAgentResult,
   ProactiveSuggestion,
   AppCategory,
+  AppCapabilities,
 } from '../types';
+import { DesignExplorerAgent, designExplorerAgent, type DesignConcept, type ExplorationResult } from './design-explorer';
+
+// ============================================================================
+// Creative Loop Types
+// ============================================================================
+
+/**
+ * Tracks the state of creative design iteration
+ */
+export interface CreativeLoopState {
+  /** Maximum iterations before forcing selection */
+  maxIterations: number;
+  /** Quality threshold (0-100) to pass before building */
+  qualityThreshold: number;
+  /** Current iteration number */
+  currentIteration: number;
+  /** All design concepts generated */
+  designConcepts: DesignConcept[];
+  /** The selected/best concept */
+  selectedConcept?: DesignConcept;
+  /** Whether the loop has completed */
+  completed: boolean;
+  /** Total creativity score achieved */
+  creativityScore: number;
+}
 
 // Decision analysis schema for LLM
 const DECISION_ANALYSIS_SCHEMA = `{
@@ -72,47 +99,92 @@ const INTENT_EXTRACTION_SCHEMA = `{
   "suggestedEnhancements": ["string"]
 }`;
 
-const ARCHITECT_SYSTEM_PROMPT = `You are the adaptive architect for an AI app builder. Your PRIMARY GOAL is to autonomously drive the app design to a BUILD-READY state (readiness >= 80%) with minimal user intervention.
+const ARCHITECT_SYSTEM_PROMPT = `You are the adaptive architect for an AI app builder. Your PRIMARY GOAL is to create CREATIVE, POLISHED applications - NOT generic CRUD interfaces.
+
+## Creative Design Philosophy
+
+CRITICAL: You are NOT building simple CRUD apps. Every app should be:
+- CREATIVE: Unique, interesting, delightful to use
+- PURPOSEFUL: Designed around the user's actual needs, not database operations
+- POLISHED: Beautiful, well-animated, cohesive aesthetic
+- FOCUSED: Primary interaction should be prominent, not buried in a form
+
+## Before Building - Creative Exploration
+
+ALWAYS explore at least 3 different design approaches before committing:
+1. What is the PRIMARY thing the user will do MOST OFTEN?
+2. What should they see IMMEDIATELY when opening the app?
+3. What creative visualizations could make this app delightful?
+4. How can we avoid the generic "form on left, table on right" pattern?
+
+Examples of CREATIVE vs GENERIC designs:
+- Habit tracker: CREATIVE = heatmap with floating check-in button, GENERIC = form + table
+- Expense tracker: CREATIVE = visual pie chart with swipe gestures, GENERIC = form + table
+- Task manager: CREATIVE = kanban with drag-drop, GENERIC = form + table
 
 ## Core Responsibilities:
-1. DEEPLY UNDERSTAND user requests - extract entities, detect references, understand workflows
-2. COORDINATE agents in parallel when possible - don't run sequentially unless necessary
-3. MAKE SMART DECISIONS - the user should rarely need to answer technical questions
-4. PROACTIVELY PROGRESS - after each interaction, determine what's needed to reach build-ready state
-5. GENERATE PROPOSALS when appropriate - give users 2-3 options to choose from
+1. DEEPLY UNDERSTAND user requests - what do they REALLY need, not just what data to store
+2. EXPLORE creative design options through the Design Explorer agent
+3. COORDINATE agents for collaborative design refinement
+4. ENSURE quality threshold (creativity score >= 70) before building
+5. REJECT generic CRUD patterns - iterate until design is creative
+
+## Quality Gate
+
+Do NOT proceed to code generation until:
+- Creativity score >= 70 (not generic CRUD)
+- Design serves the user's PRIMARY interaction
+- Aesthetics are defined (theme, colors, animations)
+- Layout avoids form+table default
 
 ## Autonomous Progression Strategy:
-- After understanding the user's intent, IMMEDIATELY begin designing the schema
-- Once schema is proposed, SIMULTANEOUSLY design the UI layout
-- Keep iterating until readiness reaches 80%+, then prompt user to BUILD
-- Only ask the user questions when there's genuine ambiguity that affects the core design
+- After understanding intent, run CREATIVE EXPLORATION to generate multiple concepts
+- Evaluate concepts for creativity - reject generic patterns
+- Iterate on design until quality threshold is met
+- Only then proceed to code generation
 
 ## Key Principles:
+- PRIORITIZE creativity and user delight over speed
 - Run agents in PARALLEL when they don't depend on each other
-- INFER technical details (field types, validations) - don't ask the user
-- Detect REFERENCE APPS ("like Trello") and apply their patterns
-- Track READINESS scores (0-100) for schema, UI, and workflow
-- When readiness < 80%, ALWAYS include next steps to increase it
-- When readiness >= 80%, ENCOURAGE the user to build the app
-
-## Parallel Execution:
-- Schema and UI agents CAN run in parallel for initial requests
-- Workflow agent can run in parallel with Schema agent
-- Code generation MUST wait for Schema and UI to be ready
+- INFER technical details - don't ask the user
+- Detect REFERENCE APPS ("like Trello", "like GitHub") and apply their UX patterns
+- Track both READINESS scores (0-100) and CREATIVITY scores (0-100)
+- Block building if creativity score < 70
 
 ## Readiness Scoring:
-- 0-30: Initial ideas, needs refinement - TAKE ACTION to progress
-- 30-60: Basic structure defined - REFINE and add details
-- 60-80: Well-defined, minor tweaks needed - FINALIZE design
-- 80-100: Ready for code generation - PROMPT USER TO BUILD`;
+- 0-30: Initial ideas - START CREATIVE EXPLORATION
+- 30-60: Concepts generated - EVALUATE AND REFINE
+- 60-80: Good design emerging - ENSURE CREATIVITY THRESHOLD MET
+- 80-100: Creative, ready design - NOW prompt user to BUILD`;
 
 export class AdaptiveArchitect extends BaseAgent {
+  // Creative loop configuration
+  private creativeLoopConfig = {
+    maxIterations: 3,
+    qualityThreshold: 70, // Minimum creativity score to proceed
+    enableCreativeLoop: true,
+  };
+
   constructor() {
     super({
       name: 'AdaptiveArchitect',
-      description: 'Coordinates parallel agent execution with smart decision making',
+      description: 'Coordinates parallel agent execution with smart decision making and creative exploration',
       temperature: 0.2,
     });
+  }
+
+  /**
+   * Enable or disable the creative exploration loop
+   */
+  setCreativeLoopEnabled(enabled: boolean): void {
+    this.creativeLoopConfig.enableCreativeLoop = enabled;
+  }
+
+  /**
+   * Set the quality threshold for the creative loop
+   */
+  setQualityThreshold(threshold: number): void {
+    this.creativeLoopConfig.qualityThreshold = Math.max(0, Math.min(100, threshold));
   }
 
   protected buildSystemPrompt(state: ConversationState): string {
@@ -588,6 +660,185 @@ Provide a comprehensive analysis as JSON.`;
     }
 
     return suggestions.slice(0, 5); // Limit to 5 suggestions
+  }
+
+  // ============================================================================
+  // Creative Loop Methods
+  // ============================================================================
+
+  /**
+   * Run the creative design exploration loop
+   * Generates multiple concepts, evaluates them, and returns the best one
+   */
+  async runCreativeLoop(
+    userMessage: string,
+    state: DynamicConversationState
+  ): Promise<{
+    loopState: CreativeLoopState;
+    result: ExplorationResult | null;
+    capabilities: AppCapabilities | null;
+  }> {
+    if (!this.creativeLoopConfig.enableCreativeLoop) {
+      this.log('Creative loop disabled, skipping exploration');
+      return { 
+        loopState: this.createEmptyLoopState(), 
+        result: null,
+        capabilities: null,
+      };
+    }
+
+    if (state.schemas.length === 0) {
+      this.log('No schema available, cannot run creative loop');
+      return { 
+        loopState: this.createEmptyLoopState(), 
+        result: null,
+        capabilities: null,
+      };
+    }
+
+    this.log('Starting creative design exploration', {
+      threshold: this.creativeLoopConfig.qualityThreshold,
+      maxIterations: this.creativeLoopConfig.maxIterations,
+    });
+
+    // Use the DesignExplorerAgent for creative exploration
+    const explorationResult = await designExplorerAgent.explore(
+      userMessage,
+      state.schemas[0],
+      state.enhancedIntent
+    );
+
+    const loopState: CreativeLoopState = {
+      maxIterations: this.creativeLoopConfig.maxIterations,
+      qualityThreshold: this.creativeLoopConfig.qualityThreshold,
+      currentIteration: explorationResult.iterations,
+      designConcepts: explorationResult.concepts,
+      selectedConcept: explorationResult.selectedConcept,
+      completed: true,
+      creativityScore: explorationResult.selectedConcept.scores.creativity,
+    };
+
+    this.log('Creative loop completed', {
+      iterations: loopState.currentIteration,
+      selectedConcept: loopState.selectedConcept?.name,
+      creativityScore: loopState.creativityScore,
+      meetsThreshold: loopState.creativityScore >= this.creativeLoopConfig.qualityThreshold,
+    });
+
+    return {
+      loopState,
+      result: explorationResult,
+      capabilities: explorationResult.selectedConcept.capabilities,
+    };
+  }
+
+  /**
+   * Apply creative loop results to state
+   */
+  applyCreativeLoopResults(
+    state: DynamicConversationState,
+    loopState: CreativeLoopState,
+    result: ExplorationResult
+  ): DynamicConversationState {
+    if (!loopState.selectedConcept) {
+      return state;
+    }
+
+    const updatedState = { ...state };
+    
+    // Apply the selected concept's layout
+    updatedState.layout = loopState.selectedConcept.layout;
+    
+    // Store the creative loop state for reference
+    (updatedState as any).creativeLoopState = loopState;
+    
+    // Store capabilities for code generation
+    (updatedState as any).appCapabilities = loopState.selectedConcept.capabilities;
+    
+    // Update readiness based on creativity score
+    const creativityBonus = Math.min(30, loopState.creativityScore * 0.3);
+    updatedState.readiness = {
+      ...updatedState.readiness,
+      ui: Math.min(100, updatedState.readiness.ui + creativityBonus),
+      overall: Math.min(100, updatedState.readiness.overall + creativityBonus * 0.5),
+    };
+
+    // Add design exploration info to suggestions
+    const explorationSuggestion = {
+      id: generateId(),
+      feature: `Design: ${loopState.selectedConcept.name}`,
+      reasoning: loopState.selectedConcept.description,
+      confidence: loopState.selectedConcept.confidence,
+      implementation: { effort: 'easy' as const },
+      category: 'ux' as const,
+    };
+    updatedState.suggestions = [explorationSuggestion, ...updatedState.suggestions];
+
+    return updatedState;
+  }
+
+  /**
+   * Check if creative exploration should be triggered
+   */
+  shouldRunCreativeLoop(
+    state: DynamicConversationState,
+    decision: EnhancedArchitectDecision
+  ): boolean {
+    // Run creative loop for new requests with schema but no layout
+    if (state.schemas.length > 0 && !state.layout) {
+      return true;
+    }
+
+    // Run if explicitly requested to redesign
+    if (decision.parallelActions.some(a => 
+      a.action === 'explore' || 
+      a.action === 'redesign' ||
+      a.action === 'creative'
+    )) {
+      return true;
+    }
+
+    // Run if current design has low creativity (stored from previous loop)
+    const prevLoopState = (state as any).creativeLoopState as CreativeLoopState | undefined;
+    if (prevLoopState && prevLoopState.creativityScore < this.creativeLoopConfig.qualityThreshold) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Create empty loop state for when loop is disabled
+   */
+  private createEmptyLoopState(): CreativeLoopState {
+    return {
+      maxIterations: this.creativeLoopConfig.maxIterations,
+      qualityThreshold: this.creativeLoopConfig.qualityThreshold,
+      currentIteration: 0,
+      designConcepts: [],
+      selectedConcept: undefined,
+      completed: false,
+      creativityScore: 0,
+    };
+  }
+
+  /**
+   * Get creative loop status message
+   */
+  getCreativeLoopStatusMessage(loopState: CreativeLoopState): string {
+    if (!loopState.completed) {
+      return 'Creative exploration not run';
+    }
+
+    const meetsThreshold = loopState.creativityScore >= this.creativeLoopConfig.qualityThreshold;
+    
+    if (meetsThreshold) {
+      return `Design "${loopState.selectedConcept?.name}" selected with creativity score ${loopState.creativityScore}/100. ` +
+        `This design avoids generic CRUD patterns and focuses on your app's unique needs.`;
+    } else {
+      return `Best design "${loopState.selectedConcept?.name}" has creativity score ${loopState.creativityScore}/100. ` +
+        `Consider requesting a more creative design for better results.`;
+    }
   }
 
   // ============================================================================

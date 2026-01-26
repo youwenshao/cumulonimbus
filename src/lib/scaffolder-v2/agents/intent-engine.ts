@@ -60,13 +60,30 @@ const REFERENCE_APPS: Record<string, {
   },
   todoist: {
     category: 'tracker',
-    layout: 'sidebar',
-    components: ['form', 'table', 'filters'],
+    layout: 'simple',
+    components: ['list', 'action-button', 'filters'],
     entities: [
-      { name: 'project', fields: ['name', 'color'] },
-      { name: 'task', fields: ['title', 'description', 'priority', 'dueDate', 'labels'] },
+      { name: 'task', fields: ['title', 'completed', 'priority', 'dueDate'] },
     ],
     workflows: ['recurring_tasks', 'priority_levels', 'quick_add'],
+  },
+  github: {
+    category: 'tracker',
+    layout: 'dashboard',
+    components: ['heatmap', 'stats', 'action-button'],
+    entities: [
+      { name: 'activity', fields: ['date', 'count'] },
+    ],
+    workflows: ['streak_tracking', 'daily_contribution'],
+  },
+  habitica: {
+    category: 'tracker',
+    layout: 'dashboard',
+    components: ['heatmap', 'stats', 'cards', 'action-button'],
+    entities: [
+      { name: 'habit', fields: ['name', 'streak', 'completedDates'] },
+    ],
+    workflows: ['gamification', 'streak_rewards', 'daily_reset'],
   },
   airtable: {
     category: 'dashboard',
@@ -227,36 +244,52 @@ const INTENT_EXTRACTION_SCHEMA = `{
   "suggestedEnhancements": ["string"]
 }`;
 
-const INTENT_SYSTEM_PROMPT = `You are an expert at understanding app requirements. Extract comprehensive information from user descriptions.
+const INTENT_SYSTEM_PROMPT = `You are an expert at understanding app requirements. Your job is to deeply understand what the user ACTUALLY NEEDS, not just what data they want to store.
 
-IMPORTANT: Make smart inferences - don't ask the user for details you can figure out.
+## Core Principle: Understand the USER'S GOAL
 
-Entity Detection:
-- Identify all data entities (projects, tasks, users, etc.)
-- Infer relationships between entities (projects have tasks, etc.)
-- Suggest appropriate fields for each entity
+Ask yourself:
+- What will the user DO with this app MOST OFTEN?
+- What should they SEE when they open the app?
+- What would make this app DELIGHTFUL to use?
 
-Reference App Detection:
-- Listen for mentions of apps: "like Trello", "similar to Notion"
-- Also detect implied patterns: "kanban" implies Trello-like, "database" implies Airtable-like
+CRITICAL: Do NOT assume every app needs a form and a table. Most apps benefit from creative visualizations.
 
-Workflow Detection:
-- Listen for automation hints: "when done", "notify when", "after X days"
-- Detect state machines: status transitions, approvals
+## Primary Interaction Detection
 
-Layout Hints:
-- Dashboard: stats at top, charts, overview focus
-- Sidebar: navigation-heavy, form on side
-- Kanban: columns by status, drag-drop
-- Simple: basic form + table
-- Split: equal columns
+Identify the PRIMARY thing the user will do:
+- TRACK: Daily habits, streaks, progress → Heatmap, calendar, streak counter
+- VIEW: Browse data, see patterns → Timeline, gallery, dashboard
+- MANAGE: Update status, organize → Kanban, drag-drop lists
+- CREATE: Add new entries frequently → Quick-add floating button
+- ANALYZE: Understand trends → Charts, stats, visualizations
 
-Complexity Scoring (1-10):
-- 1-3: Simple tracker, few fields
-- 4-6: Multiple entities, some relationships
-- 7-10: Complex workflows, many entities, automations
+## Entity Detection (Keep It Minimal)
+- Identify the CORE entity (usually just one!)
+- Infer only ESSENTIAL fields
+- Don't over-engineer with relationships unless explicitly needed
 
-Always suggest enhancements that would be useful for the app category.`;
+## Reference App Detection (Focus on UX, not data)
+- "like Trello" → Kanban layout, drag-drop
+- "like GitHub contributions" → Heatmap visualization, daily tracking
+- "like Notion" → Flexible blocks, clean aesthetic
+- "like Todoist" → Clean list, quick add, satisfying completions
+
+## Layout Hints (Prioritize Creativity)
+- Heatmap: GitHub-style activity visualization - GREAT for trackers
+- Timeline: Vertical timeline of events
+- Kanban: Columns by status, drag-drop
+- Dashboard: Stats + charts, overview focus
+- Primary-focus: One main view dominates (80% of screen)
+
+AVOID suggesting "Simple: basic form + table" unless the user specifically asks for CRUD.
+
+## Complexity Scoring (1-10)
+- 1-3: Simple tracker with creative visualization
+- 4-6: Multiple views, some interactions
+- 7-10: Complex workflows, multiple entities, automations
+
+Always suggest CREATIVE enhancements that would delight the user, not just more data fields.`;
 
 export class IntentEngine extends BaseAgent {
   constructor() {

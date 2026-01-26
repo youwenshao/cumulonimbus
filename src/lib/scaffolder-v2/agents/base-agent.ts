@@ -28,6 +28,20 @@ export abstract class BaseAgent {
   }
 
   /**
+   * Get the agent's name
+   */
+  get name(): string {
+    return this.config.name;
+  }
+
+  /**
+   * Get the agent's description
+   */
+  get description(): string {
+    return this.config.description;
+  }
+
+  /**
    * Update user settings for this agent
    */
   setUserSettings(userSettings?: UserLLMSettings): void {

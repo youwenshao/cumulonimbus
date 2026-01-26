@@ -29,3 +29,19 @@ export { UIDesignerAgent as Designer, uiDesignerAgent as designer } from './ui-d
 export { CodeGeneratorAgent as Coder, codeGeneratorAgent as coder } from './code-generator';
 export { IntentEngine as Advisor, intentEngine as advisor } from './intent-engine';
 export { WorkflowAgent as Automator, workflowAgent as automator } from './workflow-agent';
+
+// Creative exploration agent
+export { DesignExplorerAgent, designExplorerAgent } from './design-explorer';
+export type { DesignConcept, ExplorationResult } from './design-explorer';
+
+// ============================================================================
+// Journey-First Architecture Agents (v3)
+// These agents design user experiences, not database interfaces
+// ============================================================================
+
+export { JourneyArchitect, journeyArchitect } from './journey-architect';
+export { UXDesignerV3, uxDesignerV3 } from './ux-designer-v3';
+export { InteractionDesigner, interactionDesigner } from './interaction-designer';
+export { ComponentArchitect, componentArchitect } from './component-architect';
+export { DataArchitect, dataArchitect } from './data-architect';
+export { ImplementationEngineer, implementationEngineer } from './implementation-engineer';

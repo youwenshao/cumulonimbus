@@ -89,7 +89,77 @@ export type ComponentType =
   | 'calendar' 
   | 'stats' 
   | 'filters'
-  | 'custom';
+  | 'custom'
+  | 'heatmap'
+  | 'timeline'
+  | 'gallery'
+  | 'list'
+  | 'detail'
+  | 'action-button'
+  | 'menu'
+  | 'modal';
+
+// ============================================================================
+// App Capabilities - Flexible generation without forced CRUD
+// ============================================================================
+
+/**
+ * Defines what capabilities an app actually needs.
+ * Used to generate only necessary code, not forced CRUD.
+ */
+export interface AppCapabilities {
+  /** Whether the app needs data entry (forms) */
+  needsDataEntry: boolean;
+  /** Whether the app needs data listing (tables, cards, lists) */
+  needsDataList: boolean;
+  /** Whether the app needs data visualization (charts, stats) */
+  needsDataVisualization: boolean;
+  /** Whether the app needs full CRUD API operations */
+  needsCRUD: boolean;
+  /** Whether the app needs real-time updates */
+  needsRealtime: boolean;
+  /** Custom views that don't fit standard component types */
+  customViews: CustomViewSpec[];
+  /** Primary interaction pattern */
+  primaryInteraction: 'create' | 'view' | 'track' | 'manage' | 'visualize' | 'custom';
+  /** Data operations actually needed */
+  dataOperations: DataOperation[];
+}
+
+/**
+ * Specifies a custom view/component that needs to be generated
+ */
+export interface CustomViewSpec {
+  /** Unique name for this view */
+  name: string;
+  /** Human-readable description of what this view does */
+  description: string;
+  /** What data this view needs access to */
+  dataRequirements: string[];
+  /** How users interact with this view */
+  interactionModel: 'read-only' | 'interactive' | 'editable' | 'actionable';
+  /** Visual style hints for the component */
+  visualStyle: string;
+  /** Libraries to use for this component */
+  suggestedLibraries?: string[];
+  /** Whether this is the primary/main view */
+  isPrimary?: boolean;
+  /** Layout positioning hints */
+  layoutHint?: 'full-width' | 'sidebar' | 'floating' | 'modal' | 'inline';
+}
+
+/**
+ * Specific data operation the app needs
+ */
+export interface DataOperation {
+  type: 'create' | 'read' | 'update' | 'delete' | 'aggregate' | 'search' | 'filter' | 'custom';
+  /** Description of what this operation does */
+  description: string;
+  /** Whether this operation is the primary use case */
+  isPrimary?: boolean;
+  /** Custom operation name (for type: 'custom') */
+  customName?: string;
+}
 
 export type ContainerDirection = 'row' | 'column' | 'grid';
 
@@ -731,3 +801,10 @@ export interface MergedAgentResult {
   // Individual results for debugging
   individualResults: ParallelExecutionResult[];
 }
+
+// ============================================================================
+// Journey-First Architecture Types (v3)
+// Re-export from journey-types for progressive migration
+// ============================================================================
+
+export * from './journey-types';

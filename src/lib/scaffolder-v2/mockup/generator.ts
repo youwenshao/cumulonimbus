@@ -486,6 +486,14 @@ export class MockupGenerator {
       cards: 'Card grid for visual browsing',
       calendar: 'Calendar view for date-based data',
       filters: 'Filter controls for refining data',
+      heatmap: 'Activity heatmap visualization',
+      timeline: 'Chronological timeline view',
+      gallery: 'Image/card gallery grid',
+      list: 'Simple list view',
+      detail: 'Detailed item view',
+      'action-button': 'Floating action button',
+      menu: 'Navigation menu',
+      modal: 'Modal dialog overlay',
       custom: 'Custom component',
     };
     return descriptions[type] || type;

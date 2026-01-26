@@ -167,27 +167,54 @@ Create atmosphere instead of solid colors:
 
 ## Layout Considerations
 
-Component types available:
-- 'form': Data entry
-- 'table': Record viewing/management
-- 'chart': Visualizations (bar, line, pie)
-- 'cards': Visual record display
-- 'kanban': Status-based workflows
-- 'calendar': Date-based data
-- 'stats': KPIs and summaries
-- 'filters': Data filtering
+### Standard Component Types
+- 'form': Data entry forms
+- 'table': Record viewing/management tables
+- 'chart': Visualizations (bar, line, pie, area)
+- 'cards': Visual card-based display
+- 'kanban': Status-based workflow columns
+- 'calendar': Date-based calendar views
+- 'stats': KPIs and metric summaries
+- 'filters': Data filtering panels
 
-Layout patterns:
-- Dashboard: Stats at top, charts and tables below
-- Sidebar: Form on side, content fills remaining
-- Kanban: Columns by status
-- Simple: Form above table
+### Creative Component Types (USE THESE!)
+- 'heatmap': GitHub-style activity/contribution maps - GREAT for trackers
+- 'timeline': Vertical timeline of events
+- 'gallery': Masonry/grid image galleries
+- 'list': Simple, elegant lists with inline actions
+- 'detail': Single-item detail views
+- 'action-button': Floating action buttons
+- 'menu': Hamburger/side drawer menus
+- 'modal': Overlay dialogs
+
+### Custom Components
+You can propose completely CUSTOM components! Use type 'custom' with a detailed description.
+Example: A circular progress ring, a streak counter with animations, a mood selector, etc.
+
+## DO NOT DEFAULT TO FORM + TABLE
+
+CRITICAL: Not every app needs a form on the left and a table on the right!
+
+Consider what the app actually needs:
+- Habit tracker? Primary view should be HEATMAP or CALENDAR, not a table
+- Personal journal? Timeline view, not a CRUD table
+- Task tracker? Kanban or simple list with checkboxes
+- Dashboard? Stats and charts, minimal data entry
+- Gallery? Visual masonry layout, not a data table
+
+## Layout Patterns (Be Creative!)
+- **Primary Focus**: One main component dominates (80% of viewport)
+- **Split View**: Two complementary components side-by-side
+- **Floating Actions**: Primary content with floating action buttons
+- **Progressive Disclosure**: Simple initial view, expanding to reveal more
+- **Hub and Spoke**: Central view with accessible side actions (burger menu)
 
 Make CREATIVE choices:
 - Asymmetric layouts for visual interest
 - Floating elements vs rigid grids
 - Full-bleed backgrounds with contained content
 - Unexpected sidebar placements
+- Primary component should be the MOST USEFUL view, not form+table
 
 ## Your Task
 
@@ -616,12 +643,15 @@ Respond with the complete updated layout in JSON format.`;
 
   /**
    * Validate component type
+   * Now supports expanded creative component types
    */
   private validateComponentType(type: string): ComponentType {
     const validTypes: ComponentType[] = [
-      'form', 'table', 'chart', 'cards', 'kanban', 'calendar', 'stats', 'filters', 'custom'
+      'form', 'table', 'chart', 'cards', 'kanban', 'calendar', 'stats', 'filters',
+      'heatmap', 'timeline', 'gallery', 'list', 'detail', 'action-button', 'menu', 'modal',
+      'custom'
     ];
-    return validTypes.includes(type as ComponentType) ? type as ComponentType : 'table';
+    return validTypes.includes(type as ComponentType) ? type as ComponentType : 'custom';
   }
 
   /**
@@ -681,6 +711,51 @@ Respond with the complete updated layout in JSON format.`;
           f.type === 'enum' || f.type === 'date' || f.searchable
         );
         enriched.fields = enriched.fields || filterableFields.map(f => f.name);
+        break;
+
+      case 'heatmap':
+        // Find date and numeric fields for heatmap
+        const heatmapDateField = fields.find(f => f.type === 'date' || f.type === 'datetime');
+        const heatmapValueField = fields.find(f => f.type === 'number') || fields.find(f => f.type === 'boolean');
+        enriched.dateField = enriched.dateField || heatmapDateField?.name || 'date';
+        enriched.valueField = enriched.valueField || heatmapValueField?.name || 'value';
+        enriched.timeRange = enriched.timeRange || 'year';
+        break;
+
+      case 'timeline':
+        const timelineDateField = fields.find(f => f.type === 'date' || f.type === 'datetime');
+        enriched.dateField = enriched.dateField || timelineDateField?.name;
+        enriched.titleField = enriched.titleField || fields[0]?.name;
+        enriched.descriptionField = enriched.descriptionField || fields[1]?.name;
+        break;
+
+      case 'gallery':
+        enriched.titleField = enriched.titleField || fields[0]?.name;
+        enriched.imageField = enriched.imageField || fields.find(f => f.name.toLowerCase().includes('image') || f.name.toLowerCase().includes('url'))?.name;
+        enriched.columns = enriched.columns || 3;
+        break;
+
+      case 'list':
+        enriched.titleField = enriched.titleField || fields[0]?.name;
+        enriched.subtitleField = enriched.subtitleField || fields[1]?.name;
+        enriched.showCheckbox = enriched.showCheckbox ?? fields.some(f => f.type === 'boolean');
+        break;
+
+      case 'detail':
+        enriched.fields = enriched.fields || fields.map(f => f.name);
+        break;
+
+      case 'action-button':
+        enriched.label = enriched.label || 'Add';
+        enriched.position = enriched.position || 'bottom-right';
+        break;
+
+      case 'menu':
+        enriched.position = enriched.position || 'left';
+        break;
+
+      case 'custom':
+        // Custom components keep their props as-is
         break;
     }
 
@@ -891,6 +966,14 @@ Respond with the complete updated layout in JSON format.`;
       calendar: 'Calendar View',
       stats: 'Statistics Dashboard',
       filters: 'Filter Panel',
+      heatmap: 'Activity Heatmap',
+      timeline: 'Timeline View',
+      gallery: 'Gallery Grid',
+      list: 'List View',
+      detail: 'Detail View',
+      'action-button': 'Action Button',
+      menu: 'Menu/Navigation',
+      modal: 'Modal Dialog',
       custom: 'Custom Component',
     };
     return labels[type] || type;
