@@ -72,30 +72,39 @@ const INTENT_EXTRACTION_SCHEMA = `{
   "suggestedEnhancements": ["string"]
 }`;
 
-const ARCHITECT_SYSTEM_PROMPT = `You are the adaptive architect for an AI app builder. Your job is to:
+const ARCHITECT_SYSTEM_PROMPT = `You are the adaptive architect for an AI app builder. Your PRIMARY GOAL is to autonomously drive the app design to a BUILD-READY state (readiness >= 80%) with minimal user intervention.
 
+## Core Responsibilities:
 1. DEEPLY UNDERSTAND user requests - extract entities, detect references, understand workflows
 2. COORDINATE agents in parallel when possible - don't run sequentially unless necessary
 3. MAKE SMART DECISIONS - the user should rarely need to answer technical questions
-4. GENERATE PROPOSALS when appropriate - give users 2-3 options to choose from
+4. PROACTIVELY PROGRESS - after each interaction, determine what's needed to reach build-ready state
+5. GENERATE PROPOSALS when appropriate - give users 2-3 options to choose from
 
-Key principles:
+## Autonomous Progression Strategy:
+- After understanding the user's intent, IMMEDIATELY begin designing the schema
+- Once schema is proposed, SIMULTANEOUSLY design the UI layout
+- Keep iterating until readiness reaches 80%+, then prompt user to BUILD
+- Only ask the user questions when there's genuine ambiguity that affects the core design
+
+## Key Principles:
 - Run agents in PARALLEL when they don't depend on each other
 - INFER technical details (field types, validations) - don't ask the user
 - Detect REFERENCE APPS ("like Trello") and apply their patterns
 - Track READINESS scores (0-100) for schema, UI, and workflow
-- Generate VISUAL MOCKUPS for proposals
+- When readiness < 80%, ALWAYS include next steps to increase it
+- When readiness >= 80%, ENCOURAGE the user to build the app
 
-For parallel execution:
+## Parallel Execution:
 - Schema and UI agents CAN run in parallel for initial requests
 - Workflow agent can run in parallel with Schema agent
 - Code generation MUST wait for Schema and UI to be ready
 
-For readiness scoring:
-- 0-30: Initial ideas, needs refinement
-- 30-60: Basic structure defined
-- 60-90: Well-defined, minor tweaks needed
-- 90-100: Ready for code generation`;
+## Readiness Scoring:
+- 0-30: Initial ideas, needs refinement - TAKE ACTION to progress
+- 30-60: Basic structure defined - REFINE and add details
+- 60-80: Well-defined, minor tweaks needed - FINALIZE design
+- 80-100: Ready for code generation - PROMPT USER TO BUILD`;
 
 export class AdaptiveArchitect extends BaseAgent {
   constructor() {
@@ -138,15 +147,33 @@ ${(dynamicState.workflows?.length || 0) > 0 ? `${dynamicState.workflows.length} 
     const decision = await this.analyzeAndDecide(message, dynamicState, userSettings);
     this.log('Decision made', { 
       actions: decision.parallelActions.length,
-      generateProposals: decision.generateProposals 
+      generateProposals: decision.generateProposals,
+      currentReadiness: dynamicState.readiness.overall,
     });
+
+    // Step 2: Determine if we should prompt user to build
+    const isReadyToBuild = dynamicState.readiness.overall >= 80;
+    const suggestedActions = this.generateSuggestedActions(dynamicState, decision);
+    
+    // If ready to build, make it the primary suggestion
+    if (isReadyToBuild && !suggestedActions.includes('Build the app now')) {
+      suggestedActions.unshift('Build the app now');
+    }
+
+    // Enhance the message with build readiness context
+    let enhancedMessage = decision.userMessage || decision.reasoning;
+    if (isReadyToBuild && !enhancedMessage.toLowerCase().includes('build')) {
+      enhancedMessage += "\n\n**Your app is ready to build!** Click 'Build App' when you're satisfied with the design, or continue refining if you'd like to make changes.";
+    } else if (dynamicState.readiness.overall >= 60 && dynamicState.readiness.overall < 80) {
+      enhancedMessage += `\n\n*Progress: ${dynamicState.readiness.overall}% ready. A few more refinements and we can build!*`;
+    }
 
     return {
       success: true,
-      message: decision.userMessage || decision.reasoning,
+      message: enhancedMessage,
       data: decision,
-      requiresUserInput: decision.generateProposals,
-      suggestedActions: this.generateSuggestedActions(dynamicState, decision),
+      requiresUserInput: decision.generateProposals || isReadyToBuild,
+      suggestedActions,
     };
   }
 
@@ -160,7 +187,7 @@ ${(dynamicState.workflows?.length || 0) > 0 ? `${dynamicState.workflows.length} 
   ): Promise<EnhancedArchitectDecision> {
     const systemPrompt = this.buildSystemPrompt(state);
     
-    const analysisPrompt = `Analyze this user message and determine the optimal execution plan:
+    const analysisPrompt = `Analyze this user message and determine the optimal execution plan to PROGRESS toward a build-ready app:
 
 User message: "${message}"
 
@@ -169,12 +196,22 @@ Conversation context:
 - Has schema: ${state.schemas.length > 0}
 - Has layout: ${state.layout !== undefined}
 - Has enhanced intent: ${state.enhancedIntent !== undefined}
+- Current readiness: Schema ${state.readiness.schema}%, UI ${state.readiness.ui}%, Overall ${state.readiness.overall}%
+
+YOUR GOAL: Get the app to 80%+ readiness with minimal user questions.
 
 Determine:
 1. What is the user trying to do? (new request, refinement, approval, question)
 2. Which agents need to act? Can they run in parallel?
-3. Should we show multiple proposals or just one solution?
-4. What message should we show the user?
+3. If readiness < 80%, what actions will INCREASE readiness?
+4. Should we show multiple proposals or just one solution?
+5. What message should we show the user? Include progress context.
+
+IMPORTANT: 
+- If this is a new app request and we have no schema, ALWAYS include 'schema' and 'intent' agents
+- If we have a schema but no layout, ALWAYS include 'ui' agent
+- If readiness >= 80%, encourage the user to BUILD the app
+- Don't ask unnecessary questions - make smart defaults
 
 Respond with JSON.`;
 
@@ -734,6 +771,7 @@ Provide a comprehensive analysis as JSON.`;
 
   /**
    * Create fallback decision when LLM fails
+   * This fallback is designed to ALWAYS progress toward build-ready state
    */
   private createFallbackDecision(
     message: string,
@@ -742,58 +780,78 @@ Provide a comprehensive analysis as JSON.`;
   ): EnhancedArchitectDecision {
     const hasSchema = state.schemas.length > 0;
     const hasLayout = state.layout !== undefined;
+    const readiness = state.readiness.overall;
     
     // Simple heuristics for fallback
-    const isApproval = /looks? good|yes|ok|perfect|great|approve/i.test(message);
+    const isApproval = /looks? good|yes|ok|perfect|great|approve|build|create|generate/i.test(message);
     const isNewRequest = !hasSchema && !isApproval;
+    const isBuildRequest = /build|create|generate|finalize|deploy/i.test(message) && readiness >= 60;
     
     const actions: ParallelAction[] = [];
+    let userMessage = '';
     
-    if (isNewRequest) {
-      // New request: run schema and UI in parallel
+    if (isBuildRequest && readiness >= 80) {
+      // User wants to build and we're ready
+      userMessage = "Great! Your app is ready to build. Click the 'Build App' button to generate your application.";
+      // No additional actions needed - UI will handle the build
+    } else if (isNewRequest) {
+      // New request: run intent, schema and UI to maximize progress
+      const intentId = generateId();
+      const schemaId = generateId();
+      
       actions.push({
-        id: generateId(),
+        id: intentId,
         agent: 'intent',
         action: 'extract',
         priority: 10,
         estimatedMs: 1500,
+        context: { userMessage: message, userSettings },
       });
       actions.push({
-        id: generateId(),
+        id: schemaId,
         agent: 'schema',
         action: 'propose',
-        priority: 8,
-        dependsOn: [actions[0].id],
+        priority: 9,
+        dependsOn: [intentId],
         estimatedMs: 2000,
+        context: { userMessage: message, userSettings },
       });
       actions.push({
         id: generateId(),
         agent: 'ui',
         action: 'propose',
-        priority: 7,
-        dependsOn: [actions[1].id],
+        priority: 8,
+        dependsOn: [schemaId],
         estimatedMs: 2000,
+        context: { userMessage: message, userSettings },
       });
-    } else if (isApproval && hasSchema && !hasLayout) {
+      userMessage = "I'm designing your app now. I'll create the data model and user interface for you.";
+    } else if (!hasLayout && hasSchema) {
+      // Have schema but no layout - progress to UI
       actions.push({
         id: generateId(),
         agent: 'ui',
         action: 'propose',
         priority: 9,
         estimatedMs: 2000,
+        context: { userMessage: message, userSettings },
       });
-    } else if (isApproval && hasSchema && hasLayout) {
+      userMessage = "I'll design the user interface for your app now.";
+    } else if (isApproval && hasSchema && hasLayout && readiness < 80) {
+      // User approved but we need more readiness - add workflow
       actions.push({
         id: generateId(),
-        agent: 'code',
-        action: 'generate',
-        priority: 10,
-        estimatedMs: 5000,
+        agent: 'workflow',
+        action: 'analyze',
+        priority: 7,
+        estimatedMs: 1500,
+        context: { userMessage: message, userSettings },
       });
+      userMessage = "Finalizing the design. I'm adding some smart automations to make your app more powerful.";
     } else {
       // Refinement - figure out what to refine
-      const isSchemaRelated = /field|column|data|type|add|remove/i.test(message);
-      const isUIRelated = /layout|form|table|chart|side|position/i.test(message);
+      const isSchemaRelated = /field|column|data|type|add|remove|property|attribute/i.test(message);
+      const isUIRelated = /layout|form|table|chart|side|position|view|display/i.test(message);
       
       if (isSchemaRelated) {
         actions.push({
@@ -805,33 +863,63 @@ Provide a comprehensive analysis as JSON.`;
           estimatedMs: 2000,
         });
       }
-      if (isUIRelated) {
+      if (isUIRelated || (!isSchemaRelated && hasSchema && !hasLayout)) {
         actions.push({
           id: generateId(),
           agent: 'ui',
-          action: 'refine',
+          action: hasLayout ? 'refine' : 'propose',
           priority: 8,
           context: { feedback: message, userSettings },
           estimatedMs: 2000,
         });
       }
       if (actions.length === 0) {
-        // Default: try schema first
-        actions.push({
-          id: generateId(),
-          agent: hasSchema ? 'schema' : 'intent',
-          action: hasSchema ? 'refine' : 'extract',
-          priority: 5,
-          context: { feedback: message, userSettings },
-          estimatedMs: 2000,
-        });
+        // Default: progress based on what's missing
+        if (!hasSchema) {
+          actions.push({
+            id: generateId(),
+            agent: 'intent',
+            action: 'extract',
+            priority: 10,
+            context: { feedback: message, userSettings },
+            estimatedMs: 1500,
+          });
+        } else if (!hasLayout) {
+          actions.push({
+            id: generateId(),
+            agent: 'ui',
+            action: 'propose',
+            priority: 9,
+            context: { feedback: message, userSettings },
+            estimatedMs: 2000,
+          });
+        } else {
+          // Both exist - refine schema
+          actions.push({
+            id: generateId(),
+            agent: 'schema',
+            action: 'refine',
+            priority: 5,
+            context: { feedback: message, userSettings },
+            estimatedMs: 2000,
+          });
+        }
       }
+      userMessage = 'Updating the design based on your feedback.';
+    }
+    
+    // Add readiness context to message
+    if (readiness >= 80) {
+      userMessage += " Your app is ready to build!";
+    } else if (readiness >= 60) {
+      userMessage += ` (${readiness}% ready - almost there!)`;
     }
     
     return {
       parallelActions: actions,
       dependencies: this.buildDependencyGraph(actions),
-      reasoning: 'Fallback decision based on heuristics',
+      reasoning: userMessage || 'Processing your request...',
+      userMessage,
       generateProposals: isNewRequest,
       expectedReadiness: {},
       estimatedTimeMs: actions.reduce((sum, a) => sum + (a.estimatedMs || 2000), 0),
@@ -910,6 +998,7 @@ Provide a comprehensive analysis as JSON.`;
 
   /**
    * Generate suggested actions for user
+   * Prioritizes build action when ready, otherwise guides toward completion
    */
   private generateSuggestedActions(
     state: DynamicConversationState,
@@ -918,22 +1007,51 @@ Provide a comprehensive analysis as JSON.`;
     const suggestions: string[] = [];
     const readiness = state.readiness;
     
+    // Priority 1: Build action when ready
     if (readiness.overall >= 80) {
       suggestions.push('Build the app now');
+      suggestions.push('Add more features first');
+      suggestions.push('Refine the design');
+      return suggestions.slice(0, 4);
     }
     
-    if (readiness.schema < 80) {
-      suggestions.push('Add more fields');
-      suggestions.push('Refine the data model');
+    // Priority 2: Get to build-ready state
+    if (readiness.overall >= 60) {
+      suggestions.push('Looks good, finalize it');
+      if (readiness.ui < 80) {
+        suggestions.push('Adjust the layout');
+      }
+      if (readiness.schema < 80) {
+        suggestions.push('Add another field');
+      }
+    } else {
+      // Still early in the process
+      if (state.schemas.length === 0) {
+        suggestions.push('Tell me more about your app');
+      } else if (!state.layout) {
+        suggestions.push('Design the interface');
+      }
+      
+      if (readiness.schema < 60) {
+        suggestions.push('Add more data fields');
+      }
     }
     
-    if (readiness.ui < 80 && readiness.schema >= 50) {
-      suggestions.push('Change the layout');
-      suggestions.push('Add visualizations');
-    }
-    
+    // Add proactive suggestions from the state
     if (state.suggestions.length > 0) {
-      suggestions.push(...state.suggestions.slice(0, 2).map(s => s.feature));
+      const unusedSuggestions = state.suggestions
+        .filter(s => !suggestions.includes(s.feature))
+        .slice(0, 2)
+        .map(s => s.feature);
+      suggestions.push(...unusedSuggestions);
+    }
+    
+    // Always provide some options
+    if (suggestions.length < 2) {
+      if (!suggestions.includes('Add more features first')) {
+        suggestions.push('Add more features');
+      }
+      suggestions.push('Continue');
     }
     
     return suggestions.slice(0, 4);

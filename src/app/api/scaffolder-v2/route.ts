@@ -55,8 +55,15 @@ import type {
 /**
  * POST /api/scaffolder-v2
  * Main chat endpoint for v2 scaffolder
+ * 
+ * This endpoint powers the dual-agent system:
+ * - The Advisor (AI assistant) processes user messages
+ * - The Architect (internal agent) drives autonomous app design
+ * - State is persisted to maintain context across interactions
  */
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const session = await getServerSession();
 
@@ -69,33 +76,48 @@ export async function POST(request: NextRequest) {
 
     console.log('\n🚀 === V2 Scaffolder Request ===');
     console.log(`📋 Action: ${action}`);
-    console.log(`💬 Message: "${message?.substring(0, 100)}..."`);
+    console.log(`💬 Message: "${message?.substring(0, 100)}${message?.length > 100 ? '...' : ''}"`);
     console.log(`🔑 ConversationId: ${conversationId || 'new'}`);
+    console.log(`👤 User: ${session.user.id}`);
+
+    let response: NextResponse;
 
     switch (action) {
       case 'chat':
-        return handleChat(session.user.id, conversationId, message);
+        response = await handleChat(session.user.id, conversationId, message);
+        break;
       
       case 'finalize':
-        return handleFinalize(session.user.id, conversationId!);
+        response = await handleFinalize(session.user.id, conversationId!);
+        break;
       
       case 'undo':
-        return handleUndo(session.user.id, conversationId!);
+        response = await handleUndo(session.user.id, conversationId!);
+        break;
       
       case 'select_proposal':
-        return handleSelectProposal(session.user.id, conversationId!, message);
+        response = await handleSelectProposal(session.user.id, conversationId!, message);
+        break;
       
       case 'fix_component':
-        return handleFixComponent(session.user.id, conversationId!, body.componentCode!, body.errorLog!, message);
+        response = await handleFixComponent(session.user.id, conversationId!, body.componentCode!, body.errorLog!, message);
+        break;
 
       case 'resolve_feedback':
-        return handleResolveFeedback(session.user.id, conversationId!, message, body.componentCode!);
+        response = await handleResolveFeedback(session.user.id, conversationId!, message, body.componentCode!);
+        break;
       
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ Request completed in ${duration}ms`);
+    
+    return response;
   } catch (error) {
-    console.error('❌ V2 Scaffolder error:', error);
+    const duration = Date.now() - startTime;
+    console.error(`❌ V2 Scaffolder error after ${duration}ms:`, error);
     return NextResponse.json(
       { 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -108,6 +130,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * Handle a chat message with the dynamic pipeline
+ * This function maintains conversation context and drives autonomous progression
  */
 async function handleChat(
   userId: string,
@@ -124,16 +147,31 @@ async function handleChat(
     });
 
     if (!conversation) {
-      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 }) as unknown as NextResponse<V2ChatResponse>;
+      console.log(`⚠️ Conversation ${conversationId} not found, creating new`);
+      // Instead of returning 404, create a new conversation
+      // This ensures continuity even if there's a state mismatch
+      state = createDynamicConversationState();
+      isNewConversation = true;
+    } else {
+      // Safely deserialize state with fallback
+      try {
+        const rawState = conversation.agentState as object;
+        state = ensureDynamicState(
+          rawState ? deserializeDynamicState(rawState) : createDynamicConversationState()
+        );
+        state.id = conversationId;
+        console.log(`✅ Loaded conversation ${conversationId}, readiness: ${state.readiness.overall}%`);
+      } catch (error) {
+        console.error(`❌ Failed to deserialize state for ${conversationId}:`, error);
+        // Create fresh state but keep the conversation ID
+        state = createDynamicConversationState();
+        state.id = conversationId;
+      }
     }
-
-    state = ensureDynamicState(
-      deserializeDynamicState(conversation.agentState as object || createDynamicConversationState())
-    );
-    state.id = conversationId;
   } else {
     state = createDynamicConversationState();
     isNewConversation = true;
+    console.log(`🆕 Creating new conversation: ${state.id}`);
   }
 
   // Add user message to state
@@ -226,30 +264,49 @@ async function handleChat(
     phase: state.phase,
   }) as DynamicConversationState;
 
-  // Save conversation to database
+  // Save conversation to database with robust error handling
   const serializedState = serializeDynamicState(state);
   
-  if (isNewConversation) {
-    await prisma.conversation.create({
-      data: {
-        id: state.id,
-        userId,
-        // title: state.suggestedAppName || message.substring(0, 50), // Column does not exist
-        agentState: serializedState as any,
-        messages: state.messages as any,
-        version: 'v2',
-      },
-    });
-  } else {
-    await prisma.conversation.update({
-      where: { id: conversationId },
-      data: {
-        agentState: serializedState as any,
-        messages: state.messages as any,
-        // title: state.suggestedAppName || undefined, // Column does not exist
-      },
-    });
+  try {
+    if (isNewConversation) {
+      await prisma.conversation.create({
+        data: {
+          id: state.id,
+          userId,
+          agentState: serializedState as any,
+          messages: state.messages as any,
+          version: 'v2',
+        },
+      });
+      console.log(`💾 Created new conversation: ${state.id}`);
+    } else {
+      await prisma.conversation.update({
+        where: { id: conversationId },
+        data: {
+          agentState: serializedState as any,
+          messages: state.messages as any,
+          updatedAt: new Date(),
+        },
+      });
+      console.log(`💾 Updated conversation: ${conversationId}, readiness: ${state.readiness.overall}%`);
+    }
+  } catch (dbError) {
+    console.error('❌ Failed to save conversation:', dbError);
+    // Continue anyway - we can still return the response
+    // The client can retry or the user can continue in a new conversation
   }
+
+  // Determine if ready to build
+  const isReadyToBuild = state.readiness.overall >= 80;
+  
+  // Log readiness for debugging
+  console.log(`📊 State after processing:`, {
+    phase: state.phase,
+    readiness: state.readiness,
+    hasSchema: state.schemas.length > 0,
+    hasLayout: !!state.layout,
+    isReadyToBuild,
+  });
 
   return NextResponse.json({
     conversationId: state.id,
@@ -265,6 +322,9 @@ async function handleChat(
     },
     requiresUserInput: true,
     suggestedActions: architectResponse.suggestedActions,
+    // Additional flags for UI
+    isReadyToBuild,
+    canFinalize: state.schemas.length > 0 && state.readiness.overall >= 60,
   });
 }
 

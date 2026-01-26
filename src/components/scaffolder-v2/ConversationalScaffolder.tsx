@@ -398,25 +398,44 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
           <div className="readiness-indicator">
             <div className="readiness-bar">
               <div 
-                className="readiness-fill" 
+                className={`readiness-fill ${readiness.overall >= 80 ? 'ready' : readiness.overall >= 60 ? 'almost' : ''}`}
                 style={{ width: `${readiness.overall}%` }}
               />
             </div>
-            <span className="readiness-label">
-              {readiness.overall >= 80 ? 'Ready to build!' : `${readiness.overall}% ready`}
+            <span className={`readiness-label ${readiness.overall >= 80 ? 'ready' : ''}`}>
+              {readiness.overall >= 80 
+                ? '✓ Ready to build!' 
+                : readiness.overall >= 60 
+                  ? `${readiness.overall}% - Almost there!`
+                  : `${readiness.overall}% ready`}
             </span>
           </div>
         </div>
-        {schema && (
-          <button
-            className="finalize-button"
-            onClick={handleFinalize}
-            disabled={isLoading || readiness.overall < 60}
-          >
-            {isLoading ? 'Creating...' : 'Build App'}
-          </button>
-        )}
+        {/* Build button - prominent when ready */}
+        <button
+          className={`finalize-button ${readiness.overall >= 80 ? 'pulse-ready' : ''}`}
+          onClick={handleFinalize}
+          disabled={isLoading || readiness.overall < 60 || !schema}
+        >
+          {isLoading ? 'Creating...' : readiness.overall >= 80 ? '🚀 Build App Now' : 'Build App'}
+        </button>
       </div>
+
+      {/* Build-ready banner */}
+      {readiness.overall >= 80 && schema && !isLoading && (
+        <div className="build-ready-banner">
+          <div className="banner-content">
+            <span className="banner-icon">🎉</span>
+            <span className="banner-text">Your app is ready to build!</span>
+            <button 
+              className="banner-build-button"
+              onClick={handleFinalize}
+            >
+              Build Now
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main content area */}
       <div className="scaffolder-content">
@@ -427,12 +446,21 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
             {messages.length === 0 ? (
               <div className="welcome-message">
                 <h2>What would you like to build?</h2>
-                <p>Describe your app idea in natural language. For example:</p>
+                <p>Describe your app idea and I&apos;ll design it for you automatically. Just tell me what you need:</p>
                 <ul>
-                  <li>&quot;I want to track my daily expenses with categories&quot;</li>
-                  <li>&quot;Help me build a habit tracker with streaks&quot;</li>
-                  <li>&quot;I need a project task manager with priorities&quot;</li>
+                  <li onClick={() => setInputValue('I want to track my daily expenses with categories')}>
+                    &quot;I want to track my daily expenses with categories&quot;
+                  </li>
+                  <li onClick={() => setInputValue('Help me build a habit tracker with streaks')}>
+                    &quot;Help me build a habit tracker with streaks&quot;
+                  </li>
+                  <li onClick={() => setInputValue('I need a project task manager with priorities')}>
+                    &quot;I need a project task manager with priorities&quot;
+                  </li>
                 </ul>
+                <p className="welcome-hint">
+                  💡 I&apos;ll automatically design the data model and interface. You can refine it until you&apos;re happy, then build!
+                </p>
               </div>
             ) : (
               messages.map((message) => (
@@ -614,17 +642,32 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
 
         .readiness-fill {
           height: 100%;
-          background: linear-gradient(90deg, hsl(var(--destructive)) 0%, hsl(var(--primary)) 100%);
+          background: linear-gradient(90deg, #ef4444 0%, #f59e0b 50%, #22c55e 100%);
           transition: width 0.3s ease;
+        }
+
+        .readiness-fill.almost {
+          background: linear-gradient(90deg, #f59e0b 0%, #22c55e 100%);
+        }
+
+        .readiness-fill.ready {
+          background: #22c55e;
+          box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
         }
 
         .readiness-label {
           font-size: 0.75rem;
           color: var(--muted-foreground);
+          transition: color 0.3s ease;
+        }
+
+        .readiness-label.ready {
+          color: #22c55e;
+          font-weight: 600;
         }
 
         .finalize-button {
-          padding: 0.5rem 1rem;
+          padding: 0.5rem 1.25rem;
           background: hsl(var(--destructive));
           color: hsl(var(--destructive-foreground));
           border: none;
@@ -632,16 +675,79 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
           font-size: 0.875rem;
           font-weight: 500;
           cursor: pointer;
-          transition: background 0.2s;
+          transition: all 0.2s;
         }
 
         .finalize-button:hover:not(:disabled) {
           background: hsl(var(--destructive) / 0.9);
+          transform: translateY(-1px);
         }
 
         .finalize-button:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+        }
+
+        .finalize-button.pulse-ready {
+          background: #22c55e;
+          color: white;
+          box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+          animation: pulse-green 2s infinite;
+        }
+
+        .finalize-button.pulse-ready:hover:not(:disabled) {
+          background: #16a34a;
+        }
+
+        @keyframes pulse-green {
+          0% {
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+          }
+          70% {
+            box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+          }
+        }
+
+        .build-ready-banner {
+          background: linear-gradient(90deg, rgba(34, 197, 94, 0.15) 0%, rgba(34, 197, 94, 0.05) 100%);
+          border-bottom: 1px solid rgba(34, 197, 94, 0.3);
+          padding: 0.75rem 1.5rem;
+        }
+
+        .banner-content {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.75rem;
+        }
+
+        .banner-icon {
+          font-size: 1.25rem;
+        }
+
+        .banner-text {
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: #22c55e;
+        }
+
+        .banner-build-button {
+          padding: 0.375rem 1rem;
+          background: #22c55e;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+
+        .banner-build-button:hover {
+          background: #16a34a;
         }
 
         .scaffolder-content {
@@ -701,7 +807,15 @@ export function ConversationalScaffolderV2({ className = '' }: ConversationalSca
         }
 
         .welcome-message li:hover {
-          background: var(--muted) / 0.8;
+          background: rgba(255, 255, 255, 0.1);
+          cursor: pointer;
+        }
+
+        .welcome-hint {
+          margin-top: 1.5rem;
+          font-size: 0.8rem;
+          color: var(--muted-foreground);
+          opacity: 0.8;
         }
 
         .message {

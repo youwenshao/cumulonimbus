@@ -318,6 +318,9 @@ export interface V2ChatResponse {
   state: Partial<ConversationState>;
   requiresUserInput: boolean;
   suggestedActions?: string[];
+  // Build status flags
+  isReadyToBuild?: boolean;
+  canFinalize?: boolean;
 }
 
 export interface V2FinalizeResponse {

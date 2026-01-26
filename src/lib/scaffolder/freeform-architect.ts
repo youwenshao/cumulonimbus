@@ -373,36 +373,69 @@ export function updateStateWithAnalysis(
 
 /**
  * Convert freeform spec to the format expected by code generator
+ * Now with robust fallbacks for empty entities or views
  */
 export function convertSpecToProjectSpec(spec: GeneratedSpec) {
+  // Ensure we have at least one entity
+  const entities = spec.entities && spec.entities.length > 0 
+    ? spec.entities 
+    : [{
+        name: 'Item',
+        fields: [
+          { name: 'title', type: 'string' as const, required: true },
+          { name: 'description', type: 'string' as const, required: false },
+          { name: 'createdAt', type: 'date' as const, required: true },
+        ]
+      }];
+
+  const primaryEntity = entities[0];
+
+  // Ensure we have at least one view
+  let views = spec.views && spec.views.length > 0
+    ? spec.views
+    : [{
+        type: 'table' as const,
+        title: `All ${primaryEntity.name}s`,
+        entityName: primaryEntity.name
+      }];
+
+  // Build fields from all entities
+  const allFields = entities.flatMap(entity =>
+    entity.fields.map(field => ({
+      name: field.name,
+      label: field.name.charAt(0).toUpperCase() + field.name.slice(1).replace(/([A-Z])/g, ' $1'),
+      type: mapFieldType(field.type),
+      required: field.required ?? false,
+      options: field.enumValues,
+    }))
+  );
+  
+  // Filter out duplicate field names, keeping the first occurrence
+  const seen = new Set<string>();
+  const uniqueFields = allFields.filter(field => {
+    if (seen.has(field.name)) return false;
+    seen.add(field.name);
+    return true;
+  });
+
+  // Ensure we have at least one field (fallback to basic structure)
+  const finalFields = uniqueFields.length > 0 
+    ? uniqueFields
+    : [
+        { name: 'title', label: 'Title', type: 'text', required: true },
+        { name: 'description', label: 'Description', type: 'text', required: false },
+      ];
+
   return {
-    name: spec.name,
-    description: spec.description,
-    category: spec.category,
+    name: spec.name || 'My App',
+    description: spec.description || 'A new application',
+    category: spec.category || 'Productivity',
     dataStore: {
-      name: spec.entities[0]?.name || 'items',
-      label: spec.entities[0]?.name || 'Items',
-      fields: (() => {
-        const allFields = spec.entities.flatMap(entity =>
-          entity.fields.map(field => ({
-            name: field.name,
-            label: field.name.charAt(0).toUpperCase() + field.name.slice(1).replace(/([A-Z])/g, ' $1'),
-            type: mapFieldType(field.type),
-            required: field.required ?? false,
-            options: field.enumValues,
-          }))
-        );
-        
-        // Filter out duplicate field names, keeping the first occurrence
-        const seen = new Set<string>();
-        return allFields.filter(field => {
-          if (seen.has(field.name)) return false;
-          seen.add(field.name);
-          return true;
-        });
-      })(),
+      name: primaryEntity.name.toLowerCase(),
+      label: primaryEntity.name,
+      fields: finalFields,
     },
-    views: spec.views.map(view => ({
+    views: views.map(view => ({
       type: view.type,
       title: view.title,
       config: {},

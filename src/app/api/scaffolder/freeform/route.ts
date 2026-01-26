@@ -449,7 +449,8 @@ async function handleStreamingChat(
           type: 'done',
           conversationId: savedConversationId,
           readinessScore: state.readinessScore,
-          canBuild: state.phase === 'ready' || state.readinessScore >= 80,
+          // Allow build if: phase is ready, OR readinessScore >= 80, OR Advisor approved (finalConfidence >= 70)
+          canBuild: state.phase === 'ready' || state.readinessScore >= 80 || finalConfidence >= 70,
           entities: state.entities,
           // Include dual-agent metadata
           iterations,
@@ -554,6 +555,7 @@ async function handleChat(
     conversationId: state.id,
     message: analysis.responseMessage,
     readinessScore: state.readinessScore,
+    // Note: Non-streaming mode doesn't have Advisor confidence, so only check readinessScore and phase
     canBuild: state.phase === 'ready' || state.readinessScore >= 80,
     entities: state.entities,
     messages: state.messages,
@@ -621,16 +623,66 @@ async function handleBuild(
 
   const state = JSON.parse(conversation.spec as string) as FreeformState;
 
+  console.log(`📊 Debug - state.spec exists: ${!!state.spec}`);
+  if (state.spec) {
+    console.log(`📊 Debug - spec.name: "${state.spec.name}"`);
+    console.log(`📊 Debug - spec.entities: ${state.spec.entities?.length || 0} entities`);
+    console.log(`📊 Debug - spec.views: ${state.spec.views?.length || 0} views`);
+    if (state.spec.entities?.length > 0) {
+      console.log(`📊 Debug - first entity: ${state.spec.entities[0].name} with ${state.spec.entities[0].fields?.length || 0} fields`);
+    }
+  } else {
+    console.log(`📊 Debug - state.entities fallback: ${state.entities?.length || 0} entities`);
+    console.log(`📊 Debug - state.readinessScore: ${state.readinessScore}`);
+    console.log(`📊 Debug - state.phase: ${state.phase}`);
+  }
+
+  // If spec is missing but we have entities, generate a fallback spec
+  if (!state.spec && state.entities && state.entities.length > 0) {
+    console.log(`🔧 Generating fallback spec from ${state.entities.length} entities`);
+    
+    const primaryEntity = state.entities[0];
+    const appName = primaryEntity.name || 'My App';
+    
+    // Get description from last assistant message if available
+    const lastMessage = state.messages
+      ?.filter(m => m.role === 'assistant')
+      .pop();
+    const description = lastMessage?.content?.substring(0, 200) || 'A new application';
+    
+    state.spec = {
+      name: appName,
+      description,
+      entities: state.entities,
+      views: [
+        {
+          type: 'table',
+          title: `All ${appName}s`,
+          entityName: primaryEntity.name
+        }
+      ],
+      category: 'Productivity'
+    };
+    
+    console.log(`✅ Generated fallback spec: ${state.spec.name}`);
+  }
+
   if (!state.spec) {
+    console.error(`❌ Build failed: No spec or entities available in conversation state`);
     return NextResponse.json({ error: 'No spec available - continue the conversation first' }, { status: 400 });
   }
 
   // Convert to project spec format
   const projectSpec = convertSpecToProjectSpec(state.spec);
+  
+  console.log(`📊 Debug - projectSpec.dataStore.fields: ${projectSpec.dataStore?.fields?.length || 0} fields`);
+  console.log(`📊 Debug - projectSpec.views: ${projectSpec.views?.length || 0} views`);
 
   // Validate spec
   const validation = validateSpec(projectSpec as any);
   if (!validation.valid) {
+    console.error(`❌ Build failed: Spec validation failed`);
+    console.error(`📊 Validation errors:`, validation.errors);
     return NextResponse.json({ 
       error: 'Spec validation failed', 
       details: validation.errors 
@@ -674,11 +726,12 @@ async function handleBuild(
     types: '',
   };
   const allComponents: Record<string, string> = {};
+  let codeGenerationSuccess = false;
 
   try {
     console.log('🚀 Using V2 Code Generator for enhanced output...');
     
-    // Convert to V2 Schema format
+    // Convert to V2 Schema format (optimize by doing this only once)
     const v2Schema = convertToV2Schema(state.spec);
     const layout = createDefaultLayout(state.spec, v2Schema.name);
     
@@ -741,13 +794,30 @@ async function handleBuild(
         (generatedCode as any).components = allComponents;
       }
 
+      // Check if V2 generation was successful
+      if (!hadError && generatedCode.pageComponent) {
+        // Validate the generated code for basic syntax issues
+        const syntaxError = validateCodeSyntax(generatedCode.pageComponent);
+        if (syntaxError) {
+          console.log(`⚠️ V2 generated code has syntax errors: ${syntaxError}`);
+          hadError = true;
+        } else {
+          console.log('✅ V2 Code generation successful, skipping fallbacks');
+          codeGenerationSuccess = true;
+        }
+      }
+
     } catch (v2Error) {
       console.error('V2 Code generation failed:', v2Error);
       hadError = true;
     }
 
-    // Fallback to V1 if V2 failed
-    if (hadError || !generatedCode.pageComponent) {
+    // Early exit if V2 succeeded
+    if (codeGenerationSuccess) {
+      // Skip V1 and template fallbacks
+      console.log('⚡ Early exit: V2 generation succeeded');
+    } else if (hadError || !generatedCode.pageComponent) {
+      // Fallback to V1 if V2 failed
       console.log('🔄 V2 failed, falling back to V1 code generation...');
       
       for await (const chunk of generateAppCode(projectSpec as any, app.id)) {
@@ -759,6 +829,13 @@ async function handleBuild(
           generatedCode.pageComponent = chunk.content;
           // Ensure App.tsx is set for V1 fallback too
           allComponents['App.tsx'] = chunk.content;
+          
+          // Validate V1 generated code
+          const syntaxError = validateCodeSyntax(generatedCode.pageComponent);
+          if (!syntaxError) {
+            console.log('✅ V1 Code generation successful, skipping template fallback');
+            codeGenerationSuccess = true;
+          }
           break;
         } else if (chunk.type === 'error') {
           console.log('⚠️ V1 Code generation also failed');
@@ -767,22 +844,18 @@ async function handleBuild(
       }
     }
     
-    // Final fallback to template
-    if (!generatedCode.pageComponent) {
+    // Final fallback to template only if both V2 and V1 failed
+    if (!codeGenerationSuccess && !generatedCode.pageComponent) {
       console.log('🔄 Using fallback template code generation');
       const fallback = generateFallbackCode(projectSpec as any, app.id);
       generatedCode.pageComponent = fallback;
       allComponents['App.tsx'] = fallback;
-    } else {
-      // Validate the generated code for basic syntax issues
-      const syntaxError = validateCodeSyntax(generatedCode.pageComponent);
-      if (syntaxError) {
-        console.log(`⚠️ Generated code has syntax errors: ${syntaxError}`);
-        console.log('🔄 Using fallback code generation due to syntax errors');
-        const fallback = generateFallbackCode(projectSpec as any, app.id);
-        generatedCode.pageComponent = fallback;
-        allComponents['App.tsx'] = fallback;
-      }
+    } else if (!codeGenerationSuccess) {
+      // Last resort: use template if code has syntax errors
+      console.log('🔄 Using fallback code generation due to persistent syntax errors');
+      const fallback = generateFallbackCode(projectSpec as any, app.id);
+      generatedCode.pageComponent = fallback;
+      allComponents['App.tsx'] = fallback;
     }
   } catch (error) {
     console.error('All code generation attempts failed, using fallback:', error);

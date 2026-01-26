@@ -117,54 +117,78 @@ async function start() {
 
       // Handle relative imports from componentFiles
       if (moduleName.startsWith('./') || moduleName.startsWith('../')) {
-        // Normalize the path (very basic)
-        let normalizedPath = moduleName.startsWith('./') ? moduleName.substring(2) : moduleName;
+        const triedPaths: string[] = [];
         
-        // Try common extensions and directory patterns
-        const variations = [
+        // Normalize the path by removing relative prefixes
+        let normalizedPath = moduleName;
+        // Remove leading ../ and ./
+        while (normalizedPath.startsWith('../') || normalizedPath.startsWith('./')) {
+          if (normalizedPath.startsWith('../')) {
+            normalizedPath = normalizedPath.substring(3);
+          } else if (normalizedPath.startsWith('./')) {
+            normalizedPath = normalizedPath.substring(2);
+          }
+        }
+        
+        // Build comprehensive list of paths to try
+        const basePaths = [
           normalizedPath,
-          normalizedPath + '.tsx',
-          normalizedPath + '.ts',
-          normalizedPath + '.jsx',
-          normalizedPath + '.js',
-          normalizedPath + '/index.ts',
-          normalizedPath + '/index.tsx',
+          normalizedPath.replace(/^hooks\//, ''),  // hooks/useAppData -> useAppData
+          normalizedPath.replace(/^components\//, ''),  // components/Form -> Form
+          normalizedPath.replace(/^lib\//, ''),  // lib/api -> api
         ];
+        
+        const pathVariations: string[] = [];
+        
+        for (const basePath of basePaths) {
+          // Try with different extensions
+          const extensions = ['', '.tsx', '.ts', '.jsx', '.js', '/index.ts', '/index.tsx'];
+          for (const ext of extensions) {
+            const pathWithExt = basePath + ext;
+            // Try with different directory prefixes
+            pathVariations.push(
+              pathWithExt,
+              `lib/${pathWithExt}`,
+              `components/${pathWithExt}`,
+              `hooks/${pathWithExt}`,
+            );
+          }
+        }
 
-        for (const pathWithExt of variations) {
-          // Try exact match, then with ./ prefix removed, then with components/ or lib/ prefix
-          const keysToTry = [
-            pathWithExt,
-            pathWithExt.startsWith('./') ? pathWithExt.substring(2) : pathWithExt,
-            `components/${pathWithExt}`,
-            `lib/${pathWithExt}`,
-          ];
+        // Remove duplicates
+        const uniquePaths = [...new Set(pathVariations)];
 
-          for (const key of keysToTry) {
-            if (componentFiles && componentFiles[key]) {
-              console.log(`[Worker ${appId}] Resolving relative import: ${moduleName} -> ${key}`);
+        for (const key of uniquePaths) {
+          triedPaths.push(key);
+          if (componentFiles && componentFiles[key]) {
+            console.log(`[Worker ${appId}] Resolving relative import: ${moduleName} -> ${key}`);
+            
+            // Transpile the dependency on the fly
+            try {
+              const fileContent = componentFiles[key];
+              const depResult = esbuild.transformSync(fileContent, {
+                loader: key.endsWith('ts') || key.endsWith('tsx') ? 'tsx' : 'jsx',
+                format: 'cjs',
+                target: 'node18',
+              });
               
-              // Transpile the dependency on the fly
-              try {
-                const fileContent = componentFiles[key];
-                const depResult = esbuild.transformSync(fileContent, {
-                  loader: key.endsWith('ts') || key.endsWith('tsx') ? 'tsx' : 'jsx',
-                  format: 'cjs',
-                  target: 'node18',
-                });
-                
               const depMod = { exports: {} as any };
               const depExecFn = new Function('React', 'require', 'module', 'exports', depResult.code);
               depExecFn(React, nebulaRequire, depMod, depMod.exports);
               
               return depMod.exports;
             } catch (err: any) {
-                console.error(`[Worker ${appId}] Failed to transpile dependency ${key}:`, err.message);
-                throw err;
-              }
+              console.error(`[Worker ${appId}] Failed to transpile dependency ${key}:`, err.message);
+              throw err;
             }
           }
         }
+        
+        // Log all attempted paths for debugging
+        console.error(`[Worker ${appId}] Module not found: ${moduleName}`);
+        console.error(`[Worker ${appId}] Tried ${triedPaths.length} path variations:`);
+        console.error(`[Worker ${appId}] Available componentFiles keys:`, Object.keys(componentFiles || {}));
+        console.error(`[Worker ${appId}] Sample tried paths:`, triedPaths.slice(0, 10));
       }
 
       try {

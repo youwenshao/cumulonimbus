@@ -19,8 +19,9 @@ import {
 import { streamComplete, type ChatMessage } from '@/lib/llm';
 
 // Configuration
-const MAX_ITERATIONS = 5;
-const MIN_CONFIDENCE_TO_APPROVE = 75;
+const MAX_ITERATIONS = 3;
+const MIN_CONFIDENCE_TO_APPROVE = 70;
+const MIN_CONFIDENCE_WITH_ANSWERS = 60; // Lower threshold when Advisor answered questions
 
 /**
  * A single turn in the dual-agent dialogue
@@ -78,63 +79,77 @@ function getArchitectPrompt(
   iteration?: number
 ): string {
   const conversationContext = state.messages
-    .slice(-10)
+    .slice(-6) // Reduced from 10 for faster processing
     .map(m => `${m.role}: ${m.content}`)
     .join('\n');
 
   const currentEntities = state.entities.length > 0
-    ? `\n\nCurrently identified entities:\n${JSON.stringify(state.entities, null, 2)}`
+    ? `\nEntities: ${state.entities.map(e => e.name).join(', ')}`
     : '';
 
-  let feedbackSection = '';
+  // For iterations > 1, Advisor feedback is the PRIMARY directive
   if (advisorFeedback && iteration && iteration > 1) {
-    // Include answered questions from the Advisor
-    const answeredQuestionsSection = advisorFeedback.answeredQuestions && advisorFeedback.answeredQuestions.length > 0
-      ? `\n\nQUESTIONS ANSWERED BY ADVISOR (incorporate these into your response):
-${advisorFeedback.answeredQuestions.map(aq => `Q: ${aq.question}\nA: ${aq.answer}\nReasoning: ${aq.reasoning}`).join('\n\n')}`
-      : '';
+    // Build concise instruction block from Advisor
+    const instructions: string[] = [];
+    
+    // Advisor's answered questions become FACTS to use
+    if (advisorFeedback.answeredQuestions && advisorFeedback.answeredQuestions.length > 0) {
+      instructions.push('USE THESE ANSWERS (do not re-ask):');
+      advisorFeedback.answeredQuestions.forEach(aq => {
+        instructions.push(`• ${aq.question} → ${aq.answer}`);
+      });
+    }
+    
+    // Advisor's decisions become REQUIREMENTS
+    if (advisorFeedback.decisions && advisorFeedback.decisions.length > 0) {
+      instructions.push('APPLY THESE DECISIONS:');
+      advisorFeedback.decisions.forEach(d => {
+        instructions.push(`• ${d.choice}`);
+      });
+    }
+    
+    // Include refined approach if provided
+    if (advisorFeedback.refinedApproach) {
+      instructions.push(`APPROACH: ${advisorFeedback.refinedApproach}`);
+    }
+    
+    // Include specific suggestions
+    if (advisorFeedback.suggestions && advisorFeedback.suggestions.length > 0) {
+      instructions.push('IMPLEMENT:');
+      advisorFeedback.suggestions.forEach(s => {
+        instructions.push(`• ${s}`);
+      });
+    }
 
-    // Include decisions made by the Advisor
-    const decisionsSection = advisorFeedback.decisions && advisorFeedback.decisions.length > 0
-      ? `\n\nDECISIONS MADE BY ADVISOR (use these choices):
-${advisorFeedback.decisions.map(d => `- ${d.choice}: ${d.rationale}`).join('\n')}`
-      : '';
+    return `Revise your response based on Advisor instructions.
 
-    feedbackSection = `
+USER'S MESSAGE: ${userMessage}
 
-ADVISOR FEEDBACK (Iteration ${iteration - 1}):
-Confidence: ${advisorFeedback.confidence}%
-Critique: ${advisorFeedback.critique}
-Suggestions: ${advisorFeedback.suggestions.join('; ') || 'None'}
-${advisorFeedback.refinedApproach ? `Refined Approach: ${advisorFeedback.refinedApproach}` : ''}
-${advisorFeedback.gaps ? `Gaps to Address: ${advisorFeedback.gaps.join(', ')}` : ''}
-${answeredQuestionsSection}
-${decisionsSection}
+ADVISOR INSTRUCTIONS (FOLLOW EXACTLY):
+${instructions.join('\n')}
 
-IMPORTANT: The Advisor has answered questions on behalf of the user. Do NOT re-ask these questions.
-Instead, incorporate the Advisor's answers and proceed with the design.`;
+${advisorFeedback.critique ? `GUIDANCE: ${advisorFeedback.critique}` : ''}
+
+Your task: Incorporate ALL Advisor instructions into a clear response. Do NOT ask questions the Advisor already answered.${currentEntities}`;
   }
 
-  return `You are having a conversation about building an app. Continue the conversation naturally.
+  // First iteration - standard prompt
+  return `Continue the conversation about building an app.
 
-CONVERSATION HISTORY:
+RECENT MESSAGES:
 ${conversationContext}
 
-USER'S NEW MESSAGE:
-${userMessage}
+USER: ${userMessage}
 ${currentEntities}
 
-Current readiness score: ${state.readinessScore}/100
-${feedbackSection}
+Readiness: ${state.readinessScore}/100
 
 Guidelines:
-- If you understand what they want, describe what you'll build
-- Think out loud about design choices - your Advisor will help decide
-- If readiness is high (>70), indicate you're ready to build
-- Be conversational, not robotic
-- Avoid asking the user questions unless absolutely necessary about core purpose
+- Describe what you'll build if you understand
+- Don't ask questions unless core purpose is unclear
+- Be concise and specific
 
-Respond naturally as the architect.`;
+Respond as the architect.`;
 }
 
 /**
@@ -269,10 +284,6 @@ export async function* orchestrateDualAgent(
 
     console.log(`  │  Response length: ${currentResponse.length} chars`);
 
-    // Get structured analysis
-    currentAnalysis = await analyzeConversation(userMessage, state, userSettings);
-    architectTurn.metadata!.readinessScore = currentAnalysis.readinessScore;
-
     // Emit thinking event for Advisor
     yield {
       type: 'thinking',
@@ -282,13 +293,13 @@ export async function* orchestrateDualAgent(
       isStreaming: true,
     };
 
-    // Now have Advisor review the response
+    // Now have Advisor review the response (skip analysis during loop for speed)
     console.log(`  ├─ 🔍 Advisor (reviewing iteration ${iteration})`);
     
     const review = await reviewArchitectResponse(
       userMessage,
       currentResponse,
-      currentAnalysis,
+      null, // Skip analysis during loop - computed once at end
       state,
       advisorFeedbackHistory,
       userSettings
@@ -342,22 +353,86 @@ export async function* orchestrateDualAgent(
       console.log(`  │  ⚡ Advisor made ${review.decisions.length} decision(s)`);
     }
 
-    // Check if approved (also approve if Advisor says no user input needed even with questions)
-    const noQuestionsRemaining = !review.needsUserInput;
+    // Check if approved with optimized conditions
+    const advisorAnsweredQuestions = review.answeredQuestions && review.answeredQuestions.length > 0;
+    const advisorMadeDecisions = review.decisions && review.decisions.length > 0;
+    const hasAutonomousAction = advisorAnsweredQuestions || advisorMadeDecisions;
+    
+    // Approve if:
+    // 1. Advisor explicitly approves, OR
+    // 2. Confidence >= MIN_CONFIDENCE_TO_APPROVE, OR
+    // 3. Advisor took autonomous action AND confidence >= MIN_CONFIDENCE_WITH_ANSWERS
     if (review.decision === 'approve' || review.confidence >= MIN_CONFIDENCE_TO_APPROVE) {
       approved = true;
       console.log(`  └─ ✅ Final response ready (${iteration} iteration${iteration > 1 ? 's' : ''}, ${finalConfidence}% confidence)`);
-    } else if (noQuestionsRemaining && review.answeredQuestions && review.answeredQuestions.length > 0) {
-      // Advisor answered questions, iterate to incorporate answers
-      console.log(`  │  🔄 Iterating to incorporate Advisor's answers...`);
+    } else if (hasAutonomousAction && review.confidence >= MIN_CONFIDENCE_WITH_ANSWERS) {
+      // Advisor answered questions/made decisions AND confidence is reasonable - approve immediately
+      approved = true;
+      console.log(`  └─ ✅ Approved with Advisor's autonomous actions (${iteration} iteration${iteration > 1 ? 's' : ''}, ${finalConfidence}% confidence)`);
+    } else if (hasAutonomousAction && !review.needsUserInput) {
+      // Advisor answered questions but confidence is low - one more iteration to incorporate
+      console.log(`  │  🔄 Quick iteration to incorporate Advisor's ${advisorAnsweredQuestions ? 'answers' : 'decisions'}...`);
     } else {
-      console.log(`  │  🔄 Iterating...`);
+      console.log(`  │  🔄 Iterating (confidence: ${finalConfidence}%)...`);
     }
   }
 
   // If we hit max iterations without approval, use the last response anyway
   if (!approved) {
     console.log(`  └─ ⚠️ Max iterations reached, using last response (${finalConfidence}% confidence)`);
+  }
+
+  // Run final analysis ONCE after the loop (optimized - not run during iterations)
+  console.log(`  ├─ 📊 Computing final analysis...`);
+  try {
+    currentAnalysis = await analyzeConversation(userMessage, state, userSettings);
+    console.log(`  │  Readiness: ${currentAnalysis.readinessScore}%, Can Build: ${currentAnalysis.canBuild}`);
+    
+    // If Advisor approved but analysis doesn't have a spec, force spec generation
+    if (approved && finalConfidence >= 70 && !currentAnalysis.spec && state.entities.length > 0) {
+      console.log(`  │  🔧 Advisor approved but no spec - generating fallback spec from entities`);
+      currentAnalysis.spec = {
+        name: state.entities[0]?.name || 'My App',
+        description: currentResponse.substring(0, 200),
+        entities: state.entities,
+        views: [
+          {
+            type: 'table',
+            title: `All ${state.entities[0]?.name || 'Items'}`,
+            entityName: state.entities[0]?.name || 'Item'
+          }
+        ],
+        category: 'Productivity'
+      };
+      currentAnalysis.canBuild = true;
+      currentAnalysis.readinessScore = Math.max(currentAnalysis.readinessScore, 70);
+    }
+  } catch (analysisError) {
+    console.error(`  │  ❌ Analysis failed:`, analysisError);
+    // Create a fallback analysis based on confidence and entities
+    const shouldGenerateSpec = approved && finalConfidence >= 70 && state.entities.length > 0;
+    
+    currentAnalysis = {
+      understanding: currentResponse.substring(0, 200),
+      responseMessage: currentResponse,
+      readinessScore: Math.min(finalConfidence, 80), // Use confidence as proxy
+      entities: state.entities,
+      canBuild: shouldGenerateSpec,
+      shouldAskQuestion: false,
+      spec: shouldGenerateSpec ? {
+        name: state.entities[0]?.name || 'My App',
+        description: currentResponse.substring(0, 200),
+        entities: state.entities,
+        views: [
+          {
+            type: 'table',
+            title: `All ${state.entities[0]?.name || 'Items'}`,
+            entityName: state.entities[0]?.name || 'Item'
+          }
+        ],
+        category: 'Productivity'
+      } : state.spec,
+    };
   }
 
   // Stream the final response as chunks for typewriter effect
