@@ -13,6 +13,8 @@ import type { GeneratedCode } from '@/lib/scaffolder/code-generator';
 import { cn, getAppUrl } from '@/lib/utils';
 // V2 Components
 import { ConversationalScaffolderV2 } from '@/components/scaffolder-v2';
+// V3 Components
+import { V3Creator } from '@/components/scaffolder-v3';
 import { Sparkles, Target, Rocket, Zap, Monitor, Cpu, GitBranch, Terminal, Layers } from 'lucide-react';
 
 interface Message {
@@ -35,7 +37,7 @@ interface ConversationState {
   allQuestionsAnswered?: boolean;
 }
 
-type CreateMode = 'guided' | 'v2' | 'freeform';
+type CreateMode = 'guided' | 'v2' | 'freeform' | 'v3';
 
 function CreateContent() {
   const router = useRouter();
@@ -71,6 +73,9 @@ function CreateContent() {
     } else if (queryMode === 'v2' || queryMode === 'ide') {
       // Advanced IDE mode (marketing page)
       setMode('v2');
+    } else if (queryMode === 'v3' || queryMode === 'dyad') {
+      // V3 Dyad-style scaffolder
+      setMode('v3');
     } else if (queryMode === 'freeform' || queryMode === 'demo') {
       // V2 Freeform scaffolder (default)
       setMode('freeform');
@@ -89,6 +94,25 @@ function CreateContent() {
   // Show mode selector if explicitly requested via ?selector=true
   if (showModeSelector) {
     return <ModeSelector onSelect={handleModeSelect} />;
+  }
+
+  // V3 Dyad-style Scaffolder (tool-based, Vite scaffold)
+  if (mode === 'v3') {
+    return (
+      <V3Creator 
+        initialConversationId={conversationId || undefined}
+        initialAppId={appId || undefined}
+        onComplete={(id, subdomain) => {
+          if (subdomain) {
+            const host = window.location.host;
+            window.location.href = getAppUrl(subdomain, host);
+          } else {
+            router.push(`/apps/${id}`);
+          }
+        }}
+        onCancel={() => setShowModeSelector(true)}
+      />
+    );
   }
 
   // V2 Freeform Scaffolder - the default experience
@@ -257,7 +281,7 @@ function ModeSelector({ onSelect }: { onSelect: (mode: CreateMode) => void }) {
           Choose the best way to bring your vision to life.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl w-full">
           {/* Freeform Mode - Default V2 Scaffolder */}
           <button
             onClick={() => onSelect('freeform')}
@@ -277,6 +301,28 @@ function ModeSelector({ onSelect }: { onSelect: (mode: CreateMode) => void }) {
             </p>
             <div className="mt-4 text-xs text-text-tertiary group-hover:text-text-secondary">
               Best for: Fast experimentation, any complexity level
+            </div>
+          </button>
+
+          {/* V3 Mode - Dyad-style tool-based scaffolder */}
+          <button
+            onClick={() => onSelect('v3')}
+            className="p-6 bg-surface-elevated/50 border border-purple-500/30 rounded-xl text-left hover:border-purple-500 hover:bg-surface-elevated transition-all group relative overflow-hidden"
+          >
+            <div className="absolute top-4 right-4">
+              <span className="px-2 py-0.5 text-[10px] font-medium bg-purple-500/20 text-purple-400 rounded-full border border-purple-500/30">
+                Beta
+              </span>
+            </div>
+            <div className="mb-4">
+              <Layers className="w-8 h-8 text-purple-400" />
+            </div>
+            <h3 className="text-2xl font-medium font-serif text-text-primary mb-2">V3 Builder</h3>
+            <p className="text-sm text-text-secondary">
+              Tool-based code generation with file editing. Vite + React + Shadcn/UI scaffold for modern apps.
+            </p>
+            <div className="mt-4 text-xs text-text-tertiary group-hover:text-text-secondary">
+              Best for: Iterative development, complex UIs
             </div>
           </button>
 

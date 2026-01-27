@@ -59,6 +59,13 @@ model App {
   componentFiles     String?     // V2: Modular component files
   layoutDefinition   String?     // V2: Layout DSL definition
   
+  // V3 Scaffolder fields
+  scaffoldVersion    String?     // "v3" for V3 apps
+  scaffoldId         String?     @default("vite-react-shadcn")  // Scaffold template ID
+  viteComponentFiles String?     // V3: JSON Record<string, string> of file paths to content
+  vitePackageJson    String?     // V3: JSON package.json contents
+  viteScaffoldConfig String?     // V3: JSON scaffold metadata
+  
   // Nebula Hosting fields
   subdomain          String?     @unique
   isAlwaysOn         Boolean     @default(false)
@@ -84,6 +91,11 @@ model Conversation {
   schemaDesigns     String?             @default("[]")
   layoutDesigns     String?             @default("[]")
   refinementHistory String?             @default("[]")
+  
+  // V3 Scaffolder fields
+  agentToolHistory    String?           @default("[]")  // V3: Tool execution log
+  componentFilesCache String?           // V3: Cached file system state during conversation
+  
   user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])

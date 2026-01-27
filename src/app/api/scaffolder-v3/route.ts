@@ -1,234 +1,433 @@
 /**
- * POST /api/scaffolder-v3
- * 
- * Journey-First App Generation Pipeline
- * 
- * This endpoint implements the v3 architecture where AI agents
- * collaborate through multi-turn dialogue to design user experiences
- * BEFORE considering data storage.
- * 
- * Flow:
- * 1. User sends request
- * 2. Agents discuss (UX → Interaction → Component → Data)
- * 3. Consensus is reached
- * 4. Code is generated from design spec
- * 
- * NO templates, NO CRUD patterns, NO predefined component types
+ * V3 Scaffolder API
+ * Main chat endpoint for tool-based code generation
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth';
 import prisma from '@/lib/db';
-import { generateId } from '@/lib/utils';
-import { IS_DEMO_MODE } from '@/lib/config';
-import {
-  designSessionManager,
-  createJourneyConversationState,
-  addJourneyMessage,
-  updateWithDesignResults,
-} from '@/lib/scaffolder-v2/design-session';
-import type {
-  JourneyConversationState,
-  JourneyMessage,
-  DesignSession,
-  DesignConsensus,
-  GeneratedCode,
-} from '@/lib/scaffolder-v2/journey-types';
+import { generateId, generateSubdomain } from '@/lib/utils';
+import type { UserLLMSettings } from '@/lib/llm';
+import { enhanceUserSettingsWithApiKeys } from '@/lib/llm';
+import { executeAgentStream, type AgentResult } from '@/lib/scaffolder-v3';
+import { isV3EnabledForUser } from '@/lib/scaffolder-v3/feature-flags';
 
-// ============================================================================
-// Request/Response Types
-// ============================================================================
+// Store active streams for SSE connections
+const activeStreams = new Map<string, {
+  chunks: string[];
+  done: boolean;
+  result?: AgentResult;
+  error?: string;
+}>();
 
-interface V3ChatRequest {
+export interface V3ChatRequest {
   conversationId?: string;
   message: string;
-  action?: 'chat' | 'design' | 'build';
+  action?: 'chat' | 'create' | 'finalize';
+  appId?: string;
 }
 
-interface V3ChatResponse {
+export interface V3ChatResponse {
   conversationId: string;
-  messages: JourneyMessage[];
-  designSession?: DesignSession;
-  consensus?: DesignConsensus;
-  generatedCode?: GeneratedCode;
-  status: 'designing' | 'consensus' | 'building' | 'complete';
+  appId?: string;
+  message?: string;
+  success: boolean;
+  error?: string;
 }
 
-// ============================================================================
-// Main POST Handler
-// ============================================================================
-
+/**
+ * POST /api/scaffolder-v3
+ * Main endpoint for V3 chat interactions
+ */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-
+  
   try {
     const session = await getServerSession();
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userId = session.user.id;
+
+    // Check if V3 is enabled for this user
+    if (!isV3EnabledForUser(userId)) {
+      return NextResponse.json(
+        { error: 'V3 scaffolder is not enabled for your account' },
+        { status: 403 }
+      );
     }
 
     const body: V3ChatRequest = await request.json();
-    const { conversationId, message, action = 'chat' } = body;
+    const { conversationId, message, action = 'chat', appId } = body;
 
-    console.log('\n🚀 === V3 Journey-First Request ===');
+    console.log('\n🚀 === V3 Scaffolder Request ===');
     console.log(`📋 Action: ${action}`);
     console.log(`💬 Message: "${message?.substring(0, 100)}${message?.length > 100 ? '...' : ''}"`);
     console.log(`🔑 ConversationId: ${conversationId || 'new'}`);
+    console.log(`👤 User: ${userId}`);
 
-    // Demo mode check
-    if (IS_DEMO_MODE) {
-      return NextResponse.json({
-        conversationId: conversationId || generateId(),
-        messages: [{
-          id: generateId(),
-          role: 'assistant',
-          content: 'Demo Mode: The Journey-First Pipeline (V3) requires live AI services which are disabled in demo mode.',
-          timestamp: new Date(),
-        }],
-        status: 'complete',
-      });
-    }
+    // Get user LLM settings
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        preferredLLMProvider: true,
+        ollamaEndpoint: true,
+        ollamaModel: true,
+        ollamaSmallModel: true,
+        lmstudioEndpoint: true,
+        lmstudioModel: true,
+        deepseekApiKey: true,
+        openrouterApiKey: true,
+        manualModelSelection: true,
+        manualOllamaModel: true,
+        manualLMStudioModel: true,
+      },
+    });
 
-    // Load or create conversation state
-    let state: JourneyConversationState;
-    
-    if (conversationId) {
-      const conversation = await prisma.conversation.findFirst({
-        where: { id: conversationId, userId: session.user.id, version: 'v3' },
-      });
+    // Build base settings
+    const baseSettings: UserLLMSettings = {
+      provider: user?.preferredLLMProvider as any,
+      ollamaEndpoint: user?.ollamaEndpoint ?? undefined,
+      ollamaModel: user?.ollamaModel ?? undefined,
+      ollamaSmallModel: user?.ollamaSmallModel ?? undefined,
+      lmstudioEndpoint: user?.lmstudioEndpoint ?? undefined,
+      lmstudioModel: user?.lmstudioModel ?? undefined,
+      userId,
+      manualModelSelection: user?.manualModelSelection ?? false,
+      manualOllamaModel: user?.manualOllamaModel ?? undefined,
+      manualLMStudioModel: user?.manualLMStudioModel ?? undefined,
+    };
 
-      if (conversation?.agentState) {
-        state = conversation.agentState as unknown as JourneyConversationState;
-        state.id = conversationId;
-      } else {
-        state = createJourneyConversationState();
+    // Enhance with decrypted API keys if available
+    const userSettings: UserLLMSettings | undefined = user ? enhanceUserSettingsWithApiKeys(
+      baseSettings,
+      {
+        deepseekApiKey: user.deepseekApiKey,
+        openrouterApiKey: user.openrouterApiKey,
       }
-    } else {
-      state = createJourneyConversationState();
+    ) : undefined;
+
+    switch (action) {
+      case 'chat':
+        return await handleChat(userId, conversationId, message, appId, userSettings || baseSettings);
+      
+      case 'create':
+        return await handleCreate(userId, message, userSettings || baseSettings);
+      
+      case 'finalize':
+        return await handleFinalize(userId, conversationId!, appId!);
+      
+      default:
+        return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
-
-    // Add user message
-    state = addJourneyMessage(state, 'user', message);
-
-    // Run design session
-    console.log('\n🎨 Running Design Session...');
-    
-    const { session: designSession, consensus, code, messages } = 
-      await designSessionManager.runSession(message);
-
-    // Update state with results
-    state = updateWithDesignResults(state, designSession, consensus, code);
-
-    // Add all agent messages to state
-    for (const msg of messages) {
-      if (msg.role !== 'user') { // Don't duplicate user message
-        state.messages.push(msg);
-      }
-    }
-
-    // Save conversation
-    await saveConversation(session.user.id, state);
-
-    const duration = Date.now() - startTime;
-    console.log(`\n✅ V3 Request completed in ${duration}ms`);
-
-    return NextResponse.json({
-      conversationId: state.id,
-      messages: state.messages,
-      designSession,
-      consensus,
-      generatedCode: code,
-      status: 'complete',
-    } as V3ChatResponse);
-
   } catch (error) {
-    console.error('❌ V3 Scaffolder Error:', error);
+    console.error('❌ V3 Scaffolder error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal error' },
+      { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     );
   }
 }
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-async function saveConversation(
+/**
+ * Handle chat message
+ */
+async function handleChat(
   userId: string,
-  state: JourneyConversationState
-): Promise<void> {
-  try {
-    await prisma.conversation.upsert({
-      where: { id: state.id },
-      create: {
-        id: state.id,
+  conversationId: string | undefined,
+  message: string,
+  appId: string | undefined,
+  userSettings: UserLLMSettings
+): Promise<NextResponse<V3ChatResponse>> {
+  // Get or create conversation
+  let conversation;
+  
+  if (conversationId) {
+    conversation = await prisma.conversation.findFirst({
+      where: { id: conversationId, userId },
+    });
+    
+    if (!conversation) {
+      return NextResponse.json({ 
+        conversationId: conversationId,
+        success: false,
+        error: 'Conversation not found' 
+      }, { status: 404 });
+    }
+  } else {
+    // Create new conversation
+    conversation = await prisma.conversation.create({
+      data: {
+        id: generateId(),
         userId,
+        appId: appId || null,
+        messages: JSON.stringify([]),
+        phase: 'building',
         version: 'v3',
-        agentState: state as any,
-      },
-      update: {
-        agentState: state as any,
-        updatedAt: new Date(),
+        agentToolHistory: JSON.stringify([]),
       },
     });
-  } catch (error) {
-    console.error('Failed to save conversation:', error);
-    // Don't throw - allow request to complete even if save fails
   }
-}
 
-// ============================================================================
-// GET Handler - Retrieve Conversation
-// ============================================================================
+  // Get or create app
+  let app;
+  if (appId) {
+    app = await prisma.app.findFirst({
+      where: { id: appId, userId },
+    });
+  } else if (conversation.appId) {
+    app = await prisma.app.findUnique({
+      where: { id: conversation.appId },
+    });
+  }
+  
+  if (!app) {
+    // Create new app
+    const subdomain = generateSubdomain('app');
+    app = await prisma.app.create({
+      data: {
+        id: generateId(),
+        userId,
+        name: 'Untitled App',
+        description: message.substring(0, 200),
+        spec: '{}',
+        config: '{}',
+        data: '[]',
+        status: 'DRAFT',
+        buildStatus: 'PENDING',
+        version: 'v3',
+        scaffoldVersion: 'v3',
+        scaffoldId: 'vite-react-shadcn',
+        viteComponentFiles: JSON.stringify({}),
+        vitePackageJson: JSON.stringify(getDefaultPackageJson()),
+        subdomain,
+      },
+    });
 
-export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession();
+    // Link conversation to app
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { appId: app.id },
+    });
+  }
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  // Parse existing messages and files
+  const existingMessages = JSON.parse(conversation.messages || '[]');
+  const componentFiles = JSON.parse(app.viteComponentFiles || '{}');
+  const packageJson = JSON.parse(app.vitePackageJson || '{}');
 
-    const { searchParams } = new URL(request.url);
-    const conversationId = searchParams.get('id');
+  // Initialize stream storage
+  const streamId = conversation.id;
+  activeStreams.set(streamId, {
+    chunks: [],
+    done: false,
+  });
 
-    if (!conversationId) {
-      // Return list of v3 conversations
-      const conversations = await prisma.conversation.findMany({
-        where: { userId: session.user.id, version: 'v3' },
-        orderBy: { updatedAt: 'desc' },
-        take: 20,
-        select: {
-          id: true,
-          createdAt: true,
-          updatedAt: true,
+  // Run agent in background
+  executeAgentStream({
+    conversationId: conversation.id,
+    appId: app.id,
+    userId,
+    userMessage: message,
+    componentFiles,
+    packageJson,
+    messages: existingMessages.map((m: any) => ({
+      role: m.role,
+      content: m.content,
+    })),
+    userSettings,
+    onChunk: (chunk) => {
+      const stream = activeStreams.get(streamId);
+      if (stream) {
+        stream.chunks.push(chunk);
+      }
+    },
+    onToolExecution: (toolName, args, result) => {
+      console.log(`🔧 Tool executed: ${toolName}`, { args, result });
+    },
+    onComplete: async (result) => {
+      const stream = activeStreams.get(streamId);
+      if (stream) {
+        stream.done = true;
+        stream.result = result;
+      }
+
+      // Save to database
+      const newMessages = [
+        ...existingMessages,
+        { role: 'user', content: message },
+        { role: 'assistant', content: result.fullResponse },
+      ];
+
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          messages: JSON.stringify(newMessages),
+          agentToolHistory: JSON.stringify(result.toolExecutions),
+          componentFilesCache: JSON.stringify(result.componentFiles),
         },
       });
 
-      return NextResponse.json({ conversations });
-    }
+      await prisma.app.update({
+        where: { id: app!.id },
+        data: {
+          name: result.chatSummary || app!.name,
+          viteComponentFiles: JSON.stringify(result.componentFiles),
+          vitePackageJson: JSON.stringify(result.packageJson),
+          buildStatus: 'COMPLETED',
+          status: 'ACTIVE',
+        },
+      });
+    },
+    onError: (error) => {
+      const stream = activeStreams.get(streamId);
+      if (stream) {
+        stream.done = true;
+        stream.error = error.message;
+      }
+    },
+  }).catch(console.error);
 
-    // Return specific conversation
-    const conversation = await prisma.conversation.findFirst({
-      where: { id: conversationId, userId: session.user.id, version: 'v3' },
-    });
+  return NextResponse.json({
+    conversationId: conversation.id,
+    appId: app.id,
+    success: true,
+    message: 'Stream started. Connect to /api/scaffolder-v3/stream/' + conversation.id,
+  });
+}
 
-    if (!conversation) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    }
+/**
+ * Handle create action (quick app creation)
+ */
+async function handleCreate(
+  userId: string,
+  prompt: string,
+  userSettings: UserLLMSettings
+): Promise<NextResponse<V3ChatResponse>> {
+  // Create new conversation and app
+  const conversationId = generateId();
+  const appId = generateId();
+  const subdomain = generateSubdomain('app');
 
-    return NextResponse.json({
-      id: conversation.id,
-      state: conversation.agentState,
-    });
+  await prisma.app.create({
+    data: {
+      id: appId,
+      userId,
+      name: 'New App',
+      description: prompt.substring(0, 200),
+      spec: '{}',
+      config: '{}',
+      data: '[]',
+      status: 'DRAFT',
+      buildStatus: 'GENERATING',
+      version: 'v3',
+      scaffoldVersion: 'v3',
+      scaffoldId: 'vite-react-shadcn',
+      viteComponentFiles: JSON.stringify({}),
+      vitePackageJson: JSON.stringify(getDefaultPackageJson()),
+      subdomain,
+    },
+  });
 
-  } catch (error) {
-    console.error('V3 GET Error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal error' },
-      { status: 500 }
-    );
-  }
+  await prisma.conversation.create({
+    data: {
+      id: conversationId,
+      userId,
+      appId,
+      messages: JSON.stringify([]),
+      phase: 'building',
+      version: 'v3',
+      agentToolHistory: JSON.stringify([]),
+    },
+  });
+
+  // Start generation (handled via chat)
+  return handleChat(userId, conversationId, prompt, appId, userSettings);
+}
+
+/**
+ * Handle finalize action
+ */
+async function handleFinalize(
+  userId: string,
+  conversationId: string,
+  appId: string
+): Promise<NextResponse<V3ChatResponse>> {
+  // Update app status
+  await prisma.app.update({
+    where: { id: appId, userId },
+    data: {
+      status: 'ACTIVE',
+      buildStatus: 'COMPLETED',
+    },
+  });
+
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data: { phase: 'complete' },
+  });
+
+  return NextResponse.json({
+    conversationId,
+    appId,
+    success: true,
+  });
+}
+
+/**
+ * Get active stream data
+ */
+export function getStreamData(conversationId: string) {
+  return activeStreams.get(conversationId);
+}
+
+/**
+ * Clear stream data
+ */
+export function clearStreamData(conversationId: string) {
+  activeStreams.delete(conversationId);
+}
+
+/**
+ * Default package.json for V3 apps
+ */
+function getDefaultPackageJson() {
+  return {
+    name: 'cumulonimbus-app',
+    version: '1.0.0',
+    private: true,
+    type: 'module',
+    scripts: {
+      dev: 'vite',
+      build: 'vite build',
+      preview: 'vite preview',
+    },
+    dependencies: {
+      react: '^19.2.3',
+      'react-dom': '^19.2.3',
+      'react-router-dom': '^6.26.2',
+      '@tanstack/react-query': '^5.56.2',
+      'lucide-react': '^0.462.0',
+      'clsx': '^2.1.1',
+      'tailwind-merge': '^2.5.2',
+      'class-variance-authority': '^0.7.1',
+      'sonner': '^1.5.0',
+      'zod': '^3.23.8',
+      'react-hook-form': '^7.53.0',
+      '@hookform/resolvers': '^3.9.0',
+      'date-fns': '^3.6.0',
+    },
+    devDependencies: {
+      '@types/react': '^19.2.8',
+      '@types/react-dom': '^19.2.3',
+      '@vitejs/plugin-react-swc': '^3.9.0',
+      'typescript': '^5.5.3',
+      'vite': '^6.3.4',
+      'tailwindcss': '^3.4.11',
+      'autoprefixer': '^10.4.20',
+      'postcss': '^8.4.47',
+    },
+  };
 }

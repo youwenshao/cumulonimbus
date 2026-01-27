@@ -117,7 +117,7 @@ export function createOpenRouterClient(): LLMClient {
           model,
           messages: options.messages,
           temperature: options.temperature ?? 0.7,
-          max_tokens: options.maxTokens ?? 8192,
+          max_tokens: Math.min(options.maxTokens ?? 8192, 8192),
           stream: false,
         });
 
@@ -187,7 +187,7 @@ export function createOpenRouterClient(): LLMClient {
           model,
           messages,
           temperature: options.temperature ?? 0.3,
-          max_tokens: options.maxTokens ?? 8192,
+          max_tokens: Math.min(options.maxTokens ?? 8192, 8192),
           stream: false,
         });
 

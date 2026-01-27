@@ -30,7 +30,9 @@ export interface AppContext {
   appDescription: string;
   initialData: any;
   isV2?: boolean;
+  isV3?: boolean;
   componentFiles?: Record<string, string> | null;
+  viteComponentFiles?: Record<string, string> | null;
 }
 
 /**
@@ -108,6 +110,165 @@ async function bundleV2App(componentFiles: Record<string, string>): Promise<stri
 }
 
 /**
+ * Bundle V3 Vite app with all component files
+ * V3 apps use the Vite scaffold with Shadcn components
+ */
+async function bundleV3App(viteComponentFiles: Record<string, string>): Promise<string> {
+  // Create virtual file system for esbuild
+  const files: Record<string, string> = {};
+  
+  for (const [filePath, content] of Object.entries(viteComponentFiles)) {
+    // Normalize path - ensure it starts without leading slash
+    const normalizedPath = filePath.startsWith('/') ? filePath.slice(1) : filePath;
+    files[`/virtual/${normalizedPath}`] = content;
+  }
+  
+  // Check if we have an App.tsx entry point
+  const entryFile = files['/virtual/src/App.tsx'] || files['/virtual/App.tsx'];
+  if (!entryFile) {
+    throw new Error('No App.tsx entry point found in V3 app');
+  }
+  
+  const entryPath = files['/virtual/src/App.tsx'] ? '/virtual/src/App.tsx' : '/virtual/App.tsx';
+  
+  // Bundle with esbuild
+  const result = await esbuild.build({
+    stdin: {
+      contents: entryFile,
+      resolveDir: path.dirname(entryPath),
+      sourcefile: 'App.tsx',
+      loader: 'tsx'
+    },
+    bundle: true,
+    format: 'esm',
+    target: 'es2020',
+    write: false,
+    external: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react-router-dom',
+      '@tanstack/react-query',
+      'framer-motion',
+      'lucide-react',
+      'recharts',
+      'date-fns',
+      'clsx',
+      'tailwind-merge',
+      'class-variance-authority',
+      'react-hook-form',
+      '@hookform/resolvers',
+      'zod',
+      'nanoid',
+      'sonner',
+      // Radix UI
+      '@radix-ui/react-accordion',
+      '@radix-ui/react-alert-dialog',
+      '@radix-ui/react-aspect-ratio',
+      '@radix-ui/react-avatar',
+      '@radix-ui/react-checkbox',
+      '@radix-ui/react-collapsible',
+      '@radix-ui/react-context-menu',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-hover-card',
+      '@radix-ui/react-label',
+      '@radix-ui/react-menubar',
+      '@radix-ui/react-navigation-menu',
+      '@radix-ui/react-popover',
+      '@radix-ui/react-progress',
+      '@radix-ui/react-radio-group',
+      '@radix-ui/react-scroll-area',
+      '@radix-ui/react-select',
+      '@radix-ui/react-separator',
+      '@radix-ui/react-slider',
+      '@radix-ui/react-slot',
+      '@radix-ui/react-switch',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-toast',
+      '@radix-ui/react-toggle',
+      '@radix-ui/react-toggle-group',
+      '@radix-ui/react-tooltip',
+    ],
+    define: {
+      'process.env.NODE_ENV': '"development"',
+      'import.meta.env.DEV': 'true',
+      'import.meta.env.PROD': 'false',
+      'import.meta.env.MODE': '"development"',
+    },
+    plugins: [{
+      name: 'virtual-fs-v3',
+      setup(build) {
+        // Handle @ alias imports (e.g., @/components/ui/button)
+        build.onResolve({ filter: /^@\// }, args => {
+          const importPath = args.path.replace(/^@\//, '');
+          
+          // Try different paths
+          const tryPaths = [
+            `/virtual/src/${importPath}`,
+            `/virtual/src/${importPath}.tsx`,
+            `/virtual/src/${importPath}.ts`,
+            `/virtual/src/${importPath}/index.tsx`,
+            `/virtual/src/${importPath}/index.ts`,
+            `/virtual/${importPath}`,
+            `/virtual/${importPath}.tsx`,
+            `/virtual/${importPath}.ts`,
+          ];
+          
+          for (const tryPath of tryPaths) {
+            if (files[tryPath]) {
+              return { path: tryPath, namespace: 'virtual' };
+            }
+          }
+          
+          // Return the path anyway for external resolution
+          return { path: `/virtual/src/${importPath}`, namespace: 'virtual' };
+        });
+        
+        // Resolve relative imports
+        build.onResolve({ filter: /^\./ }, args => {
+          const basePath = args.importer.replace('/virtual/', '');
+          const baseDir = path.dirname(basePath);
+          const resolvedPath = path.join(baseDir, args.path);
+          
+          // Try with and without .tsx/.ts extension
+          const tryPaths = [
+            `/virtual/${resolvedPath}`,
+            `/virtual/${resolvedPath}.tsx`,
+            `/virtual/${resolvedPath}.ts`,
+            `/virtual/${resolvedPath}/index.tsx`,
+            `/virtual/${resolvedPath}/index.ts`,
+          ];
+          
+          for (const tryPath of tryPaths) {
+            if (files[tryPath]) {
+              return { path: tryPath, namespace: 'virtual' };
+            }
+          }
+          
+          return { path: `/virtual/${resolvedPath}`, namespace: 'virtual' };
+        });
+        
+        // Load files from virtual file system
+        build.onLoad({ filter: /.*/, namespace: 'virtual' }, args => {
+          const content = files[args.path];
+          if (!content) {
+            // Return empty module for missing files
+            return { 
+              contents: '// File not found: ' + args.path + '\nexport default {};', 
+              loader: 'tsx' 
+            };
+          }
+          return { contents: content, loader: 'tsx' };
+        });
+      }
+    }]
+  });
+  
+  return result.outputFiles[0].text;
+}
+
+/**
  * Execute a request against a Nebula app
  */
 export async function executeRequest(
@@ -136,7 +297,10 @@ export async function executeRequest(
     // Bundle or transpile based on app version
     let browserCode: string;
     
-    if (context.isV2 && context.componentFiles) {
+    if (context.isV3 && context.viteComponentFiles) {
+      // Bundle V3 Vite app (Dyad-style scaffold)
+      browserCode = await bundleV3App(context.viteComponentFiles);
+    } else if (context.isV2 && context.componentFiles) {
       // Bundle V2 app (modular components)
       browserCode = await bundleV2App(context.componentFiles);
     } else {
@@ -273,15 +437,47 @@ function generateAppHtml(params: {
         "react": "https://esm.sh/react@18.2.0",
         "react-dom": "https://esm.sh/react-dom@18.2.0",
         "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "react-router-dom": "https://esm.sh/react-router-dom@6.26.2?deps=react@18.2.0",
+        "@tanstack/react-query": "https://esm.sh/@tanstack/react-query@5.56.2?deps=react@18.2.0",
         "lucide-react": "https://esm.sh/lucide-react@0.468.0?deps=react@18.2.0",
         "framer-motion": "https://esm.sh/framer-motion@11.15.0?deps=react@18.2.0",
         "date-fns": "https://esm.sh/date-fns@3.6.0",
         "clsx": "https://esm.sh/clsx@2.1.1",
         "tailwind-merge": "https://esm.sh/tailwind-merge@2.6.0",
+        "class-variance-authority": "https://esm.sh/class-variance-authority@0.7.1",
         "recharts": "https://esm.sh/recharts@2.15.0?deps=react@18.2.0",
         "react-hook-form": "https://esm.sh/react-hook-form@7.54.0?deps=react@18.2.0",
+        "@hookform/resolvers": "https://esm.sh/@hookform/resolvers@3.9.0?deps=react-hook-form@7.54.0",
         "zod": "https://esm.sh/zod@3.24.1",
         "nanoid": "https://esm.sh/nanoid@5.0.7",
+        "sonner": "https://esm.sh/sonner@1.5.0?deps=react@18.2.0",
+        "@radix-ui/react-accordion": "https://esm.sh/@radix-ui/react-accordion@1.2.0?deps=react@18.2.0",
+        "@radix-ui/react-alert-dialog": "https://esm.sh/@radix-ui/react-alert-dialog@1.1.1?deps=react@18.2.0",
+        "@radix-ui/react-aspect-ratio": "https://esm.sh/@radix-ui/react-aspect-ratio@1.1.0?deps=react@18.2.0",
+        "@radix-ui/react-avatar": "https://esm.sh/@radix-ui/react-avatar@1.1.0?deps=react@18.2.0",
+        "@radix-ui/react-checkbox": "https://esm.sh/@radix-ui/react-checkbox@1.1.1?deps=react@18.2.0",
+        "@radix-ui/react-collapsible": "https://esm.sh/@radix-ui/react-collapsible@1.1.0?deps=react@18.2.0",
+        "@radix-ui/react-context-menu": "https://esm.sh/@radix-ui/react-context-menu@2.2.1?deps=react@18.2.0",
+        "@radix-ui/react-dialog": "https://esm.sh/@radix-ui/react-dialog@1.1.2?deps=react@18.2.0",
+        "@radix-ui/react-dropdown-menu": "https://esm.sh/@radix-ui/react-dropdown-menu@2.1.1?deps=react@18.2.0",
+        "@radix-ui/react-hover-card": "https://esm.sh/@radix-ui/react-hover-card@1.1.1?deps=react@18.2.0",
+        "@radix-ui/react-label": "https://esm.sh/@radix-ui/react-label@2.1.0?deps=react@18.2.0",
+        "@radix-ui/react-menubar": "https://esm.sh/@radix-ui/react-menubar@1.1.1?deps=react@18.2.0",
+        "@radix-ui/react-navigation-menu": "https://esm.sh/@radix-ui/react-navigation-menu@1.2.0?deps=react@18.2.0",
+        "@radix-ui/react-popover": "https://esm.sh/@radix-ui/react-popover@1.1.1?deps=react@18.2.0",
+        "@radix-ui/react-progress": "https://esm.sh/@radix-ui/react-progress@1.1.0?deps=react@18.2.0",
+        "@radix-ui/react-radio-group": "https://esm.sh/@radix-ui/react-radio-group@1.2.0?deps=react@18.2.0",
+        "@radix-ui/react-scroll-area": "https://esm.sh/@radix-ui/react-scroll-area@1.1.0?deps=react@18.2.0",
+        "@radix-ui/react-select": "https://esm.sh/@radix-ui/react-select@2.1.1?deps=react@18.2.0",
+        "@radix-ui/react-separator": "https://esm.sh/@radix-ui/react-separator@1.1.0?deps=react@18.2.0",
+        "@radix-ui/react-slider": "https://esm.sh/@radix-ui/react-slider@1.2.0?deps=react@18.2.0",
+        "@radix-ui/react-slot": "https://esm.sh/@radix-ui/react-slot@1.1.0?deps=react@18.2.0",
+        "@radix-ui/react-switch": "https://esm.sh/@radix-ui/react-switch@1.1.0?deps=react@18.2.0",
+        "@radix-ui/react-tabs": "https://esm.sh/@radix-ui/react-tabs@1.1.0?deps=react@18.2.0",
+        "@radix-ui/react-toast": "https://esm.sh/@radix-ui/react-toast@1.2.1?deps=react@18.2.0",
+        "@radix-ui/react-toggle": "https://esm.sh/@radix-ui/react-toggle@1.1.0?deps=react@18.2.0",
+        "@radix-ui/react-toggle-group": "https://esm.sh/@radix-ui/react-toggle-group@1.1.0?deps=react@18.2.0",
+        "@radix-ui/react-tooltip": "https://esm.sh/@radix-ui/react-tooltip@1.1.4?deps=react@18.2.0",
         "@/lib/utils": "data:text/javascript,export function cn(...args){return args.filter(Boolean).join(' ')}"
       }
     }
@@ -490,7 +686,9 @@ export async function loadAppContext(appId: string): Promise<AppContext | null> 
       generatedCode: true,
       name: true,
       description: true,
-      data: true
+      data: true,
+      scaffoldVersion: true,
+      viteComponentFiles: true,
     }
   });
 
@@ -503,13 +701,25 @@ export async function loadAppContext(appId: string): Promise<AppContext | null> 
     ? JSON.parse(app.componentFiles) 
     : app.componentFiles;
 
-  // Detect if this is a V2 app (modular with component files)
-  const isV2 = !!(parsedComponentFiles && parsedComponentFiles['App.tsx']);
+  // Parse V3 viteComponentFiles
+  const parsedViteComponentFiles = typeof app.viteComponentFiles === 'string' 
+    ? JSON.parse(app.viteComponentFiles) 
+    : app.viteComponentFiles;
+
+  // Detect app version
+  const isV3 = app.scaffoldVersion === 'v3' && parsedViteComponentFiles && Object.keys(parsedViteComponentFiles).length > 0;
+  const isV2 = !isV3 && !!(parsedComponentFiles && parsedComponentFiles['App.tsx']);
   
-  // For V2 apps, we'll bundle all files later, for V1 apps get the single page component
-  const code = isV2
-    ? parsedComponentFiles['App.tsx']
-    : (typeof app.generatedCode === 'string' ? JSON.parse(app.generatedCode) : app.generatedCode)?.pageComponent || '';
+  // Get the entry code based on version
+  let code: string;
+  if (isV3) {
+    code = parsedViteComponentFiles['src/App.tsx'] || parsedViteComponentFiles['App.tsx'] || '';
+  } else if (isV2) {
+    code = parsedComponentFiles['App.tsx'] || '';
+  } else {
+    // V1 app
+    code = (typeof app.generatedCode === 'string' ? JSON.parse(app.generatedCode) : app.generatedCode)?.pageComponent || '';
+  }
 
   return {
     appId: app.id,
@@ -519,6 +729,8 @@ export async function loadAppContext(appId: string): Promise<AppContext | null> 
     appDescription: app.description || '',
     initialData: typeof app.data === 'string' ? JSON.parse(app.data) : (app.data || []),
     isV2,
-    componentFiles: isV2 ? parsedComponentFiles : null
+    isV3,
+    componentFiles: isV2 ? parsedComponentFiles : null,
+    viteComponentFiles: isV3 ? parsedViteComponentFiles : null,
   };
 }
