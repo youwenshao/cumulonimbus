@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { NavigationRail, ContextPanel, ChatInput, ChatMessage, Button, StatusPanel, ThemeToggle, Logo, ParticleBackground, Card } from '@/components/ui';
 import type { StatusMessage, StatusPhase } from '@/components/ui';
 import { ImplementationPlan, CodeViewer, LivePreview, FreeformCreator, WelcomeScreen } from '@/components/scaffolder';
+import { V3Scaffolder } from '@/components/scaffolder-v3/V3Scaffolder';
 import { AgentStream } from '@/components/scaffolder/agent/AgentStream';
 import { SimulationEvent } from '@/lib/demo/seed-data';
 import type { ProjectSpec, ImplementationPlan as ImplementationPlanType } from '@/lib/scaffolder/types';
@@ -13,7 +14,7 @@ import type { GeneratedCode } from '@/lib/scaffolder/code-generator';
 import { cn, getAppUrl } from '@/lib/utils';
 // V2 Components
 import { ConversationalScaffolderV2 } from '@/components/scaffolder-v2';
-import { Sparkles, Target, Rocket, Zap, Monitor, Cpu, GitBranch, Terminal, Layers } from 'lucide-react';
+import { Sparkles, Target, Rocket, Zap, Monitor, Cpu, GitBranch, Terminal, Layers, Code } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -35,7 +36,7 @@ interface ConversationState {
   allQuestionsAnswered?: boolean;
 }
 
-type CreateMode = 'guided' | 'v2' | 'freeform';
+type CreateMode = 'guided' | 'v2' | 'freeform' | 'v3';
 
 function CreateContent() {
   const router = useRouter();
@@ -108,6 +109,11 @@ function CreateContent() {
         onCancel={() => setShowModeSelector(true)}
       />
     );
+  }
+  
+  // V3 Scaffolder (Dyad Integration)
+  if (mode === 'v3') {
+    return <V3Scaffolder />;
   }
   
   // Render advanced IDE landing page for v2 mode
@@ -321,6 +327,28 @@ function ModeSelector({ onSelect }: { onSelect: (mode: CreateMode) => void }) {
             </p>
             <div className="mt-4 text-xs text-text-tertiary group-hover:text-text-secondary">
               Best for: Professional developers, complex projects
+            </div>
+          </button>
+
+          {/* V3 Mode - Dyad Integration */}
+          <button
+            onClick={() => onSelect('v3')}
+            className="p-6 bg-surface-elevated/50 border border-outline-light rounded-xl text-left hover:border-outline-mid hover:bg-surface-elevated transition-all group relative overflow-hidden"
+          >
+            <div className="absolute top-4 right-4">
+              <span className="px-2 py-0.5 text-[10px] font-medium bg-green-500/20 text-green-500 rounded-full border border-green-500/30">
+                New Engine
+              </span>
+            </div>
+            <div className="mb-4">
+              <Code className="w-8 h-8 text-accent-yellow" />
+            </div>
+            <h3 className="text-2xl font-medium font-serif text-text-primary mb-2">V3 Engine</h3>
+            <p className="text-sm text-text-secondary">
+              Experimental Dyad-powered builder with real-time preview and editing.
+            </p>
+            <div className="mt-4 text-xs text-text-tertiary group-hover:text-text-secondary">
+              Best for: Advanced prototyping
             </div>
           </button>
         </div>

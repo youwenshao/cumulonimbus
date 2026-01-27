@@ -1,1051 +1,288 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { LivePreview } from './LivePreview';
-import { CodeEditor } from './CodeEditor';
-import { AgentTimeline, type AgentActivity, type PipelineAgent, type AgentOutput } from './AgentTimeline';
-import { Button, ThemeToggle, ChatInput, ChatMessage } from '@/components/ui';
-import { WelcomeScreen } from './WelcomeScreen';
-import { Terminal, Rocket, CheckCircle, Sparkles, Zap, ChevronDown, ChevronRight, Lightbulb, Scale, Code, Eye, PanelLeft, PanelLeftClose, Loader2, Target } from 'lucide-react';
-import { toast } from 'sonner';
-import { cn, generateId } from '@/lib/utils';
+import { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { 
+  Sparkles, 
+  Send, 
+  Loader2, 
+  ChevronRight,
+  Lightbulb,
+  Wand2,
+} from 'lucide-react';
+import { Button, Card } from '@/components/ui';
+import { CodeStreamViewer } from './CodeStreamViewer';
+import { IframeSandbox } from '@/components/runtime';
+import { useCodeStream } from '@/hooks/useCodeStream';
+import { cn } from '@/lib/utils';
 
-// CodeFile interface for generated code
-interface CodeFile {
-  name: string;
-  path: string;
-  code: string;
-  language: string;
-}
-
-interface FreeformCreatorProps {
-  onComplete?: (appId: string, subdomain?: string) => void;
-  onCancel?: () => void;
-  /** Initial conversation ID to resume an existing conversation */
+export interface FreeformCreatorProps {
+  className?: string;
   initialConversationId?: string;
-  /** Initial app ID to edit an existing app */
   initialAppId?: string;
+  onComplete?: (id: string, subdomain?: string) => void;
+  onCancel?: () => void;
 }
 
-// Internal dialogue turn from dual-agent system
-interface InternalTurn {
-  id: string;
-  agent: 'architect' | 'advisor';
-  content: string;
-  timestamp: string;
-  metadata?: {
-    confidence?: number;
-    decision?: 'iterate' | 'approve';
-    iteration?: number;
-  };
-  answeredQuestions?: Array<{ question: string; answer: string }>;
-  decisions?: Array<{ choice: string; rationale: string }>;
-}
+const EXAMPLE_PROMPTS = [
+  "A habit tracker with daily streaks and weekly summaries",
+  "A Kanban board for managing tasks with drag and drop",
+  "An expense tracker with categories and monthly charts",
+  "A recipe collection with ingredient lists and cooking times",
+  "A book reading log with ratings and notes",
+  "A workout tracker with exercise types and sets",
+];
 
-// Live thinking event during streaming
-interface ThinkingEvent {
-  agent: 'architect' | 'advisor';
-  content: string;
-  iteration: number;
-  isStreaming: boolean;
-}
+type CreatorStep = 'prompt' | 'generating' | 'preview';
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  isStreaming?: boolean;
-  internalDialogue?: InternalTurn[];
-  iterations?: number;
-  confidence?: number;
-}
+export function FreeformCreator({ className = '' }: FreeformCreatorProps) {
+  const router = useRouter();
+  const [prompt, setPrompt] = useState('');
+  const [step, setStep] = useState<CreatorStep>('prompt');
+  const [showPreview, setShowPreview] = useState(false);
 
-interface FreeformState {
-  conversationId: string | null;
-  readinessScore: number;
-  canBuild: boolean;
-  entities: Array<{ name: string; fields: any[] }>;
-}
-
-type Phase = 'chatting' | 'building' | 'preview' | 'loading';
-
-export function FreeformCreator({ onComplete, onCancel, initialConversationId, initialAppId }: FreeformCreatorProps) {
-  const [phase, setPhase] = useState<Phase>(initialConversationId ? 'loading' : 'chatting');
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [currentStreamContent, setCurrentStreamContent] = useState('');
-  const [freeformState, setFreeformState] = useState<FreeformState>({
-    conversationId: initialConversationId || null,
-    readinessScore: 0,
-    canBuild: false,
-    entities: [],
+  const {
+    isStreaming,
+    progress,
+    message,
+    code,
+    files,
+    design,
+    appId,
+    error,
+    startGeneration,
+    reset,
+  } = useCodeStream({
+    onComplete: (id) => {
+      console.log('App generated:', id);
+      setStep('preview');
+    },
+    onError: (err) => {
+      console.error('Generation error:', err);
+    },
   });
-  const [generatedAppId, setGeneratedAppId] = useState<string | null>(null);
-  const [generatedSubdomain, setGeneratedSubdomain] = useState<string | null>(null);
-  const [isBuilding, setIsBuilding] = useState(false);
-  const [generatedFiles, setGeneratedFiles] = useState<CodeFile[]>([]);
-  // Track which internal dialogues are expanded (for debugging)
-  const [expandedDialogues, setExpandedDialogues] = useState<Set<string>>(new Set());
-  const [loadError, setLoadError] = useState<string | null>(null);
-  // Build view state - for code editor + preview in preview phase
-  const [showCodeDuringBuild, setShowCodeDuringBuild] = useState(true);
-  // Live thinking state for real-time display
-  const [liveThinking, setLiveThinking] = useState<{
-    isActive: boolean;
-    currentAgent: 'architect' | 'advisor' | null;
-    architectContent: string;
-    advisorContent: string;
-    iteration: number;
-    isExpanded: boolean;
-  }>({
-    isActive: false,
-    currentAgent: null,
-    architectContent: '',
-    advisorContent: '',
-    iteration: 0,
-    isExpanded: true,
-  });
-  
-  // V2 Pipeline - Agent activities tracking
-  const [agentActivities, setAgentActivities] = useState<AgentActivity[]>([]);
-  const [showAgentPipeline, setShowAgentPipeline] = useState(true);
-  
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  // Use ref for conversation ID to avoid stale closure issues
-  const conversationIdRef = useRef<string | null>(initialConversationId || null);
 
-  // Toggle internal dialogue visibility
-  const toggleDialogue = useCallback((messageId: string) => {
-    setExpandedDialogues(prev => {
-      const next = new Set(prev);
-      if (next.has(messageId)) {
-        next.delete(messageId);
-      } else {
-        next.add(messageId);
-      }
-      return next;
-    });
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!prompt.trim() || isStreaming) return;
+
+    setStep('generating');
+    await startGeneration(prompt);
+  }, [prompt, isStreaming, startGeneration]);
+
+  const handleExampleClick = useCallback((example: string) => {
+    setPrompt(example);
   }, []);
 
-  // Sync conversationId ref with state
-  useEffect(() => {
-    conversationIdRef.current = freeformState.conversationId;
-  }, [freeformState.conversationId]);
+  const handleReset = useCallback(() => {
+    reset();
+    setPrompt('');
+    setStep('prompt');
+    setShowPreview(false);
+  }, [reset]);
 
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, currentStreamContent]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      abortControllerRef.current?.abort();
-    };
-  }, []);
-
-  // Load existing conversation if initialConversationId is provided
-  useEffect(() => {
-    if (!initialConversationId) return;
-
-    const loadConversation = async () => {
-      try {
-        setPhase('loading');
-        setLoadError(null);
-
-        const response = await fetch(`/api/conversations/${initialConversationId}`);
-        
-        if (!response.ok) {
-          throw new Error('Failed to load conversation');
-        }
-
-        const { conversation } = await response.json();
-
-        // Transform messages to our format
-        const loadedMessages: Message[] = (conversation.messages || []).map((msg: any, idx: number) => ({
-          id: msg.id || `msg-${idx}`,
-          role: msg.role,
-          content: msg.content,
-        }));
-
-        setMessages(loadedMessages);
-        
-        // Update state from conversation spec
-        const spec = conversation.spec;
-        if (spec) {
-          conversationIdRef.current = initialConversationId;
-          setFreeformState({
-            conversationId: initialConversationId,
-            readinessScore: spec.readinessScore || 0,
-            canBuild: spec.phase === 'ready' || (spec.readinessScore || 0) >= 80,
-            entities: spec.entities || [],
-          });
-        }
-
-        // If conversation has an associated app, show it
-        if (conversation.app && conversation.phase === 'COMPLETE') {
-          setGeneratedAppId(conversation.app.id);
-          setGeneratedSubdomain(conversation.app.subdomain);
-          setPhase('preview');
-        } else {
-          setPhase('chatting');
-        }
-
-      } catch (error) {
-        console.error('Failed to load conversation:', error);
-        setLoadError('Failed to load conversation. Starting fresh.');
-        setPhase('chatting');
-      }
-    };
-
-    loadConversation();
-  }, [initialConversationId]);
-
-  const handleSubmit = useCallback(async (text: string) => {
-    if (!text.trim() || isStreaming) return;
-
-    // Add user message
-    const userMsg: Message = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: text,
-    };
-    setMessages(prev => [...prev, userMsg]);
-
-    // Start streaming
-    setIsStreaming(true);
-    setCurrentStreamContent('');
-
-    // Create abort controller for this request
-    abortControllerRef.current = new AbortController();
-
-    // Track internal dialogue for this message
-    let internalDialogue: InternalTurn[] = [];
-    let iterations = 0;
-    let finalConfidence = 0;
-
-    // Reset and activate live thinking
-    setLiveThinking({
-      isActive: true,
-      currentAgent: 'architect',
-      architectContent: '',
-      advisorContent: '',
-      iteration: 1,
-      isExpanded: true,
-    });
-    
-    // Reset agent activities for new request
-    setAgentActivities([]);
-
-    try {
-      const response = await fetch('/api/scaffolder/freeform', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'stream',
-          conversationId: conversationIdRef.current, // Use ref instead of state
-          message: text,
-        }),
-        signal: abortControllerRef.current.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('No response body');
-      }
-
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let streamedContent = '';
-      let finalData: any = null;
-
-      // Add placeholder message for streaming
-      const assistantMsgId = `assistant-${Date.now()}`;
-      setMessages(prev => [...prev, {
-        id: assistantMsgId,
-        role: 'assistant',
-        content: '',
-        isStreaming: true,
-      }]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        
-        // Process complete SSE messages
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          
-          try {
-            const data = JSON.parse(line.slice(6));
-            
-            // V2 Pipeline Events
-            if (data.type === 'agent_start') {
-              // New agent starting in the pipeline
-              const newActivity: AgentActivity = {
-                id: generateId(),
-                agent: data.agent as PipelineAgent,
-                status: 'running',
-                startTime: Date.now(),
-              };
-              setAgentActivities(prev => [...prev, newActivity]);
-            } else if (data.type === 'agent_complete') {
-              // Agent completed successfully
-              setAgentActivities(prev => prev.map(a => 
-                a.agent === data.agent && a.status === 'running'
-                  ? {
-                      ...a,
-                      status: 'complete' as const,
-                      endTime: Date.now(),
-                      output: data.result as AgentOutput,
-                    }
-                  : a
-              ));
-            } else if (data.type === 'agent_error') {
-              // Agent encountered an error
-              setAgentActivities(prev => prev.map(a => 
-                a.agent === data.agent && a.status === 'running'
-                  ? {
-                      ...a,
-                      status: 'error' as const,
-                      endTime: Date.now(),
-                      error: data.error,
-                    }
-                  : a
-              ));
-            } else if (data.type === 'intent_result') {
-              // Intent Engine result with detailed output
-              setAgentActivities(prev => prev.map(a => 
-                a.agent === 'intent-engine' && a.status === 'running'
-                  ? {
-                      ...a,
-                      status: 'complete' as const,
-                      endTime: Date.now(),
-                      output: {
-                        category: data.intent?.appCategory,
-                        entities: data.intent?.entities?.length || 0,
-                        referenceApps: data.intent?.referenceApps?.map((r: any) => r.name) || [],
-                        confidence: data.intent?.complexityScore,
-                      },
-                    }
-                  : a
-              ));
-            } else if (data.type === 'thinking') {
-              // Live thinking stream - update in real-time
-              setLiveThinking(prev => ({
-                ...prev,
-                isActive: true,
-                currentAgent: data.agent,
-                iteration: data.iteration || prev.iteration,
-                ...(data.agent === 'architect' 
-                  ? { architectContent: prev.architectContent + data.content }
-                  : { advisorContent: data.content } // Advisor content replaces (not streaming word-by-word)
-                ),
-              }));
-            } else if (data.type === 'chunk') {
-              // Final response chunk - hide thinking panel
-              setLiveThinking(prev => ({ ...prev, isActive: false }));
-              streamedContent += data.content;
-              setCurrentStreamContent(streamedContent);
-              // Update the streaming message
-              setMessages(prev => prev.map(msg =>
-                msg.id === assistantMsgId
-                  ? { ...msg, content: streamedContent }
-                  : msg
-              ));
-            } else if (data.type === 'internal') {
-              // Capture internal dialogue from dual-agent system
-              internalDialogue.push({
-                id: `internal-${Date.now()}-${internalDialogue.length}`,
-                agent: data.agent,
-                content: data.content,
-                timestamp: new Date().toISOString(),
-                metadata: {
-                  confidence: data.confidence,
-                  decision: data.decision,
-                  iteration: data.iteration,
-                },
-                answeredQuestions: data.answeredQuestions,
-                decisions: data.decisions,
-              });
-              // Reset content for next iteration
-              if (data.agent === 'advisor') {
-                setLiveThinking(prev => ({
-                  ...prev,
-                  architectContent: '',
-                  advisorContent: '',
-                  iteration: (data.iteration || 0) + 1,
-                }));
-              }
-            } else if (data.type === 'done') {
-              finalData = data;
-              iterations = data.iterations || 1;
-              finalConfidence = data.confidence || 0;
-              // Include internal dialogue from final data if present
-              if (data.internalDialogue) {
-                internalDialogue = data.internalDialogue;
-              }
-            } else if (data.type === 'error') {
-              throw new Error(data.error);
-            }
-          } catch (e) {
-            // Only log if it's not a JSON parse error for a chunk
-            if (!(e instanceof SyntaxError)) {
-              console.error('Failed to parse SSE message:', e);
-            }
-          }
-        }
-      }
-
-      // Finalize the message with internal dialogue
-      setMessages(prev => prev.map(msg =>
-        msg.id === assistantMsgId
-          ? { 
-              ...msg, 
-              content: streamedContent, 
-              isStreaming: false,
-              internalDialogue: internalDialogue.length > 0 ? internalDialogue : undefined,
-              iterations: iterations > 0 ? iterations : undefined,
-              confidence: finalConfidence > 0 ? finalConfidence : undefined,
-            }
-          : msg
-      ));
-
-      // Update state from final data
-      if (finalData) {
-        const newConversationId = finalData.conversationId;
-        conversationIdRef.current = newConversationId; // Update ref immediately
-        setFreeformState({
-          conversationId: newConversationId,
-          readinessScore: finalData.readinessScore || 0,
-          canBuild: finalData.canBuild || false,
-          entities: finalData.entities || [],
-        });
-      }
-
-    } catch (error) {
-      if ((error as Error).name === 'AbortError') {
-        // Request was aborted, don't show error
-        // Still need to reset streaming state
-        setIsStreaming(false);
-        setCurrentStreamContent('');
-        return;
-      }
-      
-      console.error('Error:', error);
-      toast.error('Failed to get response. Please try again.');
-      
-      // Remove the failed streaming message
-      setMessages(prev => prev.filter(msg => !msg.isStreaming));
-    } finally {
-      setIsStreaming(false);
-      setCurrentStreamContent('');
+  const handleGoToApp = useCallback(() => {
+    if (appId) {
+      router.push(`/apps/${appId}`);
     }
-  }, [isStreaming]); // Removed freeformState.conversationId - using ref instead
-
-  const handleBuild = useCallback(async () => {
-    // Use ref instead of state to avoid stale closure issues
-    if (!conversationIdRef.current || isBuilding) return;
-
-    setIsBuilding(true);
-    setPhase('building');
-
-    // Add building message
-    setMessages(prev => [...prev, {
-      id: `system-${Date.now()}`,
-      role: 'assistant',
-      content: 'Building your app... This may take a moment.',
-    }]);
-
-    try {
-      const response = await fetch('/api/scaffolder/freeform', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'build',
-          conversationId: conversationIdRef.current, // Use ref instead of state
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.app) {
-        setGeneratedAppId(data.app.id);
-        setGeneratedSubdomain(data.app.subdomain);
-        
-        // Extract generated code from response
-        const files: CodeFile[] = [];
-        if (data.generatedCode) {
-          // Extract all component files
-          if (data.generatedCode.components) {
-            Object.entries(data.generatedCode.components).forEach(([path, code]) => {
-              files.push({
-                name: path.split('/').pop() || path,
-                path,
-                code: code as string,
-                language: 'typescript',
-              });
-            });
-          }
-          
-          // Add page component if available
-          if (data.generatedCode.pageComponent) {
-            files.push({
-              name: 'App.tsx',
-              path: 'App.tsx',
-              code: data.generatedCode.pageComponent,
-              language: 'typescript',
-            });
-          }
-          
-          // Add types if available
-          if (data.generatedCode.types) {
-            files.push({
-              name: 'types.ts',
-              path: 'lib/types.ts',
-              code: data.generatedCode.types,
-              language: 'typescript',
-            });
-          }
-        }
-        
-        setGeneratedFiles(files);
-        setPhase('preview');
-        
-        // Update final message
-        setMessages(prev => {
-          const updated = [...prev];
-          updated[updated.length - 1] = {
-            ...updated[updated.length - 1],
-            content: `Your **${data.app.name}** has been built! Check out the preview below.`,
-          };
-          return updated;
-        });
-
-        toast.success('App built successfully!');
-      } else {
-        throw new Error(data.error || 'Build failed');
-      }
-    } catch (error) {
-      console.error('Build error:', error);
-      toast.error('Failed to build app. Please try again.');
-      setPhase('chatting');
-      
-      // Update error message
-      setMessages(prev => {
-        const updated = [...prev];
-        updated[updated.length - 1] = {
-          ...updated[updated.length - 1],
-          content: 'Sorry, there was an error building your app. Let me know if you want to try again.',
-        };
-        return updated;
-      });
-    } finally {
-      setIsBuilding(false);
-    }
-  }, [isBuilding]); // Using conversationIdRef instead of state
-
-  const handleAccept = useCallback(() => {
-    if (generatedAppId) {
-      onComplete?.(generatedAppId, generatedSubdomain || undefined);
-    }
-  }, [generatedAppId, generatedSubdomain, onComplete]);
-
-  // Render readiness indicator
-  const renderReadiness = () => {
-    if (freeformState.readinessScore === 0) return null;
-
-    const score = freeformState.readinessScore;
-    const color = score >= 80 
-      ? 'text-emerald-500' 
-      : score >= 50 
-        ? 'text-amber-500' 
-        : 'text-text-tertiary';
-
-    return (
-      <div className="flex items-center gap-2 text-xs">
-        <div className="w-24 h-1.5 bg-surface-layer rounded-full overflow-hidden">
-          <div 
-            className={cn(
-              "h-full rounded-full transition-all duration-500",
-              score >= 80 ? "bg-emerald-500" : score >= 50 ? "bg-amber-500" : "bg-text-tertiary"
-            )}
-            style={{ width: `${score}%` }}
-          />
-        </div>
-        <span className={color}>{score}% ready</span>
-      </div>
-    );
-  };
-
-  // Render internal dialogue (collapsible for debugging)
-  const renderInternalDialogue = (msg: Message) => {
-    if (!msg.internalDialogue || msg.internalDialogue.length === 0) return null;
-
-    const isExpanded = expandedDialogues.has(msg.id);
-
-    return (
-      <div className="mt-2">
-        {/* Toggle button */}
-        <button
-          onClick={() => toggleDialogue(msg.id)}
-          className="flex items-center gap-2 text-xs text-text-tertiary hover:text-text-secondary transition-colors"
-        >
-          {isExpanded ? (
-            <ChevronDown className="w-3 h-3" />
-          ) : (
-            <ChevronRight className="w-3 h-3" />
-          )}
-          <Scale className="w-3 h-3" />
-          <span>
-            {msg.iterations || 1} iteration{(msg.iterations || 1) > 1 ? 's' : ''} 
-            {msg.confidence ? ` • ${msg.confidence}% confidence` : ''}
-          </span>
-        </button>
-
-        {/* Collapsible content */}
-        {isExpanded && (
-          <div className="mt-3 p-3 rounded-lg bg-surface-layer border border-outline-light space-y-3">
-            <div className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-2">
-              Internal Dialogue (Debug View)
-            </div>
-            {msg.internalDialogue.map((turn, idx) => (
-              <div 
-                key={turn.id || idx}
-                className={cn(
-                  "p-2 rounded-md text-xs",
-                  turn.agent === 'architect' 
-                    ? "bg-amber-500/10 border-l-2 border-amber-500" 
-                    : "bg-purple-500/10 border-l-2 border-purple-500"
-                )}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-1.5">
-                    {turn.agent === 'architect' ? (
-                      <Lightbulb className="w-3 h-3 text-amber-500" />
-                    ) : (
-                      <Scale className="w-3 h-3 text-purple-500" />
-                    )}
-                    <span className={cn(
-                      "font-medium",
-                      turn.agent === 'architect' ? "text-amber-600 dark:text-amber-400" : "text-purple-600 dark:text-purple-400"
-                    )}>
-                      {turn.agent === 'architect' ? 'Architect' : 'Advisor'}
-                    </span>
-                    {turn.metadata?.iteration && (
-                      <span className="text-text-tertiary">(iteration {turn.metadata.iteration})</span>
-                    )}
-                  </div>
-                  {turn.metadata?.confidence !== undefined && (
-                    <span className={cn(
-                      "px-1.5 py-0.5 rounded text-[10px] font-medium",
-                      turn.metadata.confidence >= 75 
-                        ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
-                        : turn.metadata.confidence >= 50
-                          ? "bg-amber-500/20 text-amber-700 dark:text-amber-400"
-                          : "bg-red-500/20 text-red-700 dark:text-red-400"
-                    )}>
-                      {turn.metadata.confidence}%
-                    </span>
-                  )}
-                  {turn.metadata?.decision && (
-                    <span className={cn(
-                      "px-1.5 py-0.5 rounded text-[10px] font-medium",
-                      turn.metadata.decision === 'approve'
-                        ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
-                        : "bg-amber-500/20 text-amber-700 dark:text-amber-400"
-                    )}>
-                      {turn.metadata.decision === 'approve' ? 'APPROVED' : 'ITERATE'}
-                    </span>
-                  )}
-                </div>
-                <div className="text-text-secondary whitespace-pre-wrap break-words">
-                  {turn.content.length > 500 
-                    ? `${turn.content.substring(0, 500)}...` 
-                    : turn.content
-                  }
-                </div>
-                {/* Show answered questions if present */}
-                {turn.answeredQuestions && turn.answeredQuestions.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-purple-500/20">
-                    <div className="text-[10px] font-medium text-purple-500 uppercase tracking-wider mb-1">
-                      Questions Answered
-                    </div>
-                    {turn.answeredQuestions.map((aq, i) => (
-                      <div key={i} className="text-text-tertiary text-[11px] mb-1">
-                        <span className="text-purple-400">Q:</span> {aq.question}
-                        <br />
-                        <span className="text-emerald-400">A:</span> {aq.answer}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {/* Show decisions if present */}
-                {turn.decisions && turn.decisions.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-purple-500/20">
-                    <div className="text-[10px] font-medium text-purple-500 uppercase tracking-wider mb-1">
-                      Decisions Made
-                    </div>
-                    {turn.decisions.map((d, i) => (
-                      <div key={i} className="text-text-tertiary text-[11px]">
-                        • {d.choice}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
+  }, [appId, router]);
 
   return (
-    <div className="flex flex-col h-full bg-surface-base">
-      <header className="border-b border-outline-mid bg-surface-base px-8 py-6">
-        <div className="flex items-center justify-between">
+    <div className={cn('space-y-6', className)}>
+      {/* Header */}
+      <div className="text-center">
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-full border border-purple-500/30 mb-4">
+          <Sparkles className="w-4 h-4 text-purple-400" />
+          <span className="text-sm text-purple-300">AI-Powered App Generation</span>
+        </div>
+        <h2 className="text-2xl font-serif font-medium mb-2 text-text-primary">Create Your App</h2>
+        <p className="text-text-secondary">
+          Describe what you want to build and watch it come to life
+        </p>
+      </div>
+
+      {/* Step: Prompt Input */}
+      {step === 'prompt' && (
+        <>
+          {/* Prompt form */}
+          <Card variant="outlined" padding="lg">
+            <form onSubmit={handleSubmit}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">
+                    What would you like to build?
+                  </label>
+                  <textarea
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="Describe your app idea in detail..."
+                    className="w-full h-32 px-4 py-3 bg-surface-light border border-outline-light rounded-lg text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-yellow resize-none"
+                  />
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={!prompt.trim()}
+                    className="gap-2"
+                  >
+                    <Wand2 className="w-4 h-4" />
+                    Generate App
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </Card>
+
+          {/* Example prompts */}
           <div>
-            <h1 className="text-3xl font-serif font-medium text-text-primary">Create</h1>
-            <p className="text-sm text-text-secondary mt-1">
-              {initialConversationId ? 'Resume Conversation' : 'Freeform Mode'}
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-surface-elevated border border-outline-light">
-              <div className={cn(
-                "w-2 h-2 rounded-full",
-                phase === 'preview' 
-                  ? "bg-emerald-500" 
-                  : phase === 'loading'
-                    ? "bg-blue-500 animate-pulse"
-                  : isStreaming 
-                    ? "bg-accent-yellow animate-pulse" 
-                    : "bg-text-tertiary"
-              )} />
-              <span className="text-xs font-mono text-text-secondary uppercase tracking-wider">
-                {phase === 'loading' && 'Loading'}
-                {phase === 'chatting' && (isStreaming ? 'Thinking' : 'Ready')}
-                {phase === 'building' && 'Building'}
-                {phase === 'preview' && 'Complete'}
-              </span>
+            <div className="flex items-center gap-2 mb-3">
+              <Lightbulb className="w-4 h-4 text-accent-yellow" />
+              <span className="text-sm text-text-secondary">Need inspiration? Try one of these:</span>
             </div>
-            {renderReadiness()}
-            <div className="flex gap-2">
-              <ThemeToggle />
-              {onCancel && (
-                <Button variant="ghost" size="sm" onClick={onCancel}>
-                  Change Mode
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {EXAMPLE_PROMPTS.map((example, i) => (
+                <button
+                  key={i}
+                  onClick={() => handleExampleClick(example)}
+                  className="text-left p-3 bg-surface-light/50 hover:bg-surface-light border border-outline-light rounded-lg text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4 inline mr-2 text-accent-yellow" />
+                  {example}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Step: Generating */}
+      {step === 'generating' && (
+        <div className="space-y-6">
+          {/* Progress indicator */}
+          <Card variant="outlined" padding="lg">
+            <div className="flex items-center gap-4 mb-4">
+              {isStreaming ? (
+                <Loader2 className="w-6 h-6 animate-spin text-red-500" />
+              ) : (
+                <Sparkles className="w-6 h-6 text-green-500" />
+              )}
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-medium text-text-primary">
+                    {isStreaming ? 'Generating your app...' : 'Generation complete!'}
+                  </span>
+                  <span className="text-sm text-text-secondary">{progress}%</span>
+                </div>
+                <div className="h-2 bg-surface-light rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-accent-yellow to-orange-500 transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                {message && (
+                  <p className="text-sm text-text-secondary mt-2">{message}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Design summary */}
+            {design && (
+              <div className="mt-4 p-4 bg-surface-light/50 rounded-lg">
+                <h3 className="font-semibold mb-2 text-text-primary">{design.appName}</h3>
+                <p className="text-sm text-text-secondary mb-3">{design.description}</p>
+                <div className="flex flex-wrap gap-2">
+                  {design.features.map((feature, i) => (
+                    <span
+                      key={i}
+                      className="px-2 py-1 bg-surface-mid rounded text-xs text-text-secondary"
+                    >
+                      {feature}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* Code viewer */}
+          <CodeStreamViewer
+            code={code}
+            files={files}
+            progress={progress}
+            message={message}
+            isStreaming={isStreaming}
+            appId={appId || undefined}
+            error={error || undefined}
+          />
+
+          {/* Actions */}
+          {!isStreaming && (
+            <div className="flex justify-between">
+              <Button variant="ghost" onClick={handleReset}>
+                Start Over
+              </Button>
+              {appId && (
+                <Button variant="primary" onClick={handleGoToApp} className="gap-2">
+                  Open App
+                  <ChevronRight className="w-4 h-4" />
                 </Button>
               )}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Step: Preview */}
+      {step === 'preview' && appId && (
+        <div className="space-y-6">
+          <Card variant="outlined" padding="lg">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-semibold text-lg text-text-primary">{design?.appName || 'Your App'}</h3>
+                <p className="text-sm text-text-secondary">{design?.description}</p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={() => setShowPreview(!showPreview)}>
+                  {showPreview ? 'Hide Preview' : 'Show Preview'}
+                </Button>
+                <Button variant="primary" onClick={handleGoToApp}>
+                  Open Full App
+                </Button>
+              </div>
+            </div>
+
+            {showPreview && (
+              <div className="mt-4 -mx-6 -mb-6 border-t border-gray-800">
+                <IframeSandbox
+                  appId={appId}
+                  bundledCode={code}
+                  initialData={[]}
+                  className="rounded-b-lg"
+                />
+              </div>
+            )}
+          </Card>
+
+          <div className="flex justify-center">
+            <Button variant="ghost" onClick={handleReset}>
+              Create Another App
+            </Button>
           </div>
         </div>
-      </header>
+      )}
 
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto p-8 space-y-6">
-          {/* Loading state */}
-          {phase === 'loading' && (
-            <div className="flex items-center justify-center min-h-[40vh]">
-              <div className="text-center">
-                <div className="flex justify-center mb-4">
-                  <div className="flex space-x-1">
-                    <div className="w-3 h-3 bg-accent-yellow rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-3 h-3 bg-accent-yellow rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-3 h-3 bg-accent-yellow rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                </div>
-                <p className="text-text-secondary">Loading conversation...</p>
-              </div>
-            </div>
-          )}
-
-          {/* Load error */}
-          {loadError && (
-            <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-sm mb-4">
-              {loadError}
-            </div>
-          )}
-
-          {/* Main content when not loading */}
-          {phase !== 'loading' && messages.length === 0 ? (
-            <WelcomeScreen onSelect={handleSubmit} />
-          ) : phase !== 'loading' && (
-            <>
-              {/* Chat Messages */}
-              <div className="space-y-6">
-                {messages.map((msg) => (
-                  <div key={msg.id}>
-                    <ChatMessage 
-                      message={msg}
-                    />
-                    {/* Render collapsible internal dialogue for assistant messages */}
-                    {msg.role === 'assistant' && renderInternalDialogue(msg)}
-                  </div>
-                ))}
-              </div>
-
-              {/* V2 Agent Pipeline Visualization */}
-              {agentActivities.length > 0 && (
-                <AgentTimeline 
-                  activities={agentActivities}
-                  isCollapsible={true}
-                  defaultExpanded={showAgentPipeline}
-                  className="animate-fade-in"
-                />
-              )}
-
-              {/* Live Thinking Panel - shows real-time Architect/Advisor dialogue */}
-              {isStreaming && liveThinking.isActive && (
-                <div className="animate-fade-in rounded-xl bg-surface-elevated border border-outline-light overflow-hidden">
-                  {/* Header with collapse toggle */}
-                  <button
-                    onClick={() => setLiveThinking(prev => ({ ...prev, isExpanded: !prev.isExpanded }))}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-surface-layer border-b border-outline-light hover:bg-surface-elevated transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-accent-yellow rounded-full animate-pulse" />
-                        <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
-                      </div>
-                      <span className="text-sm font-medium text-text-primary">
-                        Thinking... 
-                        <span className="text-text-tertiary ml-2">
-                          (Iteration {liveThinking.iteration})
-                        </span>
-                      </span>
-                    </div>
-                    {liveThinking.isExpanded ? (
-                      <ChevronDown className="w-4 h-4 text-text-tertiary" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 text-text-tertiary" />
-                    )}
-                  </button>
-
-                  {/* Collapsible content */}
-                  {liveThinking.isExpanded && (
-                    <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
-                      {/* Architect thinking */}
-                      {liveThinking.architectContent && (
-                        <div className="p-3 rounded-lg bg-amber-500/5 border-l-2 border-amber-500">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Lightbulb className="w-4 h-4 text-amber-500" />
-                            <span className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                              Architect
-                            </span>
-                            {liveThinking.currentAgent === 'architect' && (
-                              <span className="flex space-x-0.5 ml-auto">
-                                <span className="w-1 h-1 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                <span className="w-1 h-1 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '100ms' }} />
-                                <span className="w-1 h-1 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '200ms' }} />
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
-                            {liveThinking.architectContent.length > 800 
-                              ? liveThinking.architectContent.slice(-800) + '...'
-                              : liveThinking.architectContent
-                            }
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Advisor thinking */}
-                      {liveThinking.advisorContent && (
-                        <div className="p-3 rounded-lg bg-purple-500/5 border-l-2 border-purple-500">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Scale className="w-4 h-4 text-purple-500" />
-                            <span className="text-xs font-medium text-purple-600 dark:text-purple-400 uppercase tracking-wider">
-                              Advisor
-                            </span>
-                            {liveThinking.currentAgent === 'advisor' && (
-                              <span className="flex space-x-0.5 ml-auto">
-                                <span className="w-1 h-1 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                <span className="w-1 h-1 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '100ms' }} />
-                                <span className="w-1 h-1 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '200ms' }} />
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
-                            {liveThinking.advisorContent.length > 500 
-                              ? liveThinking.advisorContent.slice(0, 500) + '...'
-                              : liveThinking.advisorContent
-                            }
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Show waiting state if no content yet */}
-                      {!liveThinking.architectContent && !liveThinking.advisorContent && (
-                        <div className="flex items-center justify-center py-4">
-                          <div className="flex space-x-1">
-                            <div className="w-2 h-2 bg-accent-yellow rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                            <div className="w-2 h-2 bg-accent-yellow rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                            <div className="w-2 h-2 bg-accent-yellow rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                          </div>
-                          <span className="text-text-tertiary text-sm ml-3">Starting...</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Streaming indicator - fallback when thinking panel is collapsed or done */}
-              {isStreaming && !liveThinking.isActive && currentStreamContent === '' && (
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-surface-elevated border border-outline-light">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-accent-yellow rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-2 h-2 bg-accent-yellow rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-2 h-2 bg-accent-yellow rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                  <span className="text-text-secondary text-sm">Architect is thinking...</span>
-                </div>
-              )}
-
-              {/* Build Button - appears when ready */}
-              {freeformState.canBuild && phase === 'chatting' && !isStreaming && (
-                <div className="animate-slide-up pt-4 border-t border-outline-light">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-accent-yellow" />
-                      <span className="text-text-primary font-medium">Ready to build!</span>
-                    </div>
-                    <div className="text-sm text-text-secondary">
-                      {freeformState.entities.length} entities detected
-                    </div>
-                  </div>
-                  <Button
-                    onClick={handleBuild}
-                    size="lg"
-                    className="w-full gap-2"
-                    disabled={isBuilding}
-                  >
-                    <Zap className="w-4 h-4" />
-                    Build My App
-                  </Button>
-                </div>
-              )}
-
-              {/* Building phase - simple loading */}
-              {phase === 'building' && (
-                <div className="animate-slide-up p-6 rounded-xl bg-surface-elevated border border-outline-light">
-                  <div className="flex items-center gap-4">
-                    <Loader2 className="w-6 h-6 animate-spin text-accent-yellow" />
-                    <div>
-                      <div className="font-medium text-text-primary">Generating your app...</div>
-                      <div className="text-sm text-text-secondary">Writing components and resolving dependencies</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Preview with optional code view */}
-              {phase === 'preview' && generatedAppId && (
-                <section className="animate-fade-in pt-6 border-t border-outline-light space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Rocket className="w-5 h-5 text-accent-yellow" />
-                      <h2 className="text-lg font-medium text-text-primary">App Ready</h2>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {/* View toggle for preview phase */}
-                      <div className="flex items-center gap-1 p-1 bg-surface-layer rounded-lg">
-                        <button
-                          onClick={() => setShowCodeDuringBuild(false)}
-                          className={cn(
-                            'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-all',
-                            !showCodeDuringBuild
-                              ? 'bg-accent-yellow/20 text-accent-yellow'
-                              : 'text-text-secondary hover:text-text-primary hover:bg-surface-elevated'
-                          )}
-                        >
-                          <Eye className="w-4 h-4" />
-                          Preview
-                        </button>
-                        <button
-                          onClick={() => setShowCodeDuringBuild(true)}
-                          className={cn(
-                            'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-all',
-                            showCodeDuringBuild
-                              ? 'bg-accent-yellow/20 text-accent-yellow'
-                              : 'text-text-secondary hover:text-text-primary hover:bg-surface-elevated'
-                          )}
-                        >
-                          <Code className="w-4 h-4" />
-                          Code
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-2 text-emerald-700/80 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 dark:text-emerald-500/70 dark:bg-emerald-500/5 dark:border-emerald-500/20">
-                        <CheckCircle className="w-4 h-4" />
-                        <span className="text-xs font-bold uppercase tracking-wider">Built</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Show code editor or preview based on toggle */}
-                  {showCodeDuringBuild ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <CodeEditor
-                        conversationId={conversationIdRef.current || ''}
-                        initialFiles={generatedFiles}
-                        useV2={false}
-                        height="h-[500px]"
-                        editable={true}
-                        onCodeChange={(path, code) => {
-                          console.log('Code changed:', path);
-                          // TODO: Optionally trigger preview refresh
-                        }}
-                      />
-                      <LivePreview 
-                        appId={generatedAppId} 
-                        subdomain={generatedSubdomain || undefined}
-                        appName="Your App"
-                        onAccept={handleAccept}
-                      />
-                    </div>
-                  ) : (
-                    <LivePreview 
-                      appId={generatedAppId} 
-                      subdomain={generatedSubdomain || undefined}
-                      appName="Your App"
-                      onAccept={handleAccept}
-                    />
-                  )}
-                </section>
-              )}
-
-              <div ref={messagesEndRef} />
-            </>
-          )}
-        </div>
-      </main>
-
-      {/* Input Area */}
-      {phase === 'chatting' && (
-        <div className="p-8 pt-0 max-w-4xl mx-auto w-full">
-          <ChatInput
-            onSubmit={handleSubmit}
-            disabled={isStreaming || isBuilding}
-            isThinking={isStreaming}
-            placeholder={messages.length === 0 
-              ? "Describe the app you want to build..." 
-              : "Continue the conversation or refine your requirements..."
-            }
-          />
-        </div>
+      {/* Error state */}
+      {error && step !== 'generating' && (
+        <Card variant="outlined" className="border-red-500/30 bg-red-500/10">
+          <div className="p-4 text-center">
+            <p className="text-red-400 mb-4">{error}</p>
+            <Button variant="secondary" onClick={handleReset}>
+              Try Again
+            </Button>
+          </div>
+        </Card>
       )}
     </div>
   );
